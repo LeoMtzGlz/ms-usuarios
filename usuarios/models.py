@@ -7,6 +7,7 @@ from django.db.models.functions import Lower
 from usuarios.managers import UsuarioManager
 from usuarios.telefono import validar_telefono_e164
 
+from comun.eventos import registrar_evento
 
 class Rol(models.TextChoices):
     ADMINISTRADOR = "administrador", "Administrador"
@@ -93,4 +94,7 @@ class Usuario(AbstractUser):
         if nuevo == Estado.INACTIVO:
             self.token_version += 1
             campos.append("token_version")
+        anterior = type(self).objects.filter(pk=self.pk).values_list("estado", flat=True).first()
         self.save(update_fields=campos)
+        registrar_evento("estado_cambiado", self, anterior=anterior, nuevo=nuevo, por=getattr(por, "pk", None))
+

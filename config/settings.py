@@ -120,8 +120,19 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-
-REST_FRAMEWORK = {}   # se llena en las siguientes tareas
-
 # Modelo de usuario propio: se define ANTES de la primera migración
 AUTH_USER_MODEL = "usuarios.Usuario"
+
+REST_FRAMEWORK = {
+    "EXCEPTION_HANDLER": "comun.errores.manejador_errores",
+}
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {"simple": {"format": "{asctime} {levelname} {name} {message}", "style": "{"}},
+    "handlers": {"consola": {"class": "logging.StreamHandler", "formatter": "simple"}},
+    "loggers": {
+        "svc": {"handlers": ["consola"], "level": env("LOG_LEVEL", default="INFO"), "propagate": False},
+    },
+}

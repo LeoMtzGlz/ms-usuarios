@@ -4,3 +4,6 @@ psycopg[binary]==3.3.6
 django-environ==0.14.0
 phonenumbers==9.0.41
 pytest==9.2.0
+pytest-django
+factory-boy
+ruff
