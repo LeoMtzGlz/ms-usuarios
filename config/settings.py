@@ -122,3 +122,6 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
 REST_FRAMEWORK = {}   # se llena en las siguientes tareas
+
+# Modelo de usuario propio: se define ANTES de la primera migración
+AUTH_USER_MODEL = "usuarios.Usuario"
