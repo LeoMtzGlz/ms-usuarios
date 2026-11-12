@@ -9,3 +9,4 @@ factory-boy
 ruff
 user-agents==2.2.0
 drf-spectacular
+djangorestframework-simplejwt==5.3.1
