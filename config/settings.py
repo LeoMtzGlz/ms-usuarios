@@ -20,6 +20,7 @@ environ.Env.read_env(BASE_DIR / ".env")
 DEBUG = env("DEBUG")
 SECRET_KEY = env("SECRET_KEY")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
+DOMINIO_CORREO_INSTITUCIONAL = env("DOMINIO_CORREO_INSTITUCIONAL", default="@jiquilpan.tecnm.mx")
 
 
 
