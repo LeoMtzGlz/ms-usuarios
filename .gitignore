@@ -3,3 +3,8 @@ __pycache__/
 .env
 .venv/
 staticfiles/
+
+# Llaves RS256 de los tokens JWT (T-04): la privada NUNCA se sube
+*.pem
+llaves/*
+!llaves/.gitkeep
