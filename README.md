@@ -244,3 +244,8 @@ Documentación oficial:
 - [Modelo de usuario propio](https://docs.djangoproject.com/en/5.2/topics/auth/customizing/)
 - [Excepciones en DRF](https://www.django-rest-framework.org/api-guide/exceptions/)
 - [pytest-django](https://pytest-django.readthedocs.io/) · [factory_boy](https://factoryboy.readthedocs.io/)
+
+## Documentación de la API (Swagger)
+La documentación interactiva de los endpoints está disponible en:
+- **Local:** http://localhost:8000/api/docs/
+- **Esquema OpenAPI (JSON):** http://localhost:8000/api/schema/
