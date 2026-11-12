@@ -7,4 +7,5 @@ pytest==9.2.0
 pytest-django
 factory-boy
 ruff
-drf-spectacular # t-05/st-24
+user-agents==2.2.0
+drf-spectacular

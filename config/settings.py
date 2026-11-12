@@ -1,5 +1,3 @@
-
-
 from pathlib import Path
 
 import environ
@@ -22,7 +20,6 @@ SECRET_KEY = env("SECRET_KEY")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 
 
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -34,12 +31,11 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
 
     "rest_framework",
-    "drf_spectacular",
+    "drf_spectacular", # Agregado por tu Daniels
 
     "comun",
     "usuarios",
     "notificaciones",
-
 ]
 
 MIDDLEWARE = [
@@ -109,7 +105,6 @@ USE_I18N = True
 USE_TZ = True
 
 
-
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
@@ -127,7 +122,7 @@ AUTH_USER_MODEL = "usuarios.Usuario"
 
 REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "comun.errores.manejador_errores",
-    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema"
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema", # Agregado por tu Daniel
 }
 
 LOGGING = {
@@ -140,8 +135,13 @@ LOGGING = {
     },
 }
 
+# Configuración de Swagger (Daniel)
 SPECTACULAR_SETTINGS = {
     "TITLE": "Servicios de usuario API",
     "DESCRIPTION": "Documentación de la API del microservicio de usuario.",
     "VERSION": "1.0.0"
 }
+
+# Configuración de Privacidad (Angel)
+VERSION_AVISO_PRIVACIDAD = env('VERSION_AVISO_PRIVACIDAD', default='2026-10')
+URL_AVISO_PRIVACIDAD = env('URL_AVISO_PRIVACIDAD', default='https://tu-dominio.com/aviso-privacidad')
