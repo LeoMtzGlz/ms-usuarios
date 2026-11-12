@@ -34,6 +34,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
 
     "rest_framework",
+    "drf_spectacular",
+
     "comun",
     "usuarios",
     "notificaciones",
@@ -125,6 +127,7 @@ AUTH_USER_MODEL = "usuarios.Usuario"
 
 REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "comun.errores.manejador_errores",
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema"
 }
 
 LOGGING = {
@@ -135,4 +138,10 @@ LOGGING = {
     "loggers": {
         "svc": {"handlers": ["consola"], "level": env("LOG_LEVEL", default="INFO"), "propagate": False},
     },
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Servicios de usuario API",
+    "DESCRIPTION": "Documentación de la API del microservicio de usuario.",
+    "VERSION": "1.0.0"
 }
