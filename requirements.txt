@@ -8,3 +8,4 @@ pytest-django
 factory-boy
 ruff
 drf-spectacular # t-05/st-24
+freezegun
