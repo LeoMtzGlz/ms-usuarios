@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 .env
 .venv/
+venv/
 staticfiles/
 
 # Llaves RS256 de los tokens JWT (T-04): la privada NUNCA se sube
