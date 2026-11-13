@@ -1,7 +1,6 @@
-"""Validadores de contraseña propios de svc-usuarios (T-12).
+"""Validadores de contraseña propios de svc-usuarios (t-12).
 
-Se registran en settings.AUTH_PASSWORD_VALIDATORS (USR-102) y los aplica
-validate_password() en registro, recuperación, cambio y alta de usuarios.
+Se registran en settings.AUTH_PASSWORD_VALIDATORS (st-102)
 """
 from django.core.exceptions import ValidationError
 
