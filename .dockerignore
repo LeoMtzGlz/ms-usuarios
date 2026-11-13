@@ -1,0 +1,10 @@
+# t-04/st-21: la imagen de Docker nunca lleva llaves ni secretos.
+# Con docker compose, el proyecto se monta en /app y el contenedor ve tus llaves igual.
+llaves/
+*.pem
+.env
+.git/
+.venv/
+venv/
+__pycache__/
+*.pyc
