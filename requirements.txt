@@ -4,7 +4,10 @@ psycopg[binary]==3.3.6
 django-environ==0.14.0
 phonenumbers==9.0.41
 pytest==9.2.0
-pytest-django
-factory-boy
-ruff
+pytest-django==4.14.0 # t-06/st-28
+factory-boy==3.3.3 # t-06/st-28
+ruff==0.17.5 # t-06/st-28
+argon2-cffi #t-12/st-102
 drf-spectacular # t-05/st-24
+djangorestframework-simplejwt==5.5.1 # t-04/st-21
+cryptography==50.0.1 # t-04/st-21: necesaria para firmar con RS256
