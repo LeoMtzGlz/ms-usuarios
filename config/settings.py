@@ -20,6 +20,7 @@ environ.Env.read_env(BASE_DIR / ".env")
 DEBUG = env("DEBUG")
 SECRET_KEY = env("SECRET_KEY")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
+DOMINIO_CORREO_INSTITUCIONAL = env("DOMINIO_CORREO_INSTITUCIONAL", default="@jiquilpan.tecnm.mx")
 
 
 
@@ -95,7 +96,7 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
      "OPTIONS": {"min_length": 8}},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
-    {"NAME": "comun.validadores.MayusculaYNumeroValidator"}, # Ruta del validador necesario para T-12/ST-102 y siguientes
+    {"NAME": "comun.validadores.MayusculaYNumeroValidator"}, # Validador propio, requerido desde T-12/ST-102
 ]
 
 
