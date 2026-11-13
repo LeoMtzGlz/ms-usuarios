@@ -7,3 +7,4 @@ pytest==9.2.0
 pytest-django
 factory-boy
 ruff
+argon2-cffi #t-12/st-102
