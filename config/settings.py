@@ -1,5 +1,5 @@
 
-
+from datetime import timedelta
 from pathlib import Path
 
 import environ
@@ -123,7 +123,11 @@ AUTH_USER_MODEL = "usuarios.Usuario"
 
 REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "comun.errores.manejador_errores",
-    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema"
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    # t-04/st-21: JWT primero, para que una petición sin token responda 401 (no 403)
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+       ),
 }
 
 LOGGING = {
@@ -145,4 +149,34 @@ SPECTACULAR_SETTINGS = {
     "TITLE": "Servicios de usuario API",
     "DESCRIPTION": "Documentación de la API del microservicio de usuario.",
     "VERSION": "1.0.0"
+}
+
+
+   # --- t-04/st-21: Tokens JWT firmados con RS256 -------------------------------------
+   # La llave privada firma los tokens y solo la tiene este microservicio; la pública
+   # la usan los demás servicios para verificarlos. Guía: docs/llaves_rs256_sjwt.md
+   # JWT_LLAVE_PRIVADA / JWT_LLAVE_PUBLICA aceptan una ruta (archivo) o el contenido PEM
+   # (variable). Si el archivo no existe, la llave queda vacía y el proyecto arranca igual
+   # (pruebas, CI, migraciones); solo fallará al firmar o verificar un token.
+
+def leer_llave(variable, por_defecto):
+    valor = env(variable, default=por_defecto).strip()
+    if valor.startswith("-----BEGIN"):
+        return valor.replace("\\n", "\n")
+    ruta = Path(valor)
+    if not ruta.is_absolute():
+        ruta = BASE_DIR / ruta
+    return ruta.read_text() if ruta.is_file() else ""
+
+
+SIMPLE_JWT = {
+    "ALGORITHM": "RS256",
+    "SIGNING_KEY": leer_llave("JWT_LLAVE_PRIVADA", "llaves/privada.pem"),
+    "VERIFYING_KEY": leer_llave("JWT_LLAVE_PUBLICA", "llaves/publica.pem"),
+    "ISSUER": "svc-usuarios",
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "USER_ID_FIELD": "id",
+    "USER_ID_CLAIM": "user_id",
+    "AUTH_HEADER_TYPES": ("Bearer",),
 }
