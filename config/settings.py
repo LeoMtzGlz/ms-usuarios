@@ -87,6 +87,7 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
      "OPTIONS": {"min_length": 8}},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "comun.validadores.MayusculaYNumeroValidator"}, # Ruta del validador necesario para T-12/ST-102 y siguientes
 ]
 
 
