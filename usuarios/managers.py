@@ -30,7 +30,7 @@ class UsuarioManager(BaseUserManager):
         extra.update(
             is_staff=True,
             is_superuser=True,
-            rol=Rol.ADMINISTRADOR,
+            rol=Rol.ADMINISTRADOR, # USR-121 - Ajuste para incorporacion de rol
             estado=Estado.ACTIVO,
             is_active=True,
             email_verificado=True,
