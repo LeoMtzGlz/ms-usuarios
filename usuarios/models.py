@@ -3,17 +3,12 @@ import uuid
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.db.models.functions import Lower
+from comun.roles import Rol # USR-121 - importacion de rol desde comun
 
 from usuarios.managers import UsuarioManager
 from usuarios.telefono import validar_telefono_e164
 
 from comun.eventos import registrar_evento
-
-class Rol(models.TextChoices):
-    ADMINISTRADOR = "administrador", "Administrador"
-    CLIENTE = "cliente", "Cliente"
-    OPERATIVO = "operativo", "Operativo"
-
 
 class Estado(models.TextChoices):
     PENDIENTE = "pendiente", "Pendiente de activar"
@@ -64,6 +59,11 @@ class Usuario(AbstractUser):
         constraints = [
             # Defensa en la base: "Ana@x.com" y "ana@x.com" no pueden coexistir
             models.UniqueConstraint(Lower("email"), name="email_unico_ci"),
+            # USR-121 - Garantiza la integridad del rol
+            models.CheckConstraint(
+                condition=models.Q(rol__in=Rol.values),
+                name="usuario_rol_valido",
+            ),
         ]
         indexes = [
             models.Index(fields=["estado"], name="usuario_estado_idx"),
