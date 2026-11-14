@@ -22,7 +22,8 @@ SECRET_KEY = env("SECRET_KEY")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 DOMINIO_CORREO_INSTITUCIONAL = env("DOMINIO_CORREO_INSTITUCIONAL", default="@jiquilpan.tecnm.mx")
 
-
+# hu-02/st-65: versión del aviso de privacidad que acepta quien se registra
+VERSION_AVISO_PRIVACIDAD = env("VERSION_AVISO_PRIVACIDAD", default="1.0")
 
 # Application definition
 
