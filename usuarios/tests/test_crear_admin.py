@@ -78,6 +78,13 @@ def test_rechaza_correo_existente_sin_importar_mayusculas(consola, eventos):
         call_command("crear_admin", "ADMIN@ejemplo.com")
 
 
+def test_rechaza_correo_invalido(consola, eventos):
+    with pytest.raises(CommandError, match="no tiene un formato válido"):
+        call_command("crear_admin", "hola")
+
+    assert not Usuario.objects.filter(email="hola").exists()
+
+
 def test_rechaza_telefono_existente(consola, eventos):
     UsuarioFactory(telefono="+524431234567")
     with pytest.raises(CommandError, match="Ya existe una cuenta con el teléfono"):

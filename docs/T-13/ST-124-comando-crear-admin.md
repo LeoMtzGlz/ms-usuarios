@@ -7,7 +7,7 @@
 
 ### 1. Descripción
 
-Se creó el comando `crear_admin`, que da de alta una cuenta con rol Administrador y pide la contraseña por consola. Es la única forma de crear un administrador: la API no lo permite (T-13, criterios 1 y 4).
+Se creó el comando `crear_admin`, que da de alta una cuenta con rol Administrador y pide la contraseña por consola. Es la forma recomendada de crear un administrador: la API no lo permite (T-13, criterios 1 y 4). También existe `createsuperuser` de Django.
 
 ### 2. Cambios realizados
 
@@ -16,7 +16,7 @@ Se creó el comando `crear_admin`, que da de alta una cuenta con rol Administrad
 | `usuarios/management/__init__.py` | Nuevo (vacío): registra la carpeta de comandos |
 | `usuarios/management/commands/__init__.py` | Nuevo (vacío) |
 | `usuarios/management/commands/crear_admin.py` | El comando |
-| `usuarios/tests/test_crear_admin.py` | 9 pruebas |
+| `usuarios/tests/test_crear_admin.py` | 10 pruebas |
 
 No se modificó ningún archivo existente ni se creó ninguna migración.
 
@@ -34,7 +34,8 @@ El comando pide la contraseña dos veces. Tiene tres intentos; si no coinciden o
 
 - Usa `create_superuser()` del manager, que ya pone rol administrador, estado activo, correo verificado, `is_staff` e `is_superuser`.
 - Valida la contraseña con `validate_password()`, así que aplica los mismos validadores que `AUTH_PASSWORD_VALIDATORS`, incluida la similitud con el correo y el nombre.
-- Rechaza un correo ya registrado sin importar mayúsculas, y un teléfono repetido o inválido.
+- Valida el formato del correo con `validate_email()` y rechaza uno ya registrado sin importar mayúsculas.
+- Rechaza un teléfono repetido o inválido.
 - Normaliza el teléfono a E.164 con `normalizar_telefono()`.
 - Registra el evento `admin_creado` con `registrar_evento()`, sin la contraseña.
 - Crea la cuenta y registra el evento dentro de una transacción.
@@ -51,6 +52,7 @@ docker compose run --rm api pytest usuarios/tests/test_crear_admin.py -v
 | `test_guarda_la_contrasena_con_argon2` | La contraseña se guarda como hash Argon2 |
 | `test_registra_el_evento_sin_la_contrasena` | Evento `admin_creado` sin datos sensibles |
 | `test_normaliza_el_telefono` | `443 123 4567` se guarda como `+524431234567` |
+| `test_rechaza_correo_invalido` | Un correo sin formato válido, como `hola`, no crea la cuenta |
 | `test_rechaza_correo_existente_sin_importar_mayusculas` | No crea un segundo usuario con el mismo correo |
 | `test_rechaza_telefono_existente` | No crea un segundo usuario con el mismo teléfono |
 | `test_rechaza_telefono_invalido` | Teléfono con formato inválido |
@@ -59,7 +61,7 @@ docker compose run --rm api pytest usuarios/tests/test_crear_admin.py -v
 
 ### 6. Resultado
 
-El comando quedó disponible como `python manage.py crear_admin <correo>`, con 9 pruebas en verde.
+El comando quedó disponible como `python manage.py crear_admin <correo>`, con 10 pruebas en verde.
 
 **ST-124 finalizada.**
 

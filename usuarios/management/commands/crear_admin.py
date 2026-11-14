@@ -1,6 +1,6 @@
 """t-13/st-124: Crear el comando crear_admin <correo>.
 
-Crea una cuenta con rol Administrador. Es la única forma de crear un administrador:
+Crear una cuenta con rol Administrador. Es la forma recomendada de crear un administrador:
 la API no lo permite (T-13, criterios 1 y 4). La contraseña se pide por consola y
 debe cumplir la política de T-12.
 
@@ -16,6 +16,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand, CommandError
+from django.core.validators import validate_email
 from django.db import IntegrityError, transaction
 
 from comun.eventos import registrar_evento
@@ -36,6 +37,10 @@ class Command(BaseCommand):
     def handle(self, *args, **opciones):
         Usuario = get_user_model()
         correo = Usuario.objects.normalize_email(opciones["correo"]).strip().lower()
+        try:
+            validate_email(correo)
+        except ValidationError as error:
+            raise CommandError(f"El correo {correo} no tiene un formato válido.") from error
 
         if Usuario.objects.filter(email__iexact=correo).exists():
             raise CommandError(f"Ya existe una cuenta con el correo {correo}.")
