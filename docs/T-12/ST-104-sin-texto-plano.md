@@ -12,7 +12,7 @@ Prueba que las contraseñas nunca se guardan en texto plano y que se usa el hash
 - PBKDF2 queda como respaldo: un hash antiguo sigue funcionando y se actualiza a Argon2.
 
 ### Resultado: 
-```usuarios/tests/test_hash_password.py```, sobre la configuración de ```PASSWORD_HASHERS``` en ```config/settings.py``` (st-102).
+```comun/tests/test_hash_password.py```, sobre la configuración de ```PASSWORD_HASHERS``` en ```config/settings.py``` (st-102).
 
 Casos que cubre: 
 - ```test_set_password_guarda_argon2``` → ```set_password``` guarda un hash Argon2 y ```check_password``` funciona.
@@ -22,4 +22,4 @@ Casos que cubre:
 
 La prueba fuerza los hashers reales con el fixture ```settings```, aunque el ```conftest``` use uno más rápido.
   
-Pruebas: ```usuarios/tests/test_hash_password.py``` (5 passed)
+Pruebas: ```comun/tests/test_hash_password.py``` (5 passed)
