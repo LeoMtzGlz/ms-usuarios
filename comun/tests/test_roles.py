@@ -18,7 +18,7 @@ def test_valores_del_contrato():
 def test_rol_por_defecto_es_cliente():
     u = Usuario.objects.create_user(
         email="ana@example.com", telefono="+523531234567", password="Segura123"
-    )  # AJUSTAR: campos obligatorios reales de create_user
+    )
     assert u.rol == Rol.CLIENTE
 
 
