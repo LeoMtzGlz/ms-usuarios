@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('usuarios', '0002_rol_textchoices'),
+        ('usuarios', '0003_codigoverificacion'),
     ]
 
     operations = [
