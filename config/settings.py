@@ -189,3 +189,7 @@ SIMPLE_JWT = {
     "USER_ID_CLAIM": "user_id",
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
+
+# t-29/st-200: Configuración del aviso de privacidad
+VERSION_AVISO_PRIVACIDAD = env('VERSION_AVISO_PRIVACIDAD', default='2026-10')
+URL_AVISO_PRIVACIDAD = env('URL_AVISO_PRIVACIDAD', default='https://tu-dominio.com/aviso-privacidad')
