@@ -4,7 +4,15 @@ from django.conf import settings
 
 
 def _fernet():
-    return Fernet(settings.CLAVE_CIFRADO_2FA.encode())
+    clave = settings.CLAVE_CIFRADO_2FA
+
+    if not clave:
+        raise ValueError(
+            "CLAVE_CIFRADO_2FA no está configurada. "
+            "Genera una clave Fernet y agrégala al archivo .env."
+        )
+
+    return Fernet(clave.encode())
 
 
 def cifrar(texto: str) -> str:
