@@ -160,6 +160,14 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0"
 }
 
+# --- t-05/st-80: Backend de autenticación por correo o teléfono ------------------
+# Permite que el login acepte tanto el correo electrónico como el número de 
+# teléfono (en formato normalizado). 
+AUTHENTICATION_BACKENDS = [
+    'usuarios.backends.EmailOrPhoneBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
 
    # --- t-04/st-21: Tokens JWT firmados con RS256 -------------------------------------
    # La llave privada firma los tokens y solo la tiene este microservicio; la pública
