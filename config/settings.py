@@ -164,8 +164,9 @@ SPECTACULAR_SETTINGS = {
 # Permite que el login acepte tanto el correo electrónico como el número de 
 # teléfono (en formato normalizado). 
 AUTHENTICATION_BACKENDS = [
-    'usuarios.backends.EmailOrPhoneBackend',
-    'django.contrib.auth.backends.ModelBackend',
+    # "axes.backends.AxesStandaloneBackend", # De Daniel (PR #26) - Se activará al fusionar su PR
+    "usuarios.backends.EmailOrPhoneBackend", # Danna (#80)
+    "django.contrib.auth.backends.ModelBackend",
 ]
 
 

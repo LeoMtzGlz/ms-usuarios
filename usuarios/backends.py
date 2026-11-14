@@ -7,6 +7,9 @@ Usuario = get_user_model()
 
 class EmailOrPhoneBackend(BaseBackend):
     def authenticate(self, request, username=None, password=None, **kwargs):
+        # SimpleJWT lo llama con email=, Django normal lo llama con username=
+        username = username or kwargs.get("email")
+        
         if username is None or password is None:
             return None
         
@@ -19,11 +22,12 @@ class EmailOrPhoneBackend(BaseBackend):
                 telefono_norm = normalizar_telefono(username)
                 usuario = Usuario.objects.get(telefono=telefono_norm)
             except (Usuario.DoesNotExist, ValidationError):
-                # Si no existe el teléfono o no es un formato válido, 
-                # devolvemos None para que falle la autenticación de forma segura.
+                # 3. Si no existe, calculamos un hash falso para que tarde lo mismo
+                # y no se pueda adivinar qué correos están registrados.
+                Usuario().set_password(password)
                 return None
         
-        # 3. Verificar contraseña
+        # 4. Verificar contraseña
         if usuario.check_password(password):
             return usuario
             
