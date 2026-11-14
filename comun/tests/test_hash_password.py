@@ -3,20 +3,9 @@ from django.contrib.auth.hashers import make_password
 from django.db import connection
 
 from usuarios.models import Usuario
-from usuarios.tests.factories import UsuarioFactory  # AJUSTAR: ruta real
+from usuarios.tests.factories import UsuarioFactory
 
 PASSWORD = "Segura123"
-HASHERS_REALES = [
-    "django.contrib.auth.hashers.Argon2PasswordHasher",
-    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
-    "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
-]
-
-
-@pytest.fixture(autouse=True)
-def hashers_reales(settings):
-    settings.PASSWORD_HASHERS = HASHERS_REALES
-
 
 @pytest.fixture
 def usuario_con_password(db):
@@ -36,7 +25,7 @@ def test_set_password_guarda_argon2(usuario_con_password):
 def test_create_user_guarda_argon2(db):
     usuario = Usuario.objects.create_user(
         email="ana@example.com", telefono="+523531234567", password=PASSWORD
-    )  # AJUSTAR: campos obligatorios reales de create_user
+    )
     usuario.refresh_from_db()
     assert usuario.password.startswith("argon2")
 
