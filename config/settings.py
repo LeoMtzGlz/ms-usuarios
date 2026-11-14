@@ -41,6 +41,8 @@ INSTALLED_APPS = [
     "usuarios",
     "notificaciones",
 
+    # hu-25/st-183: protección contra intentos fallidos de autenticación
+    "axes",
 ]
 
 MIDDLEWARE = [
@@ -51,6 +53,9 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+
+    # hu-25/st-183: debe ser el último middleware
+    "axes.middleware.AxesMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -130,6 +135,12 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Modelo de usuario propio: se define ANTES de la primera migración
 AUTH_USER_MODEL = "usuarios.Usuario"
 
+# hu-25/st-183: backend de protección contra intentos fallidos
+AUTHENTICATION_BACKENDS = [
+    "axes.backends.AxesStandaloneBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
+
 REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "comun.errores.manejador_errores",
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
@@ -189,3 +200,9 @@ SIMPLE_JWT = {
     "USER_ID_CLAIM": "user_id",
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
+
+# hu-25/st-183: configuración de bloqueo por intentos fallidos
+AXES_FAILURE_LIMIT = 5
+AXES_COOLOFF_TIME = timedelta(minutes=15)
+AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
+AXES_RESET_ON_SUCCESS = True
