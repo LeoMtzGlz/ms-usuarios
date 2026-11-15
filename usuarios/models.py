@@ -97,11 +97,11 @@ class Usuario(AbstractUser):
         anterior = type(self).objects.filter(pk=self.pk).values_list("estado", flat=True).first()
         self.save(update_fields=campos)
         registrar_evento("estado_cambiado", self, anterior=anterior, nuevo=nuevo, por=getattr(por, "pk", None))
-        
+
 class Proposito(models.TextChoices):
-        ACTIVACION = "activacion", "Activación de cuenta"
-        RECUPERACION = "recuperacion", "Recuperación de contraseña"
-        CAMBIO_CONTACTO = "cambio_contacto", "Cambio de correo o teléfono"
+    ACTIVACION = "activacion", "Activación de cuenta"
+    RECUPERACION = "recuperacion", "Recuperación de contraseña"
+    CAMBIO_CONTACTO = "cambio_contacto", "Cambio de correo o teléfono"
 
 class CodigoVerificacion(models.Model):
     """Código de 6 dígitos de un solo uso. Solo se guarda su hash, nunca el código."""
