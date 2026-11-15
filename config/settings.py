@@ -22,6 +22,9 @@ SECRET_KEY = env("SECRET_KEY")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 DOMINIO_CORREO_INSTITUCIONAL = env("DOMINIO_CORREO_INSTITUCIONAL", default="@jiquilpan.tecnm.mx")
 
+#t-30/st-205
+CLAVE_CIFRADO_2FA = env("CLAVE_CIFRADO_2FA", default="")
+ISSUER_2FA = "svc-usuarios"
 
 
 # Application definition

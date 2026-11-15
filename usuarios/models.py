@@ -10,6 +10,12 @@ from usuarios.telefono import validar_telefono_e164
 
 from comun.eventos import registrar_evento
 
+#t-30/st-205
+import pyotp
+from django.conf import settings
+from comun.cifrado import cifrar, descifrar
+#-------------
+
 class Estado(models.TextChoices):
     PENDIENTE = "pendiente", "Pendiente de activar"
     ACTIVO = "activo", "Activo"
@@ -125,3 +131,40 @@ class CodigoVerificacion(models.Model):
     def __str__(self):
         return f"{self.proposito} · {self.usuario}"
 
+#t-30/st-205
+class Dispositivo2FA(models.Model):
+    usuario = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="dispositivo_2fa",
+    )
+    secreto_cifrado = models.TextField()
+    confirmado = models.BooleanField(default=False)
+    ultimo_intervalo = models.BigIntegerField(null=True, blank=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+    confirmado_en = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"2FA de {self.usuario_id} (confirmado={self.confirmado})"
+
+    @property
+    def secreto(self) -> str:
+        return descifrar(self.secreto_cifrado)
+
+    def generar_secreto(self) -> str:
+        """Crea un secreto nuevo, lo guarda cifrado y lo devuelve en claro."""
+        secreto = pyotp.random_base32()
+        self.secreto_cifrado = cifrar(secreto)
+        self.confirmado = False
+        self.confirmado_en = None
+        self.ultimo_intervalo = None
+        return secreto
+
+    def uri_aprovisionamiento(self) -> str:
+        return pyotp.TOTP(self.secreto).provisioning_uri(
+            name=self.usuario.email,
+            issuer_name=settings.ISSUER_2FA,
+        )
+
+    def verificar(self, codigo: str) -> bool:
+        return pyotp.TOTP(self.secreto).verify(codigo, valid_window=1)
