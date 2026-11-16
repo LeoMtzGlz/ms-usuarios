@@ -192,3 +192,6 @@ SIMPLE_JWT = {
     "USER_ID_CLAIM": "user_id",
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
+
+# t-07/st-36: Canal por defecto para las notificaciones
+CANAL_NOTIFICACIONES = env("CANAL_NOTIFICACIONES", default="consola")
