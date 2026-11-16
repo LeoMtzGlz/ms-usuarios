@@ -4,6 +4,9 @@ from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 
 from .models import Usuario
 
+from .models import Dispositivo2FA #t-30/st-205
+
+
 class UsuarioCreationForm(UserCreationForm):
     class Meta:
         model = Usuario
@@ -37,3 +40,8 @@ class UsuarioAdmin(UserAdmin):
     )
     add_fieldsets = ((None, {"classes": ("wide",), "fields": ("email", "password1", "password2")}),)
 
+#t-30/st-205
+@admin.register(Dispositivo2FA)
+class Dispositivo2FAAdmin(admin.ModelAdmin):
+    list_display = ("usuario", "confirmado", "creado_en")
+    exclude = ("secreto_cifrado",)
