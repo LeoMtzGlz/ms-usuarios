@@ -1,13 +1,12 @@
 """Serializers de la app usuarios."""
-from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
-from django.utils import timezone
 from rest_framework import serializers
 
 from comun.roles import Rol
 from usuarios.models import Canal, Estado, Usuario
+from usuarios.privacidad import datos_aceptacion_privacidad
 from usuarios.telefono import normalizar_telefono
 
 CORREO_REGISTRADO = "Este correo ya está registrado."
@@ -89,8 +88,8 @@ class RegistroSerializer(serializers.Serializer):
                     canal_preferido=datos["canal_preferido"],
                     rol=Rol.CLIENTE,
                     estado=Estado.PENDIENTE,
-                    acepto_privacidad_en=timezone.now(),
-                    version_privacidad=settings.VERSION_AVISO_PRIVACIDAD,
+                    **datos_aceptacion_privacidad(),  # fecha actual y versión vigente (t-02/st-67)
+
                 )
         except IntegrityError as error:
             # Dos registros simultáneos con el mismo dato: lo frena la restricción única de la base
