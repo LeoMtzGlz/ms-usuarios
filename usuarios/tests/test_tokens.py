@@ -17,7 +17,7 @@ def request_valido(factory):
 
 @pytest.mark.django_db
 def test_login_correcto_con_claims(request_valido):
-    usuario = Usuario.objects.create_user(
+    Usuario.objects.create_user(
         email="activo@ejemplo.com", password="Password123", estado=Estado.ACTIVO
     )
     
