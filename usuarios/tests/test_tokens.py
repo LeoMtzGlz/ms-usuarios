@@ -1,6 +1,7 @@
 import pytest
 from rest_framework.test import APIRequestFactory
 from django.contrib.auth.models import AnonymousUser
+from django.test import override_settings
 from usuarios.tokens import CustomTokenObtainPairSerializer
 from usuarios.models import Usuario, Estado
 from comun.errores import CuentaPendiente, CuentaInactiva, CredencialesInvalidas
@@ -15,6 +16,11 @@ def request_valido(factory):
     request.user = AnonymousUser()
     return request
 
+
+@override_settings(SIMPLE_JWT={
+    "ALGORITHM": "HS256",
+    "SIGNING_KEY": "clave-de-prueba-super-secreta-y-muy-larga-para-que-no-salte-el-warning",
+})
 @pytest.mark.django_db
 def test_login_correcto_con_claims(request_valido):
     Usuario.objects.create_user(
@@ -28,10 +34,8 @@ def test_login_correcto_con_claims(request_valido):
     assert serializer.is_valid(), serializer.errors
     data = serializer.validated_data
     
-    # Verificamos que los tokens existan y los claims estén en el token
     assert "access" in data
     assert "refresh" in data
-    # Decodificamos el access token para verificar el claim (o confiamos en que get_token lo hizo)
     assert data["usuario"]["rol"] == "cliente"
 
 @pytest.mark.django_db
