@@ -22,6 +22,9 @@ SECRET_KEY = env("SECRET_KEY")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 DOMINIO_CORREO_INSTITUCIONAL = env("DOMINIO_CORREO_INSTITUCIONAL", default="@jiquilpan.tecnm.mx")
 
+#t-30/st-205
+CLAVE_CIFRADO_2FA = env("CLAVE_CIFRADO_2FA", default="")
+ISSUER_2FA = "svc-usuarios"
 
 
 # Application definition
@@ -135,12 +138,6 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Modelo de usuario propio: se define ANTES de la primera migración
 AUTH_USER_MODEL = "usuarios.Usuario"
 
-# hu-25/st-183: backend de protección contra intentos fallidos
-AUTHENTICATION_BACKENDS = [
-    "axes.backends.AxesStandaloneBackend",
-    "django.contrib.auth.backends.ModelBackend",
-]
-
 REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "comun.errores.manejador_errores",
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
@@ -170,6 +167,15 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "Documentación de la API del microservicio de usuario.",
     "VERSION": "1.0.0"
 }
+
+# --- t-05/st-80: Backend de autenticación por correo o teléfono ------------------
+# Permite que el login acepte tanto el correo electrónico como el número de
+# teléfono (en formato normalizado).
+AUTHENTICATION_BACKENDS = [
+    "axes.backends.AxesStandaloneBackend", # hu-25/st-183
+    "usuarios.backends.EmailOrPhoneBackend", # Danna (#80)
+    "django.contrib.auth.backends.ModelBackend",
+]
 
 
    # --- t-04/st-21: Tokens JWT firmados con RS256 -------------------------------------
