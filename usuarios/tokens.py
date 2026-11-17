@@ -1,7 +1,6 @@
 from django.contrib.auth import authenticate
 from django.utils import timezone
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from rest_framework_simplejwt.tokens import RefreshToken
 from comun.errores import CredencialesInvalidas, CuentaPendiente, CuentaInactiva
 from usuarios.models import Estado
 
