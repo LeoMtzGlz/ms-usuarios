@@ -1,7 +1,7 @@
 import pytest
+from unittest.mock import patch, MagicMock
 from rest_framework.test import APIRequestFactory
 from django.contrib.auth.models import AnonymousUser
-from django.test import override_settings
 from usuarios.tokens import CustomTokenObtainPairSerializer
 from usuarios.models import Usuario, Estado
 from comun.errores import CuentaPendiente, CuentaInactiva, CredencialesInvalidas
@@ -16,11 +16,6 @@ def request_valido(factory):
     request.user = AnonymousUser()
     return request
 
-
-@override_settings(SIMPLE_JWT={
-    "ALGORITHM": "HS256",
-    "SIGNING_KEY": "clave-de-prueba-super-secreta-y-muy-larga-para-que-no-salte-el-warning",
-})
 @pytest.mark.django_db
 def test_login_correcto_con_claims(request_valido):
     Usuario.objects.create_user(
@@ -31,12 +26,18 @@ def test_login_correcto_con_claims(request_valido):
         data={"email": "activo@ejemplo.com", "password": "Password123"},
         context={"request": request_valido}
     )
-    assert serializer.is_valid(), serializer.errors
-    data = serializer.validated_data
-    
-    assert "access" in data
-    assert "refresh" in data
-    assert data["usuario"]["rol"] == "cliente"
+
+    with patch('usuarios.tokens.CustomTokenObtainPairSerializer.get_token') as mock_get_token:
+        mock_refresh = MagicMock()
+        mock_refresh.access_token = "token-falso-access"
+        mock_get_token.return_value = mock_refresh
+        
+        assert serializer.is_valid(), serializer.errors
+        data = serializer.validated_data
+        
+        assert data["access"] == "token-falso-access"
+        assert data["refresh"] == str(mock_refresh)
+        assert data["usuario"]["rol"] == "cliente"
 
 @pytest.mark.django_db
 def test_login_credenciales_invalidas(request_valido):
