@@ -3,7 +3,7 @@
 ## ST-30. Proteger la rama principal
 
 **Estado:** Completada  
-**Responsable:** l22420415
+**Responsable:** Bryan Gael Esquivel Pérez (l22420415)
 
 ### 1. Descripción
 
@@ -23,7 +23,7 @@ La configuración en GitHub la hizo el profesor, como dueño del repositorio. Es
 | Restrict deletions | Activado |
 | Block force pushes | Activado |
 | Require a pull request before merging | Activado |
-| Required approvals | 0 |
+| Required approvals | 1 (se subió de 0 a 1 porque el backlog v3 asigna un revisor a cada subtarea) |
 | Require status checks to pass | Activado, con el check **`pruebas`** (job del workflow CI de ST-29) |
 | Require branches to be up to date before merging | **Desactivado** |
 
@@ -34,6 +34,7 @@ La configuración en GitHub la hizo el profesor, como dueño del repositorio. Es
 - **No hay push directo** a `development` ni a `main`: GitHub rechaza el `git push`.
 - **Todo entra por Pull Request.** El flujo es: rama `t-XX/st-YY` → push de la rama → PR hacia `development`.
 - **Un PR solo se fusiona con `pruebas` en verde.** Si ruff, las migraciones o las pruebas fallan, el botón de merge queda bloqueado.
+- **Un PR necesita la aprobación de su revisor** además del check en verde: sin una aprobación (*Approve*) no se puede fusionar.
 - Las ramas protegidas **no se pueden borrar** ni reescribir con `git push --force`.
 - Los administradores del repositorio están en la *bypass list*: pueden saltarse las reglas, solo para emergencias.
 
@@ -51,7 +52,7 @@ Solo el **dueño del repositorio** (o alguien con rol *Admin*) puede crear o cam
 8. En **Branch rules**, activar:
    - **Restrict deletions**.
    - **Block force pushes**.
-   - **Require a pull request before merging**, con **Required approvals** en `0`.
+   - **Require a pull request before merging**, con **Required approvals** en `1`.
    - **Require status checks to pass** → **Add checks** → escribir `pruebas` y elegirlo (origen: GitHub Actions). Dejar **sin marcar** *Require branches to be up to date before merging*.
 9. **Create**.
 
@@ -64,21 +65,25 @@ Solo el **dueño del repositorio** (o alguien con rol *Admin*) puede crear o cam
 3. **El push directo se rechaza** (probarlo con una cuenta que no sea admin, porque los admins están en la bypass list):
 
    ```bash
-   git switch development
+   git fetch origin
+   git switch -c prueba-proteccion origin/development
    git commit --allow-empty -m "prueba de protección"
-   git push origin development
+   git push origin HEAD:development    # debe rechazarse con GH013
    # remote: error: GH013: Repository rule violations found for refs/heads/development.
-   # ! [remote rejected] development -> development (push declined due to repository rule violations)
-   git reset --hard origin/development   # deshacer el commit de prueba
+   # ! [remote rejected] HEAD -> development (push declined due to repository rule violations)
+   git switch development
+   git branch -D prueba-proteccion
    ```
 
-**Evidencia observada:** los PR que se abrieron antes de que existiera `ci.yml` (ST-29) quedaron en **"Expected — Waiting for status to be reported"** y no se pudieron fusionar hasta que se actualizaron con `development`. Eso confirma que el ruleset exige el check `pruebas`.
+   La prueba se hace en una rama temporal, así que el `development` local no se toca.
+
+**Evidencia observada:** los PR creados antes de ST-29 quedaron en **"Expected — Waiting for status to be reported"** y no se pudieron fusionar hasta que se actualizaron con `development`. Eso confirma que el ruleset exige el check `pruebas`. El workflow sí existía para esos PR: en eventos `pull_request`, GitHub Actions usa el workflow del commit de merge entre la rama del PR y la base, así que basta con que `ci.yml` esté en `development`. El check se quedó en "Expected" porque esos PR no habían tenido ningún evento nuevo (push, reabrir) desde que `ci.yml` llegó a `development`; al actualizarlos se disparó el CI y se reportó el check.
 
 ### 6. Problemas comunes
 
 | Síntoma | Causa | Solución |
 |---|---|---|
-| El PR muestra **pruebas — Expected — Waiting for status to be reported** y nunca avanza | La rama se creó antes de ST-29 y no tiene `.github/workflows/ci.yml`, así que el CI nunca corre para ella | Actualizar la rama con `development` (botón **Update branch** o `git pull origin development` y push); al subir, el CI corre y reporta el check |
+| El PR muestra **pruebas — Expected — Waiting for status to be reported** y nunca avanza | En eventos `pull_request`, GitHub Actions usa el workflow del commit de merge entre la rama del PR y la base, así que `ci.yml` existe aunque la rama sea vieja. El check espera porque el PR no ha tenido ningún evento nuevo (push, reabrir) desde que `ci.yml` llegó a `development`, o porque el PR tiene **conflictos** y GitHub no puede crear el commit de merge | Actualizar la rama con `development` (botón **Update branch** o `git pull origin development` y push) o hacer cualquier push a la rama; si hay conflictos, resolverlos primero. Al subir, el CI corre y reporta el check |
 | Una ejecución del CI aparece **cancelada** (círculo gris) | `concurrency` con `cancel-in-progress` (ST-29): un push nuevo a la misma rama cancela la ejecución anterior | No es un error. Cuenta la **última** ejecución; esperar a que termine |
 | `pruebas` en rojo | Falló ruff, la revisión de migraciones o pytest | Ver la sección 6 de `docs/T-06/ST-29-workflow-github-actions.md` |
 | `git push` rechazado con `GH013` | Se intentó subir directo a `development` o `main` | Crear una rama `t-XX/st-YY`, subirla y abrir un PR |
@@ -96,7 +101,6 @@ No se borra el ruleset: desactivarlo conserva toda la configuración para volver
 
 ### 8. Recomendaciones para el profesor
 
-- **Subir *Required approvals* a 1.** El backlog v3 asigna un revisor a cada subtarea; con 0 aprobaciones un PR se puede fusionar sin que su revisor lo haya aprobado.
 - **Activar Settings → General → Pull Requests → *Always suggest updating pull request branches*.** Así aparece el botón **Update branch** en los PR desactualizados. Usar siempre **Update with merge commit** (no *rebase*), para no reescribir commits que otros ya descargaron.
 - **Fusionar siempre con *Create a merge commit*** y pasar `development` a `main` con un PR al final de cada sprint, para que `main` quede como la versión entregada de cada sprint.
 
@@ -112,4 +116,4 @@ Captura del check `pruebas` marcado como **Required** en un PR:
 
 **ST-30 finalizada.**
 
-**Responsable de la actividad:** l22420415.
+**Responsable de la actividad:** Bryan Gael Esquivel Pérez (l22420415).
