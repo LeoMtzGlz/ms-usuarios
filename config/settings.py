@@ -210,6 +210,9 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
+# t-07/st-36: Canal por defecto para las notificaciones
+CANAL_NOTIFICACIONES = env("CANAL_NOTIFICACIONES", default="consola")
+
 # hu-25/st-183: configuración de bloqueo por intentos fallidos
 AXES_FAILURE_LIMIT = 5
 AXES_COOLOFF_TIME = timedelta(minutes=15)
