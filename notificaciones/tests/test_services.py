@@ -3,6 +3,8 @@ from django.contrib.auth import get_user_model
 from notificaciones.models import Notificacion
 from notificaciones.services import notificar
 
+from django.db import transaction
+
 Usuario = get_user_model()
 
 
@@ -52,3 +54,43 @@ def test_notificar_lanza_error_si_canal_es_invalido():
             contexto={},
             canal="telegram"
         )
+
+
+@pytest.mark.django_db
+def test_notificar_no_guarda_si_transaccion_se_revierte():
+
+    # 1. Creamos un usuario de prueba
+    usuario = Usuario.objects.create_user(
+        email="rollback@ejemplo.com",
+        password="Password123",
+    )
+
+    # 2. Verificamos que inicialmente no tenga notificaciones
+    assert Notificacion.objects.filter(
+        destinatario=usuario
+    ).count() == 0
+
+    # 3. Iniciamos una transacción y forzamos su reversión
+    with pytest.raises(RuntimeError, match="Forzar rollback"):
+        with transaction.atomic():
+
+            # Creamos una notificación dentro de la transacción
+            notificar(
+                usuario=usuario,
+                plantilla="codigo_activacion",
+                contexto={"codigo": "123456"},
+                canal="correo",
+            )
+
+            # Comprobamos que existe dentro de la transacción
+            assert Notificacion.objects.filter(
+                destinatario=usuario
+            ).count() == 1
+
+            # Provocamos un error para revertir la transacción
+            raise RuntimeError("Forzar rollback")
+
+    # 4. Comprobamos que la notificación ya no esté guardada
+    assert Notificacion.objects.filter(
+        destinatario=usuario
+    ).count() == 0
