@@ -1,29 +1,16 @@
 """Pruebas de HU-07/ST-89: lista negra de SimpleJWT con rotación de la renovación.
 
-Igual que test_jwt_rs256.py, firman con un par de llaves temporal: no dependen de
+Firman con el par de llaves temporal del fixture `llaves` de conftest.py: no dependen de
 llaves/privada.pem y corren igual en cualquier máquina y en GitHub Actions.
 """
 import pytest
 from django.conf import settings
-from rest_framework_simplejwt import state
-from rest_framework_simplejwt.backends import TokenBackend
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .test_jwt_rs256 import _generar_par_de_llaves
-
 pytestmark = pytest.mark.django_db
-
-
-@pytest.fixture
-def llaves(monkeypatch):
-    """Firma y verifica con un par temporal en lugar del de llaves/."""
-    privada, publica = _generar_par_de_llaves()
-    backend = TokenBackend("RS256", signing_key=privada, verifying_key=publica, issuer="svc-usuarios")
-    monkeypatch.setattr(state, "token_backend", backend)
-    return privada, publica
 
 
 def _renovar(refresh):
