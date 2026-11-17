@@ -1,3 +1,4 @@
+
 """Serializers de la app usuarios."""
 from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
