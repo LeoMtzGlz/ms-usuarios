@@ -3,7 +3,7 @@
 ## ST-89. Activar la lista negra de SimpleJWT
 
 **Estado:** Completada  
-**Responsable:** l22420415
+**Responsable:** Bryan Gael Esquivel Pérez (l22420415)
 
 ### 1. Descripción
 
@@ -65,7 +65,7 @@ docker compose exec db psql -U ms_user -d ms_usuarios -c "SELECT count(*) FROM t
 docker compose run --rm api pytest usuarios/tests/test_lista_negra.py -v
 ```
 
-Las pruebas firman con un par de llaves temporal (como `test_jwt_rs256.py`), así que no necesitan `llaves/privada.pem`. Cubren:
+Las pruebas firman con un par de llaves RS256 temporal que entrega el fixture `llaves` de `conftest.py` (el mismo que usa `test_jwt_rs256.py`), así que no necesitan `llaves/privada.pem`. Cubren:
 
 - La app está instalada y las dos opciones están activas.
 - Emitir un refresh lo registra como `OutstandingToken`.
@@ -93,4 +93,4 @@ La lista negra y la rotación del refresh quedaron activas: cada refresh emitido
 
 **ST-89 finalizada.**
 
-**Responsable de la actividad:** l22420415.
+**Responsable de la actividad:** Bryan Gael Esquivel Pérez (l22420415).
