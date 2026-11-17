@@ -6,4 +6,4 @@ class UsuariosConfig(AppConfig):
     name = "usuarios"
 
     def ready(self):
-        from usuarios import privacidad  # registra la revisión de VERSION_AVISO_PRIVACIDAD (t-02/st-67)
+        from usuarios import privacidad  # noqa: F401  registra la revisión de VERSION_AVISO_PRIVACIDAD (t-02/st-67)
