@@ -150,6 +150,45 @@ from comun.eventos import registrar_evento
 registrar_evento("login_fallido", usuario, request, resultado="error", motivo="credenciales")
 ```
 
+### Política de contraseñas (T-12)
+<!-- t-12/st-105 -->
+
+Se aplica con `validate_password()` en el registro (`usuarios/serializers.py`). Recuperación, cambio de contraseña y contraseñas temporales la usarán al integrarse (HU-10, HU-11 y HU-15).
+
+| Regla | Implementación (`AUTH_PASSWORD_VALIDATORS` en `config/settings.py`) |
+|---|---|
+| Mínimo 8 caracteres | `MinimumLengthValidator` con `min_length=8` |
+| Al menos una mayúscula y un número | `comun.validadores.MayusculaYNumeroValidator` |
+| No es una contraseña común | `CommonPasswordValidator` |
+| No se parece al correo ni al nombre | `UserAttributeSimilarityValidator` (`email`, `first_name`, `last_name`) |
+
+Una contraseña de solo números también se rechaza, porque no tiene mayúscula.
+
+Los mensajes de error están en español y siguen el formato de `comun/errores.py`. Ejemplo de respuesta 400:
+
+```json
+{
+  "codigo": "datos_invalidos",
+  "mensaje": "Revisa los datos enviados.",
+  "campos": {
+    "password": [
+      "La contraseña debe incluir al menos una letra mayúscula.",
+      "La contraseña debe incluir al menos un número."
+    ]
+  }
+}
+```
+
+#### Almacenamiento
+- Las contraseñas se guardan con **Argon2id** (`argon2-cffi`), configurado en `PASSWORD_HASHERS`. **Nunca** en texto plano.
+- **PBKDF2** queda como respaldo: un hash antiguo sigue funcionando y se convierte a Argon2 la siguiente vez que se verifica la contraseña.
+- `registrar_evento()` (`comun/eventos.py`) oculta con `***` cualquier detalle cuya clave contenga `password`, `codigo`, `token` o `secreto`, así que no llegan a la bitácora.
+
+#### Cómo cambiar la política
+1. Edita `AUTH_PASSWORD_VALIDATORS` en `config/settings.py`.
+2. Actualiza `AYUDA_POLITICA_PASSWORD` en `comun/validadores.py`.
+3. Actualiza esta sección y corre `pytest comun/tests/test_validadores.py comun/tests/test_hash_password.py`.
+
 ---
 
 ## Pruebas y calidad
@@ -237,6 +276,8 @@ Somos varias personas en un solo repositorio. Estas reglas evitan casi todos los
 1. `git log --oneline --reverse` muestra las tareas en el orden en que se construyeron.
 2. `git show <commit>` enseña exactamente qué cambió en cada una.
 3. Antes de leer el código de una tarea, lee su ficha: [T-01](docs/tareas/T-01.md) · [T-06](docs/tareas/T-06.md) · [T-02](docs/tareas/T-02.md) · [T-03](docs/tareas/T-03.md).
+
+---
 
 Documentación oficial:
 

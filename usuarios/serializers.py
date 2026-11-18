@@ -7,8 +7,10 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from comun.roles import Rol
+from comun.validadores import AYUDA_POLITICA_PASSWORD # t-12/st-105
 from usuarios.models import Canal, Estado, Usuario
 from usuarios.telefono import normalizar_telefono
+
 
 CORREO_REGISTRADO = "Este correo ya está registrado."
 TELEFONO_REGISTRADO = "Este teléfono ya está registrado."
@@ -29,7 +31,10 @@ class RegistroSerializer(serializers.Serializer):
     apellidos = serializers.CharField(max_length=150, trim_whitespace=True)
     correo = serializers.EmailField(max_length=254)
     telefono = serializers.CharField(max_length=30)
-    password = serializers.CharField(write_only=True, trim_whitespace=False, style={"input_type": "password"})
+    password = serializers.CharField(write_only=True, 
+                                     trim_whitespace=False, 
+                                     style={"input_type": "password"}, 
+                                     help_text=AYUDA_POLITICA_PASSWORD) # t-12/st-105
     password_confirmacion = serializers.CharField(
         write_only=True, trim_whitespace=False, style={"input_type": "password"}
     )
