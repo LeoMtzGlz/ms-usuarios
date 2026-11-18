@@ -7,9 +7,10 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from comun.roles import Rol
+from comun.validadores import AYUDA_POLITICA_PASSWORD # t-12/st-105
 from usuarios.models import Canal, Estado, Usuario
 from usuarios.telefono import normalizar_telefono
-from comun.validadores import AYUDA_POLITICA_PASSWORD # t-12/st-105
+
 
 CORREO_REGISTRADO = "Este correo ya está registrado."
 TELEFONO_REGISTRADO = "Este teléfono ya está registrado."
