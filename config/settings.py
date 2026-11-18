@@ -42,6 +42,7 @@ INSTALLED_APPS = [
 
     "rest_framework",
     "drf_spectacular",
+    "rest_framework_simplejwt.token_blacklist", # t-07/st-89
 
     "comun",
     "usuarios",
@@ -205,6 +206,8 @@ SIMPLE_JWT = {
     "ISSUER": "svc-usuarios",
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True, # t-07/st-89
+    "BLACKLIST_AFTER_ROTATION": True, # t-07/st-89
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "user_id",
     "AUTH_HEADER_TYPES": ("Bearer",),
