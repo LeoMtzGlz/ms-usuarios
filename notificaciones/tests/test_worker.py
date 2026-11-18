@@ -1,8 +1,9 @@
 """t-10/st-51: pruebas del comando procesar_notificaciones y de su lógica.
 
-No dependen de los canales reales (st-35/36/41/48): usan un canal falso que guarda lo
-que se le pidió enviar, y una plantilla en memoria.
+Casi todas usan un canal falso que guarda lo que se le pidió enviar, y una plantilla en
+memoria. test_con_el_canal_de_consola_real usa obtener_canal() y CanalConsola de T-07.
 """
+import logging
 import threading
 
 import pytest
@@ -35,7 +36,8 @@ class CanalFalso:
 
 
 def resolver_con(canal):
-    return lambda nombre: canal
+    """Sustituye a obtener_canal() de T-07, que no recibe argumentos."""
+    return lambda: canal
 
 
 def crear(usuario, canal="consola", **extra):
@@ -211,3 +213,24 @@ def test_comando_avisa_si_faltan_los_canales(monkeypatch):
 
     with pytest.raises(CommandError, match="st-35"):
         call_command("procesar_notificaciones", "--una-vez")
+
+
+@pytest.mark.django_db
+def test_con_el_canal_de_consola_real(usuario, settings, caplog, monkeypatch):
+    """Sin canal falso: el resolver por defecto es obtener_canal() de T-07 y envía por CanalConsola."""
+    from notificaciones.canales import CanalConsola
+    from notificaciones.services import obtener_canal
+
+    settings.CANAL_NOTIFICACIONES = "consola"
+    monkeypatch.setattr(logging.getLogger("svc"), "propagate", True)  # para que caplog vea el log
+    noti = crear(usuario)
+
+    assert worker.cargar_resolver() is obtener_canal
+    assert isinstance(obtener_canal(), CanalConsola)
+    with caplog.at_level(logging.INFO, logger="svc.notificaciones"):
+        resultado = worker.procesar_lote()
+
+    noti.refresh_from_db()
+    assert resultado.enviadas == 1
+    assert noti.estado == Notificacion.ESTADO_ENVIADA
+    assert f"Para: {usuario.email}" in caplog.text

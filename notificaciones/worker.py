@@ -22,9 +22,10 @@ TAMANO_LOTE = 20
 INTERVALO_SEGUNDOS = 5
 LARGO_MAXIMO_ERROR = 500
 
-# Función de st-35 que devuelve el canal (Consola, Correo, WhatsApp) para un nombre de canal.
-# Confirmar el nombre con l22420438 cuando st-35/st-36 entren a development.
-RESOLVER_CANAL = "notificaciones.canales.obtener_canal"
+# Función de T-07 (st-35/st-36) que devuelve el canal configurado en CANAL_NOTIFICACIONES.
+# No recibe argumentos: el canal sale del setting, no de la notificación. Si después pasa a
+# recibir el canal de cada notificación, solo cambia la llamada en procesar().
+RESOLVER_CANAL = "notificaciones.services.obtener_canal"
 ASUNTO_POR_DEFECTO = "Aviso de tu cuenta"
 
 
@@ -69,8 +70,9 @@ def destino_de(notificacion: Notificacion) -> str:
 def armar_mensaje(notificacion: Notificacion) -> tuple[str, str]:
     """Devuelve (asunto, texto) con la plantilla ``notificaciones/<plantilla>.txt``.
 
-    Confirmar con l22420438 (st-35) y l22420450 (st-41): si el canal renderiza la
-    plantilla por su cuenta, esta función se reduce a pasarle los datos.
+    La interfaz Canal de st-35 recibe el texto ya armado, así que lo arma el worker.
+    Las plantillas .txt las crea t-08/st-42; mientras no existan, la notificación queda
+    fallida con TemplateDoesNotExist y el resto del lote sigue.
     """
     contexto = notificacion.contexto or {}
     texto = render_to_string(f"notificaciones/{notificacion.plantilla}.txt", contexto)
@@ -122,7 +124,7 @@ def procesar(notificacion: Notificacion, obtener_canal) -> str:
         # Savepoint: si algo falla aquí, el resto del lote sigue con la transacción sana.
         with transaction.atomic():
             asunto, texto = armar_mensaje(notificacion)
-            canal = obtener_canal(notificacion.canal)
+            canal = obtener_canal()
             canal.enviar(destino_de(notificacion), asunto, texto)
             marcar_enviada(notificacion)
     except Exception as exc:  # cualquier fallo de una notificación no debe tumbar al worker

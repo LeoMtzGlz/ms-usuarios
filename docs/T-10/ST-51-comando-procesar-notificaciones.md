@@ -22,7 +22,7 @@ salta lo que el otro ya bloqueó y nunca envían la misma notificación.
 | `notificaciones/worker.py` | Lógica del worker: tomar el lote, armar el mensaje, enviar, marcar enviada o fallida |
 | `notificaciones/management/commands/procesar_notificaciones.py` | Comando con el bucle de 5 s y las opciones `--una-vez`, `--intervalo`, `--lote` |
 | `notificaciones/management/__init__.py`, `.../commands/__init__.py` | Paquetes vacíos que Django necesita para encontrar el comando |
-| `notificaciones/tests/test_worker.py` | 11 pruebas del worker y del comando |
+| `notificaciones/tests/test_worker.py` | 12 pruebas del worker y del comando |
 
 No toca `settings.py`, `requirements.txt`, `.env.example` ni migraciones.
 
@@ -40,9 +40,11 @@ a la mitad. El servicio `worker` del `docker-compose.yml` es de ST-53.
 
 1. **`antes_de_enviar()`**: hoy siempre deja pasar. Aquí entra el límite diario por canal de **ST-57**.
    Si devuelve `False`, la notificación sigue pendiente para el siguiente ciclo.
-2. **`armar_mensaje()`**: renderiza `notificaciones/<plantilla>.txt` con el `contexto`.
-3. **Envía** con `canal.enviar(destino, asunto, texto)`: al correo del usuario, o a su teléfono si el
-   canal es WhatsApp.
+2. **`armar_mensaje()`**: renderiza `notificaciones/<plantilla>.txt` con el `contexto`. La interfaz `Canal`
+   recibe el texto ya armado, por eso lo arma el worker.
+3. **Envía** con `obtener_canal().enviar(destino, asunto, texto)`: al correo del usuario, o a su teléfono si
+   la notificación es de WhatsApp. `obtener_canal()` es la función de T-07 que devuelve el canal configurado
+   en `CANAL_NOTIFICACIONES` (hoy, `CanalConsola`).
 4. **Si sale bien** (`marcar_enviada()`): estado `enviada` y el `contexto` se vacía, porque lleva el
    código (regla de T-07).
 5. **Si falla** (`manejar_fallo()`): estado `fallida` y el error en `error`, con el código tapado por `***`.
@@ -55,12 +57,16 @@ Cada envío corre en su propio savepoint: si una notificación falla, el resto d
 | Pieza | Subtarea | Estado al abrir este PR |
 |---|---|---|
 | Modelo `Notificacion` | T-07/ST-34 | En `development` |
-| Interfaz `Canal` y función para elegir el canal | T-07/ST-35 | Pendiente: el worker la busca en `notificaciones.canales.obtener_canal` (confirmar nombre) |
-| Canal de consola | T-07/ST-36 | Pendiente |
-| CanalCorreo / CanalWhatsApp | T-08/ST-41, T-09/ST-48 | Pendientes |
+| Interfaz `Canal` y `obtener_canal()` en `notificaciones/services.py` | T-07/ST-35, ST-36 | En `development`; el worker la usa tal cual |
+| Canal de consola | T-07/ST-36 | En `development` |
+| Plantillas `.txt` (`codigo_activacion`, etc.) | T-08/ST-42 | Pendiente |
+| CanalCorreo / CanalWhatsApp | T-08/ST-41, T-09/ST-48 | Pendientes; entran por `obtener_canal()` sin tocar el worker |
 
 Si falta la función de canales, el comando se detiene con un mensaje claro en lugar de marcar todo como fallido.
-Las pruebas no dependen de ella: usan un canal falso.
+
+**Mientras no esté ST-42**, una notificación real (por ejemplo, la de `codigo_activacion` que crea el registro)
+queda `fallida` con `TemplateDoesNotExist: notificaciones/codigo_activacion.txt`. Es lo esperado: el worker
+no inventa el texto del mensaje.
 
 ### 6. Pruebas
 
@@ -81,11 +87,15 @@ docker compose run --rm api pytest notificaciones/tests/test_worker.py
 | `test_comando_una_vez` | `--una-vez` procesa un lote |
 | `test_bucle_espera_5_s_y_se_detiene_con_sigterm` | Espera 5 s entre lotes de 20 y se detiene con SIGTERM |
 | `test_comando_avisa_si_faltan_los_canales` | Error claro si ST-35 no está |
+| `test_con_el_canal_de_consola_real` | Sin canal falso: usa `obtener_canal()` de T-07 y sale por `CanalConsola` |
 
 ### 7. Pendiente de confirmar
 
-- Nombre de la función que entrega el canal (`notificaciones.canales.obtener_canal`) — l22420438 (ST-35).
-- Si la plantilla la renderiza el worker o el canal (ST-41 dice que CanalCorreo usa `render_to_string`) — l22420438, l22420450.
+- `obtener_canal()` elige el canal por setting, no por notificación. Para que convivan correo y WhatsApp (y el
+  respaldo a correo de ST-52), tendría que recibir el canal de cada notificación; en el worker es cambiar una
+  línea de `procesar()` — l22420438 (ST-35/ST-36).
+- CanalCorreo (ST-41) renderiza `.txt` y `.html` con `render_to_string`, pero `Canal.enviar()` recibe texto ya
+  armado. Si el correo necesita el `.html`, hay que acordar cómo le llega la plantilla — l22420438, l22420450.
 - Qué subtarea revisa que el código no haya vencido antes de enviar (criterio de T-10; ST-54 lo prueba) — l22420391.
 - Vaciar el `contexto` al enviar como forma de cumplir la regla de T-07 — l22420438.
 

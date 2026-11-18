@@ -34,7 +34,7 @@ class Command(BaseCommand):
         except ImportError as exc:
             raise CommandError(
                 f"No encontré la función de canales ({worker.RESOLVER_CANAL}). "
-                "Hace falta la interfaz Canal de t-07/st-35."
+                "Hace falta obtener_canal() de t-07/st-35 y st-36."
             ) from exc
 
         self.detener = False
