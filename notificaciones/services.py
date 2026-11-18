@@ -1,6 +1,6 @@
 from django.conf import settings
 from .models import Notificacion, CanalNotificacion
-from .canales import CanalConsola
+from .canales import CanalConsola,CanalCorreo
 
 
 def obtener_canal() -> CanalConsola:
@@ -10,7 +10,9 @@ def obtener_canal() -> CanalConsola:
     if canal_setting == CanalNotificacion.CONSOLA:
         return CanalConsola()
 
-    # Aquí Alondra (T-08) y quien haga WhatsApp (T-09) agregarán sus clases
+    # T-08/ST-41: Si el canal configurado es "correo", devuelve una instancia de CanalCorreo
+    if canal_setting == CanalNotificacion.CORREO:
+        return CanalCorreo()
     return CanalConsola()
 
 
