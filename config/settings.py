@@ -22,9 +22,12 @@ SECRET_KEY = env("SECRET_KEY")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 DOMINIO_CORREO_INSTITUCIONAL = env("DOMINIO_CORREO_INSTITUCIONAL", default="@jiquilpan.tecnm.mx")
 
+# hu-02/st-65: versión del aviso de privacidad que acepta quien se registra
+VERSION_AVISO_PRIVACIDAD = env("VERSION_AVISO_PRIVACIDAD", default="1.0")
 #t-30/st-205
 CLAVE_CIFRADO_2FA = env("CLAVE_CIFRADO_2FA", default="")
 ISSUER_2FA = "svc-usuarios"
+
 
 
 # Application definition
@@ -44,6 +47,8 @@ INSTALLED_APPS = [
     "usuarios",
     "notificaciones",
 
+    # hu-25/st-183: protección contra intentos fallidos de autenticación
+    "axes",
 ]
 
 MIDDLEWARE = [
@@ -54,6 +59,9 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+
+    # hu-25/st-183: debe ser el último middleware
+    "axes.middleware.AxesMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -164,10 +172,10 @@ SPECTACULAR_SETTINGS = {
 }
 
 # --- t-05/st-80: Backend de autenticación por correo o teléfono ------------------
-# Permite que el login acepte tanto el correo electrónico como el número de 
-# teléfono (en formato normalizado). 
+# Permite que el login acepte tanto el correo electrónico como el número de
+# teléfono (en formato normalizado).
 AUTHENTICATION_BACKENDS = [
-    # "axes.backends.AxesStandaloneBackend", # De Daniel (PR #26) - Se activará al fusionar su PR
+    "axes.backends.AxesStandaloneBackend", # hu-25/st-183
     "usuarios.backends.EmailOrPhoneBackend", # Danna (#80)
     "django.contrib.auth.backends.ModelBackend",
 ]
@@ -201,3 +209,12 @@ SIMPLE_JWT = {
     "USER_ID_CLAIM": "user_id",
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
+
+# t-07/st-36: Canal por defecto para las notificaciones
+CANAL_NOTIFICACIONES = env("CANAL_NOTIFICACIONES", default="consola")
+
+# hu-25/st-183: configuración de bloqueo por intentos fallidos
+AXES_FAILURE_LIMIT = 5
+AXES_COOLOFF_TIME = timedelta(minutes=15)
+AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
+AXES_RESET_ON_SUCCESS = True
