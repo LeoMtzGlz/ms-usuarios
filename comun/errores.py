@@ -144,3 +144,17 @@ def _primer_mensaje(detalle):
     if isinstance(detalle, dict) and detalle:
         return _primer_mensaje(next(iter(detalle.values())))
     return str(detalle)
+
+
+# hu-25/st-184: handler propio para el bloqueo de django-axes
+def respuesta_bloqueo_axes(request, response, credentials, *args, **kwargs):
+    """Devuelve el bloqueo de django-axes con el formato estándar de la API."""
+    exc = CuentaBloqueada()
+    return JsonResponse(
+        {
+            "codigo": exc.default_code,
+            "mensaje": str(exc.detail),
+            "campos": {},
+        },
+        status=status.HTTP_403_FORBIDDEN,
+    )

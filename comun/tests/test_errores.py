@@ -1,4 +1,7 @@
 import pytest
+import json
+from django.test import RequestFactory
+from comun.errores import respuesta_bloqueo_axes
 
 pytestmark = [pytest.mark.django_db, pytest.mark.urls("comun.tests.urls_errores")]
 
@@ -47,3 +50,16 @@ def test_ruta_inexistente_responde_404_con_el_formato(client):
     r = client.get("/api/v1/no-existe/")
     assert r.status_code == 404
     assert r.json()["codigo"] == "no_encontrado"
+
+
+# hu-25/st-184: verifica el formato estándar de respuesta del bloqueo
+def test_bloqueo_axes_usa_formato_estandar():
+    request = RequestFactory().post("/api/v1/auth/login/")
+    respuesta = respuesta_bloqueo_axes(request, None, {"username": "usuario"})
+
+    assert respuesta.status_code == 403
+    assert json.loads(respuesta.content) == {
+        "codigo": "cuenta_bloqueada",
+        "mensaje": "Demasiados intentos fallidos. Tu cuenta está bloqueada 15 minutos.",
+        "campos": {},
+    }
