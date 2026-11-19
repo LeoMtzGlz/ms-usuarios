@@ -7,8 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from comun.eventos import registrar_evento
-from notificaciones.services import notificar
-from usuarios.codigos import MINUTOS_VIGENCIA, crear_codigo
+from usuarios.codigos import generar_codigo
 from usuarios.models import Proposito
 from usuarios.serializers import RegistroSerializer
 
@@ -32,12 +31,7 @@ class RegistroView(APIView):
 
         with transaction.atomic():
             usuario = serializer.save()  # Usuario.objects.create_user(...)
-            _, codigo = crear_codigo(usuario, Proposito.ACTIVACION)
-            notificar(
-                usuario,
-                plantilla="codigo_activacion",
-                contexto={"codigo": codigo, "nombre": usuario.first_name, "minutos": MINUTOS_VIGENCIA},
-            )
+            generar_codigo(usuario, Proposito.ACTIVACION)
 
         registrar_evento("registro", usuario, request, canal=usuario.canal_preferido)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
