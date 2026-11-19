@@ -104,6 +104,27 @@ class Usuario(AbstractUser):
         self.save(update_fields=campos)
         registrar_evento("estado_cambiado", self, anterior=anterior, nuevo=nuevo, por=getattr(por, "pk", None))
 
+    
+    # t-12/st-117 (HU-12): al cambiar la contraseña, la temporal deja de serlo
+    def cambiar_password(self, nueva: str, request=None) -> None:
+        """Único lugar que cambia la contraseña de un usuario ya registrado.
+
+        En un solo guardado:
+        - guarda la contraseña nueva con hash (Argon2),
+        - pone debe_cambiar_password=False: la contraseña ya es definitiva (HU-12),
+        - incrementa token_version para cerrar las sesiones abiertas con la contraseña anterior.
+
+        No valida la política de contraseñas: eso lo hace quien la llama (serializer del
+        endpoint de HU-11 con validate_password) antes de llegar aquí.
+        Después de llamarlo, el endpoint debe emitir tokens nuevos.
+        """
+        era_temporal = self.debe_cambiar_password
+        self.set_password(nueva)
+        self.debe_cambiar_password = False
+        self.token_version += 1
+        self.save(update_fields=["password", "debe_cambiar_password", "token_version"])
+        registrar_evento("password_cambiado", self, request, era_temporal=era_temporal)
+
 class Proposito(models.TextChoices):
     ACTIVACION = "activacion", "Activación de cuenta"
     RECUPERACION = "recuperacion", "Recuperación de contraseña"
