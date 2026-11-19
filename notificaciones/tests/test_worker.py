@@ -36,8 +36,8 @@ class CanalFalso:
 
 
 def resolver_con(canal):
-    """Sustituye a obtener_canal() de T-07, que no recibe argumentos."""
-    return lambda: canal
+    """Sustituye a obtener_canal(canal) de T-07: devuelve siempre el canal falso."""
+    return lambda nombre_canal: canal
 
 
 def crear(usuario, canal="consola", **extra):
