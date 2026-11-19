@@ -101,12 +101,24 @@ Por qué tres apps: `config/` es el proyecto y cada app agrupa un tema (es la co
 
 ## Lo que ya hace la API
 
-### Endpoints
+### Matriz endpoint × rol (HU-13 / ST-127)
 
-| Método | Ruta | Acceso | Respuesta |
-| --- | --- | --- | --- |
-| `GET` | `/api/v1/salud/` | Público | `200 {"estado":"ok","bd":"ok"}`, o `503` si PostgreSQL no responde |
-| — | `/admin/` | Superusuario | Admin de Django: usuarios, búsqueda por correo y filtros por rol y estado |
+La matriz refleja únicamente las rutas disponibles en `development`. Una ruta pública puede usarse sin token y,
+por lo tanto, también por cualquier rol. Las rutas nuevas deben agregarse aquí cuando se integren.
+
+| Método | Ruta | Sin token | Cliente | Operativo | Administrador | Permiso aplicado | Respuesta principal |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `GET` | `/api/v1/salud/` | Sí | Sí | Sí | Sí | `AllowAny` | `200 {"estado":"ok","bd":"ok"}`, o `503` si PostgreSQL no responde |
+| `POST` | `/api/v1/auth/registro/` | Sí | Sí | Sí | Sí | `AllowAny` | `201` crea una cuenta pendiente; `400` si los datos no son válidos |
+| `GET` | `/api/schema/` | Sí | Sí | Sí | Sí | Pública (`drf-spectacular`) | `200` con el esquema OpenAPI |
+| `GET` | `/api/docs/` | Sí | Sí | Sí | Sí | Pública (`drf-spectacular`) | `200` con Swagger UI |
+| `GET`, `POST` | `/admin/` y sus rutas internas | No | No¹ | No¹ | No¹ | Autenticación de Django | Administración de usuarios y modelos |
+
+¹ El campo `rol` de `Usuario` no concede acceso al administrador de Django. `/admin/` exige una cuenta con
+`is_staff=True`; las cuentas creadas con `createsuperuser` tienen además `is_superuser=True`.
+
+Para los endpoints de DRF, cualquier vista que no declare permisos hereda `IsAuthenticated`. ST-128 aplicará las
+clases de `comun/permisos.py` cuando una ruta necesite restringirse a un rol concreto o al dueño del recurso.
 
 ### El modelo `Usuario` (T-02)
 
