@@ -69,11 +69,5 @@ jobs:
       - name: Aplicar migraciones
         run: python manage.py migrate --noinput
 
-      - name: Generar llaves RS256 de prueba
-        run: |
-          mkdir -p llaves
-          openssl genrsa -out llaves/privada.pem 2048
-          openssl rsa -in llaves/privada.pem -pubout -out llaves/publica.pem
-
       - name: Correr pruebas
         run: pytest

@@ -1,10 +1,5 @@
 import pytest
-from rest_framework.test import APIClient
 from usuarios.models import Usuario, Estado
-
-@pytest.fixture
-def api_client():
-    return APIClient()
 
 @pytest.fixture
 def usuario_activo(db):
@@ -13,7 +8,7 @@ def usuario_activo(db):
     )
 
 @pytest.mark.django_db
-def test_login_exitoso(api_client, usuario_activo):
+def test_login_exitoso(api_client, usuario_activo, llaves): # <--- 'llaves' agregado
     response = api_client.post('/api/v1/auth/login/', {"email": "activo@ejemplo.com", "password": "Password123"})
     assert response.status_code == 200
     assert "access" in response.data
