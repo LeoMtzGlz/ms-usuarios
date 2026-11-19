@@ -66,7 +66,7 @@ jobs:
       - name: Revisar que no falten migraciones
         run: python manage.py makemigrations --check --dry-run
 
-            - name: Aplicar migraciones
+      - name: Aplicar migraciones
         run: python manage.py migrate --noinput
 
       - name: Generar llaves RS256 de prueba
