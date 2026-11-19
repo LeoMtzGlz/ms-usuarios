@@ -35,7 +35,12 @@ def test_login_cuenta_pendiente(api_client, db):
 
 @pytest.mark.django_db
 def test_login_cuenta_inactiva(api_client, db):
-    Usuario.objects.create_user(email="inactivo@ejemplo.com", password="Password123", estado=Estado.INACTIVO, is_active=False)
+    Usuario.objects.create_user(
+        email="inactivo@ejemplo.com", 
+        password="Password123", 
+        estado=Estado.INACTIVO, 
+        is_active=False
+    )
     response = api_client.post('/api/v1/auth/login/', {"email": "inactivo@ejemplo.com", "password": "Password123"})
     assert response.status_code == 403
     assert response.data["codigo"] == "cuenta_inactiva"
