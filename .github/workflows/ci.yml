@@ -66,10 +66,7 @@ jobs:
       - name: Revisar que no falten migraciones
         run: python manage.py makemigrations --check --dry-run
 
-      - name: Aplicar migraciones
-        run: python manage.py migrate --noinput
-
-              - name: Aplicar migraciones
+            - name: Aplicar migraciones
         run: python manage.py migrate --noinput
 
       - name: Generar llaves RS256 de prueba
@@ -77,9 +74,6 @@ jobs:
           mkdir -p llaves
           openssl genrsa -out llaves/privada.pem 2048
           openssl rsa -in llaves/privada.pem -pubout -out llaves/publica.pem
-
-      - name: Correr pruebas
-        run: pytest
 
       - name: Correr pruebas
         run: pytest
