@@ -6,7 +6,7 @@ from rest_framework import serializers
 
 from comun.roles import Rol
 from comun.validadores import AYUDA_POLITICA_PASSWORD # t-12/st-105
-from usuarios.models import Canal, Estado, Usuario
+from usuarios.models import Canal, Estado, Proposito, Usuario
 from usuarios.privacidad import datos_aceptacion_privacidad
 from usuarios.telefono import normalizar_telefono
 
@@ -114,3 +114,46 @@ class RegistroSerializer(serializers.Serializer):
             "rol": usuario.rol,
             "estado": usuario.estado,
         }
+        
+        # ST-72: activar cuenta
+
+class ActivarSerializer(serializers.Serializer):
+    """HU-03 / ST-72: recibe identificador (correo o teléfono) + código."""
+
+    identificador = serializers.CharField(max_length=254, trim_whitespace=True)
+    codigo = serializers.CharField(max_length=6, min_length=6, trim_whitespace=True)
+
+    def validate(self, datos):
+        identificador = datos["identificador"].strip()
+        codigo = datos["codigo"].strip()
+
+        # Buscar usuario por correo (sin importar mayúsculas) o por teléfono
+        usuario = Usuario.objects.filter(email__iexact=identificador).first()
+        if usuario is None:
+            try:
+                telefono = normalizar_telefono(identificador)
+                usuario = Usuario.objects.filter(telefono=telefono).first()
+            except DjangoValidationError:
+                usuario = None
+
+        if usuario is None:
+            raise serializers.ValidationError({"identificador": ["No existe una cuenta con ese correo o teléfono."]})
+
+        # Guardamos el usuario para que la vista lo use sin volver a buscarlo
+        datos["usuario"] = usuario
+
+        # Validar el código de activación
+        from usuarios.codigos import verificar_codigo
+
+        try:
+            registro = verificar_codigo(usuario, Proposito.ACTIVACION, codigo) 
+        except ValueError as error:
+            codigo_error = str(error)
+            if codigo_error == "codigo_expirado":
+                raise serializers.ValidationError({"codigo": ["El código ya venció. Pide uno nuevo."]})
+            if codigo_error == "codigo_bloqueado":
+                raise serializers.ValidationError({"codigo": ["Demasiados intentos. Pide un código nuevo."]})
+            raise serializers.ValidationError({"codigo": ["Código incorrecto."]})
+
+        datos["registro_codigo"] = registro
+        return datos
