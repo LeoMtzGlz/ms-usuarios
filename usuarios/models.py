@@ -189,3 +189,24 @@ class Dispositivo2FA(models.Model):
 
     def verificar(self, codigo: str) -> bool:
         return pyotp.TOTP(self.secreto).verify(codigo, valid_window=1)
+
+# t-22/st-167 (HU-22): historial de accesos (cada intento de login)
+class RegistroAcceso(models.Model):
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="accesos",
+    )
+    fecha = models.DateTimeField(auto_now_add=True, db_index=True)
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    dispositivo = models.CharField(max_length=120)  # legible: "Chrome 131 en Windows 10"
+    user_agent = models.CharField(max_length=500, blank=True)
+    exitoso = models.BooleanField()
+
+    class Meta:
+        ordering = ["-fecha"]
+        indexes = [models.Index(fields=["usuario", "-fecha"], name="acceso_usuario_fecha_idx")]
+
+    def __str__(self):
+        resultado = "exitoso" if self.exitoso else "fallido"
+        return f"Acceso {resultado} de {self.usuario_id} el {self.fecha:%Y-%m-%d %H:%M}"
