@@ -1,14 +1,15 @@
 """Serializers de la app usuarios."""
-from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
-from django.utils import timezone
 from rest_framework import serializers
 
 from comun.roles import Rol
+from comun.validadores import AYUDA_POLITICA_PASSWORD # t-12/st-105
 from usuarios.models import Canal, Estado, Usuario
+from usuarios.privacidad import datos_aceptacion_privacidad
 from usuarios.telefono import normalizar_telefono
+
 
 CORREO_REGISTRADO = "Este correo ya está registrado."
 TELEFONO_REGISTRADO = "Este teléfono ya está registrado."
@@ -29,7 +30,10 @@ class RegistroSerializer(serializers.Serializer):
     apellidos = serializers.CharField(max_length=150, trim_whitespace=True)
     correo = serializers.EmailField(max_length=254)
     telefono = serializers.CharField(max_length=30)
-    password = serializers.CharField(write_only=True, trim_whitespace=False, style={"input_type": "password"})
+    password = serializers.CharField(write_only=True, 
+                                     trim_whitespace=False, 
+                                     style={"input_type": "password"}, 
+                                     help_text=AYUDA_POLITICA_PASSWORD) # t-12/st-105
     password_confirmacion = serializers.CharField(
         write_only=True, trim_whitespace=False, style={"input_type": "password"}
     )
@@ -89,8 +93,8 @@ class RegistroSerializer(serializers.Serializer):
                     canal_preferido=datos["canal_preferido"],
                     rol=Rol.CLIENTE,
                     estado=Estado.PENDIENTE,
-                    acepto_privacidad_en=timezone.now(),
-                    version_privacidad=settings.VERSION_AVISO_PRIVACIDAD,
+                    **datos_aceptacion_privacidad(),  # fecha actual y versión vigente (t-02/st-67)
+
                 )
         except IntegrityError as error:
             # Dos registros simultáneos con el mismo dato: lo frena la restricción única de la base
