@@ -20,7 +20,9 @@ Ya está lista la **base técnica**: el proyecto, las pruebas automáticas, el m
 
 > T-06 va antes que T-02 porque las pruebas del modelo usan pytest y factory_boy.
 
-Hoy hay **23 pruebas** y todas pasan.
+Durante la verificación inicial de la ST-31 se ejecutaron **137 pruebas** exitosas, tanto localmente como mediante Docker. Después de actualizar la rama con `development`, se verificaron **189 pruebas exitosas** en el entorno local.
+
+Para consultar los procedimientos de ejecución, configuración y solución de problemas, revisa la [guía de ejecución de pruebas](docs/T-06/ST-31-documentar-pruebas.md).
 
 ---
 
@@ -194,7 +196,7 @@ Los mensajes de error están en español y siguen el formato de `comun/errores.p
 ## Pruebas y calidad
 
 ```bash
-docker compose run --rm api pytest              # las 23 pruebas, contra PostgreSQL
+docker compose run --rm api pytest              # ejecuta todas las pruebas contra PostgreSQL
 docker compose run --rm api pytest usuarios -v  # solo una app, con detalle
 docker compose run --rm api ruff check .        # estilo
 ```

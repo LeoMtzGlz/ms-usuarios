@@ -2,8 +2,8 @@
 
 ## ST-31. Documentar cómo ejecutar las pruebas
 
-**Estado:** En desarrollo  
-**Responsable:** l22420423@jiquilpan.tecnm.mx
+**Estado:** Completada
+**Responsable:** Claudia Maritza Santibáñez García (l22420423)
 
 ### 1. Descripción
 
@@ -33,7 +33,15 @@ Para ejecutarlas mediante Docker se requiere:
 
 #### 3.1. Preparar el entorno virtual
 
-Desde la raíz del repositorio, activar el entorno virtual en PowerShell:
+Se recomienda utilizar **Python 3.12**, versión configurada en el entorno de integración continua del proyecto.
+
+Desde la raíz del repositorio, crear el entorno virtual en PowerShell si todavía no existe:
+
+```powershell
+py -3.12 -m venv .venv
+```
+
+Activar el entorno virtual:
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
@@ -103,11 +111,19 @@ pytest utiliza `pytest.ini` para cargar `config.settings` y descubrir las prueba
 
 #### 4.1. Preparar los servicios
 
+Antes de ejecutar los servicios, verificar que exista el archivo `.env` en la raíz del proyecto y que contenga las variables de entorno necesarias.
+
+El servicio `api` utiliza `env_file` en `docker-compose.yml` para cargar estas variables dentro del contenedor.
+
+La configuración de `DATABASE_URL` debe corresponder al entorno de ejecución. Cuando `.env` utiliza `localhost:5433` para Windows, los comandos de Docker pueden sobrescribir esta variable con `db:5432` mediante la opción `-e`, sin modificar el archivo original.
+
 Construir la imagen de la API:
 
 ```powershell
 docker compose build
 ```
+
+**Nota:** Es necesario reconstruir la imagen cuando cambien las dependencias de `requirements.txt` o las instrucciones del `Dockerfile`, para que el contenedor utilice la configuración actualizada.
 
 Iniciar PostgreSQL:
 
@@ -165,6 +181,14 @@ Resultado esperado:
 All checks passed!
 ```
 
+También es posible ejecutar esta comprobación desde Docker:
+
+```powershell
+docker compose run --rm api python -m ruff check .
+```
+
+El resultado esperado es el mismo que en la ejecución local.
+
 #### 5.2. Verificación de migraciones
 
 Ejecutar:
@@ -178,6 +202,14 @@ Resultado esperado cuando no existen cambios pendientes:
 ```text
 No changes detected
 ```
+
+Para ejecutar esta comprobación desde Docker, utilizando la conexión interna a PostgreSQL:
+
+```powershell
+docker compose run --rm -e DATABASE_URL=postgres://ms_user:ms_password@db:5432/ms_usuarios api python manage.py makemigrations --check --dry-run
+```
+
+La variable `DATABASE_URL` se sobrescribe únicamente durante la ejecución del contenedor, sin modificar el archivo `.env` local.
 
 Estas comprobaciones también forman parte del workflow de integración continua.
 
@@ -266,14 +298,43 @@ Si `makemigrations --check --dry-run` detecta modificaciones, revisar los cambio
 
 No modificar ni eliminar migraciones existentes sin revisar previamente las dependencias con el equipo.
 
+#### 7.5. GitHub Actions: Expected — Waiting for status to be reported
+
+En algunos Pull Requests, el check requerido `pruebas` puede mostrar el estado:
+
+```text
+Expected — Waiting for status to be reported
+```
+
+Este mensaje indica que GitHub todavía no ha recibido el resultado del check requerido para el Pull Request.
+
+**Posibles causas:**
+
+- El Pull Request no ha generado una ejecución reciente del workflow.
+- El workflow fue agregado a `development` después de la creación del Pull Request y todavía no se ha ejecutado nuevamente.
+- Existen conflictos que impiden generar correctamente el commit de integración.
+- El nombre del check requerido no coincide con el publicado por GitHub Actions.
+
+**Solución:**
+
+1. Revisar la pestaña **Actions** del repositorio para comprobar si existe una ejecución del workflow.
+2. Verificar que el Pull Request no tenga conflictos.
+3. Si es necesario, actualizar la rama de trabajo con `development` y subir los cambios.
+4. Comprobar que el check `pruebas` se ejecute y finalice correctamente.
+
+Para obtener más información sobre la configuración de las reglas de protección y los checks requeridos, consultar:
+
+[ST-30 — Proteger la rama principal](ST-30-proteger-rama-principal.md).
+
 ### 8. Resultados de las pruebas
 
 Durante la verificación de la ST-31 se obtuvieron los siguientes resultados:
 
 | Comprobación | Resultado |
 |---|---|
-| Ejecución local con pytest | 137 pruebas correctas |
-| Ejecución mediante Docker | 137 pruebas correctas |
+| Ejecución local inicial con pytest | 137 pruebas correctas |
+| Ejecución inicial mediante Docker | 137 pruebas correctas |
+| Ejecución local después de actualizar `development` | 189 pruebas correctas |
 | Ruff | Sin errores |
 | Verificación de migraciones | Sin cambios pendientes |
 
@@ -287,4 +348,4 @@ Se verificaron y documentaron los procedimientos para ejecutar las pruebas autom
 
 También se documentaron las comprobaciones adicionales utilizadas en GitHub Actions y los errores de configuración identificados durante la ejecución.
 
-**Responsable de la actividad:** l22420423@jiquilpan.tecnm.mx.
+**Responsable de la actividad:** Claudia Maritza Santibáñez García (l22420423).
