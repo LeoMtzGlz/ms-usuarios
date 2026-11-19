@@ -58,8 +58,9 @@ def test_el_acceso_dura_15_minutos_y_la_renovacion_7_dias(llaves):
     renovacion = RefreshToken.for_user(UsuarioFactory())
     acceso = renovacion.access_token
 
-    assert acceso["exp"] - acceso["iat"] == 15 * 60
-    assert renovacion["exp"] - renovacion["iat"] == 7 * 24 * 60 * 60
+    # ±1 s: exp e iat pueden caer en segundos distintos y daba 899 == 900 de vez en cuando
+    assert abs((acceso["exp"] - acceso["iat"]) - 15 * 60) <= 1
+    assert abs((renovacion["exp"] - renovacion["iat"]) - 7 * 24 * 60 * 60) <= 1
 
 
 def test_otro_servicio_valida_el_token_solo_con_la_llave_publica(llaves):

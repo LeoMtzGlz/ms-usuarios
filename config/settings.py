@@ -152,6 +152,7 @@ REST_FRAMEWORK = {
         # t-13/st-123: todo endpoint exige autenticación salvo que declare AllowAny.
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
+        "comun.permisos.ContrasenaDefinitiva",  # t-12/st-116: 403 mientras la contraseña sea temporal
         ),
 }
 
@@ -247,6 +248,16 @@ SIMPLE_JWT = {
 
 # t-07/st-36: Canal por defecto para las notificaciones
 CANAL_NOTIFICACIONES = env("CANAL_NOTIFICACIONES", default="consola")
+
+# T-08/ST-41: Configuración del correo electrónico
+
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = env("EMAIL_HOST", default="smtp.gmail.com")
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="")
 
 # hu-25/st-183: configuración de bloqueo por intentos fallidos
 AXES_FAILURE_LIMIT = 5

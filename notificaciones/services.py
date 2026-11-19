@@ -1,17 +1,41 @@
 from django.conf import settings
 from .models import Notificacion, CanalNotificacion
-from .canales import CanalConsola
+from .canales import Canal, CanalConsola, CanalCorreo
+from .plantillas import ALIAS_PLANTILLAS, PLANTILLAS_CORREO, renderizar_plantilla_correo
+
+# t-10/st-51: clase que envía cada canal. T-09 agrega aquí CanalWhatsApp.
+CLASES_CANAL = {
+    CanalNotificacion.CONSOLA: CanalConsola,
+    CanalNotificacion.CORREO: CanalCorreo,
+}
 
 
-def obtener_canal() -> CanalConsola:
-    """Devuelve el canal configurado en los settings."""
-    canal_setting = getattr(settings, "CANAL_NOTIFICACIONES", "consola")
-
+def obtener_canal(canal: str | None = None) -> Canal:
+    """Devuelve el canal por el que sale una notificación."""
+    canal_setting = getattr(settings, "CANAL_NOTIFICACIONES", CanalNotificacion.CONSOLA)
     if canal_setting == CanalNotificacion.CONSOLA:
         return CanalConsola()
 
-    # Aquí Alondra (T-08) y quien haga WhatsApp (T-09) agregarán sus clases
-    return CanalConsola()
+    canal = canal or canal_setting
+    clase = CLASES_CANAL.get(canal)
+    if clase is None:
+        raise ValueError(f"No hay canal disponible para: {canal}")
+    return clase()
+
+
+# T-08/ST-42: Prepara asunto, texto plano y HTML desde las 5 plantillas de correo
+def preparar_contenido_notificacion(notificacion: Notificacion) -> tuple[str, str, str | None]:
+    """
+    Devuelve (asunto, texto, html) listos para pasar a canal.enviar(...).
+    Si la plantilla pertenece a PLANTILLAS_CORREO (o sus alias), renderiza su versión HTML y texto plano.
+    """
+    clave = ALIAS_PLANTILLAS.get(notificacion.plantilla, notificacion.plantilla)
+    if clave in PLANTILLAS_CORREO:
+        return renderizar_plantilla_correo(clave, notificacion.contexto)
+
+    asunto = notificacion.contexto.get("asunto", f"Notificación: {notificacion.plantilla}")
+    texto = notificacion.contexto.get("texto", str(notificacion.contexto))
+    return asunto, texto, None
 
 
 def notificar(usuario, plantilla: str, contexto: dict, canal: str = None) -> Notificacion:

@@ -1,3 +1,4 @@
+import re
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 
@@ -24,21 +25,28 @@ PLANTILLAS_CORREO = {
     },
 }
 
+# Alias de compatibilidad con llamadas existentes en el proyecto (ej. test_services.py)
+ALIAS_PLANTILLAS = {
+    "codigo_activacion": "activacion",
+}
+
 
 def renderizar_plantilla_correo(nombre_plantilla: str, contexto: dict | None = None) -> tuple[str, str, str]:
     """
     Renderiza una de las 5 plantillas de correo.
     Retorna: (asunto, texto_plano, html)
     """
-    if nombre_plantilla not in PLANTILLAS_CORREO:
+    clave = ALIAS_PLANTILLAS.get(nombre_plantilla, nombre_plantilla)
+
+    if clave not in PLANTILLAS_CORREO:
         raise ValueError(f"Plantilla de correo desconocida: '{nombre_plantilla}'")
 
-    config = PLANTILLAS_CORREO[nombre_plantilla]
+    config = PLANTILLAS_CORREO[clave]
     ctx = contexto or {}
 
     html = render_to_string(config["template"], ctx)
-    # Limpiamos espacios excesivos al convertir HTML a texto plano
-    lineas = [linea.strip() for linea in strip_tags(html).splitlines() if linea.strip()]
+    html_sin_estilos = re.sub(r"<style.*?>.*?</style>", "", html, flags=re.DOTALL)
+    lineas = [linea.strip() for linea in strip_tags(html_sin_estilos).splitlines() if linea.strip()]
     texto_plano = "\n".join(lineas)
     asunto = ctx.get("asunto", config["asunto_default"])
 
