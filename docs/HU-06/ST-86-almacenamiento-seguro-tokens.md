@@ -33,9 +33,11 @@ El refresh es el más delicado: quien lo tenga puede seguir obteniendo access nu
 | Token | Dónde | Por qué |
 |---|---|---|
 | access | **Solo en memoria**: una variable del estado de la app (store, contexto), nunca persistida | Dura 15 minutos; si se recarga la página se pide otro con el refresh |
-| refresh | **Cookie `HttpOnly` + `Secure` + `SameSite=Strict`** (o `Lax` si hace falta navegación entre sitios), con `Path` limitado a la ruta de renovación | JavaScript no puede leerla; el navegador la envía solo por HTTPS y solo al mismo sitio |
+| refresh | **Cookie `HttpOnly` + `Secure` + `SameSite=Strict`** (o `Lax` si hace falta navegación entre sitios), con un `Path` que cubra las rutas de autenticación del gateway/BFF que usan el refresh (renovar y cerrar sesión) | JavaScript no puede leerla; el navegador la envía solo por HTTPS, solo al mismo sitio y solo a esas rutas |
 
 - La cookie la pone el **gateway o un backend-for-frontend (BFF)**, no el código del navegador. JavaScript nunca debe tener el refresh en sus manos.
+- La cookie vive **entre el navegador y el gateway/BFF**. La API de ms-usuarios **nunca recibe el refresh como cookie**: el gateway/BFF lo lee de la cookie y lo manda a la API en el **cuerpo** de la petición.
+- **`Path` de la cookie:** debe cubrir las rutas del gateway/BFF que necesitan el refresh, **renovar y cerrar sesión**, por ejemplo con un prefijo común como `/auth/`, y no todo el sitio (`/`). Si se limita solo a renovar, el logout no recibe la cookie y no puede invalidar el refresh.
 - **Protección CSRF:** como el navegador envía la cookie automáticamente, el endpoint que la usa debe protegerse contra CSRF: `SameSite=Strict`/`Lax` más un token CSRF (patrón *double submit* o encabezado propio como `X-CSRF-Token`) y validación de `Origin`.
 
 #### Alternativa: sesión del gateway
@@ -56,8 +58,8 @@ Nunca en `UserDefaults`, `SharedPreferences` sin cifrar, archivos ni bases local
 | Momento | Petición | Estado |
 |---|---|---|
 | Iniciar sesión | `POST /api/v1/auth/login/` → `{access, refresh}` | En desarrollo (HU-05) |
-| Vence el access (401 `token_invalido`) | `POST /api/v1/auth/token/renovar/` con el refresh → `{access, refresh}` | En desarrollo (ST-90) |
-| Cerrar sesión | `POST /api/v1/auth/logout/` con el refresh | Pendiente (HU-08) |
+| Vence el access (401 `token_invalido`) | `POST /api/v1/auth/token/renovar/` con el refresh en el cuerpo → `{access, refresh}` | Endpoint en desarrollo (ST-90); la rotación y la lista negra ya están activas (ST-89) |
+| Cerrar sesión | `POST /api/v1/auth/logout/` con el refresh en el cuerpo | Pendiente (HU-08) |
 
 > Las rutas vienen del backlog; **login y renovar todavía están en desarrollo**, así que pueden ajustarse al implementarse. Hoy en `/api/v1/auth/` solo existe `registro/`.
 
@@ -66,9 +68,16 @@ Nunca en `UserDefaults`, `SharedPreferences` sin cifrar, archivos ni bases local
 3. Si la API responde 401, renovar **una sola vez** y repetir la petición. Si varias peticiones fallan al mismo tiempo, hacer una sola renovación y que las demás esperen su resultado.
 4. Al cerrar sesión, llamar a logout y borrar el access de memoria y el refresh del almacenamiento.
 
+**Con el refresh en cookie (gateway/BFF):**
+
+- **Renovar:** el BFF lee el refresh de la cookie, llama a `POST /api/v1/auth/token/renovar/` con el refresh en el cuerpo y **reemplaza la cookie** con el refresh nuevo que devuelve la API (por la rotación). Al frontend solo le entrega el access nuevo.
+- **Cerrar sesión:** el BFF lee el refresh de la cookie, llama a `POST /api/v1/auth/logout/` con el refresh en el cuerpo para ponerlo en lista negra y **borra la cookie** con `Set-Cookie` usando `Max-Age=0` y el **mismo `Path`**. El frontend borra el access de memoria.
+
 ### 6. Rotación y lista negra (ST-89)
 
-Con ST-89, la renovación **rota** el refresh:
+La rotación y la lista negra **ya están activas** en `development` (ST-89, PR #39): `config/settings.py` tiene `ROTATE_REFRESH_TOKENS` y `BLACKLIST_AFTER_ROTATION` en `True` y la app `token_blacklist` instalada. Lo que **todavía no existe** es el endpoint propio `POST /api/v1/auth/token/renovar/` y su serializer, que conservará la duración de "recordarme"; eso corresponde a **ST-90**.
+
+Con esa configuración, toda renovación **rota** el refresh:
 
 - Cada renovación entrega un **refresh nuevo** y el anterior queda en **lista negra**: deja de servir.
 - El cliente debe **reemplazar siempre** el refresh guardado por el nuevo y **nunca reutilizar** el anterior. Usarlo otra vez responde error.
@@ -78,7 +87,7 @@ Con ST-89, la renovación **rota** el refresh:
 
 - Para el cliente **solo cambia la duración del refresh**: 7 días con "recordarme" y 1 día sin él. El access sigue durando 15 minutos.
 - **No cambia dónde se guarda**: con o sin "recordarme", el refresh va en cookie HttpOnly, sesión del gateway o almacenamiento seguro del móvil. "Recordarme" nunca es motivo para usar `localStorage`.
-- Con la rotación, el refresh renovado debe conservar la duración elegida en el login (lo resuelve el serializer de ST-90).
+- La rotación ya está activa (ST-89), así que el refresh renovado debe conservar la duración elegida en el login. Eso lo resolverá el serializer propio de renovación de ST-90, que todavía no existe.
 
 ### 8. Sí / No
 
@@ -86,6 +95,7 @@ Con ST-89, la renovación **rota** el refresh:
 |---|---|
 | Access solo en memoria | Access o refresh en `localStorage` o `sessionStorage` |
 | Refresh en cookie `HttpOnly` + `Secure` + `SameSite`, puesta por el gateway o BFF | Refresh en una cookie que JavaScript pueda leer, o puesta desde el navegador |
+| Path de la cookie que cubra renovar y logout | Path limitado solo a renovar (el logout no recibiría la cookie) |
 | Keychain / Keystore / EncryptedSharedPreferences en móvil | `UserDefaults`, `SharedPreferences` sin cifrar o archivos en texto plano |
 | Reemplazar el refresh después de cada renovación | Reutilizar un refresh ya usado |
 | Ante error al renovar, mandar a iniciar sesión | Reintentar la renovación en bucle |
