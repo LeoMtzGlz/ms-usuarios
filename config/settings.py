@@ -1,4 +1,3 @@
-
 from datetime import timedelta
 from pathlib import Path
 
@@ -22,8 +21,6 @@ SECRET_KEY = env("SECRET_KEY")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 DOMINIO_CORREO_INSTITUCIONAL = env("DOMINIO_CORREO_INSTITUCIONAL", default="@jiquilpan.tecnm.mx")
 
-# hu-02/st-65: versión del aviso de privacidad que acepta quien se registra
-VERSION_AVISO_PRIVACIDAD = env("VERSION_AVISO_PRIVACIDAD", default="1.0")
 #t-30/st-205
 CLAVE_CIFRADO_2FA = env("CLAVE_CIFRADO_2FA", default="")
 ISSUER_2FA = "svc-usuarios"
@@ -266,3 +263,7 @@ AXES_RESET_ON_SUCCESS = True
 
 # t-03/st-71: vigencia de los codigos de verificacion, en minutos
 CODIGO_MINUTOS = env.int("CODIGO_MINUTOS", default=10)
+
+# t-29/st-200: Configuración del aviso de privacidad
+VERSION_AVISO_PRIVACIDAD = env('VERSION_AVISO_PRIVACIDAD', default='2026-10')
+URL_AVISO_PRIVACIDAD = env('URL_AVISO_PRIVACIDAD', default="")
