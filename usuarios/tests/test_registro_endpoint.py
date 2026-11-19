@@ -119,7 +119,7 @@ def test_solo_acepta_post(api_client):
 
 # Transacción
 
-@pytest.mark.parametrize("falla_en", ["usuarios.views.notificar", "usuarios.views.crear_codigo"])
+@pytest.mark.parametrize("falla_en", ["usuarios.codigos.notificar", "usuarios.codigos.crear_codigo"])
 def test_si_falla_el_codigo_o_la_notificacion_no_queda_la_cuenta(api_client, falla_en):
     api_client.raise_request_exception = False
     with mock.patch(falla_en, side_effect=RuntimeError("falla simulada")):
