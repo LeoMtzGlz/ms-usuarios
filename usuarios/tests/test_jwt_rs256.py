@@ -11,7 +11,6 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from django.conf import settings
 from rest_framework.test import APIClient
-from rest_framework_simplejwt import state
 from rest_framework_simplejwt.backends import TokenBackend
 from rest_framework_simplejwt.exceptions import TokenBackendError
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -34,15 +33,6 @@ def _generar_par_de_llaves():
         .decode()
     )
     return privada_pem, publica_pem
-
-
-@pytest.fixture
-def llaves(monkeypatch):
-    """Firma y verifica con un par temporal en lugar del de llaves/."""
-    privada, publica = _generar_par_de_llaves()
-    backend = TokenBackend("RS256", signing_key=privada, verifying_key=publica, issuer="svc-usuarios")
-    monkeypatch.setattr(state, "token_backend", backend)
-    return privada, publica
 
 
 def test_configuracion_de_simple_jwt():
