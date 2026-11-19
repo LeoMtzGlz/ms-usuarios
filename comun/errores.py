@@ -54,6 +54,16 @@ class CodigoExpirado(exceptions.ValidationError):
     default_detail = "El código ya venció o ya se usó. Pide uno nuevo."
     default_code = "codigo_expirado"
 
+#t-30/st-206
+class DosFactoresYaActivo(exceptions.ValidationError):
+    default_detail = "La verificación en dos pasos ya está activa en tu cuenta."
+    default_code = "dos_factores_ya_activo"
+
+
+class DosFactoresNoIniciado(exceptions.ValidationError):
+    default_detail = "Primero solicita la activación de la verificación en dos pasos."
+    default_code = "dos_factores_no_iniciado"
+
 # Códigos genéricos por tipo de excepción de DRF
 CODIGOS_POR_TIPO = [
     (exceptions.ValidationError, "datos_invalidos"),

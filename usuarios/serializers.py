@@ -114,3 +114,11 @@ class RegistroSerializer(serializers.Serializer):
             "rol": usuario.rol,
             "estado": usuario.estado,
         }
+
+class CodigoDosFactoresSerializer(serializers.Serializer):
+    """T-30 / ST-206: código de 6 dígitos de la app autenticadora."""
+
+    codigo = serializers.RegexField(
+        r"^\d{6}$",
+        error_messages={"invalid": "El código debe tener 6 dígitos."},
+    )
