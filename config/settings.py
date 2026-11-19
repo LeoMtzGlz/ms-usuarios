@@ -158,15 +158,28 @@ LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {"simple": {"format": "{asctime} {levelname} {name} {message}", "style": "{"}},
-    "filters": {"datos_sensibles": {"()": "comun.filtros_logging.FiltrosDatosSensibles"}},
+    "filters": {
+        "datos_sensibles": {
+            "()": "comun.filtros_logging.FiltrosDatosSensibles"
+        },
+        # El archivo además oculta cualquier JWT y código de seis dígitos.
+        "datos_sensibles_estricto": {
+            "()": "comun.filtros_logging.FiltrosDatosSensibles",
+            "estricto": True,
+        },
+    },
     "handlers": {
-        "consola": {"class": "logging.StreamHandler", "formatter": "simple", "filters": ["datos_sensibles"]},
+        "consola": {
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+            "filters": ["datos_sensibles"],
+        },
         "archivo": {
             "class": "logging.FileHandler",
             "filename": str(LOG_DIR / "seguridad.log"),
             "encoding": "utf-8",
             "formatter": "simple",
-            "filters": ["datos_sensibles"],
+            "filters": ["datos_sensibles_estricto"],
             "delay": True,
         },
     },

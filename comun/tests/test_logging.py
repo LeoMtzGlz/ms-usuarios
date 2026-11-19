@@ -1,3 +1,4 @@
+import sys
 import logging
 
 import pytest
@@ -66,6 +67,43 @@ def test_handlers_de_logging_aplican_el_filtro():
     handlers = settings.LOGGING["handlers"]
 
     assert {"consola", "archivo"} <= set(handlers)
+    assert "datos_sensibles" in handlers["consola"]["filters"]
+    assert "datos_sensibles_estricto" in handlers["archivo"]["filters"]
 
-    for nombre in ("consola", "archivo"):
-        assert "datos_sensibles" in handlers[nombre]["filters"]
+
+def test_el_archivo_oculta_codigos_sueltos_y_jwt_pero_la_consola_no():
+    mensaje = (
+        "Mensaje: tu código de activación es 483920 "
+        "· refresh eyJhbGci.eyJzdWIi.Zmlyb2E"
+    )
+    registro = logging.LogRecord(
+        "svc.notificaciones", logging.INFO, __file__, 1, mensaje, (), None
+    )
+
+    para_archivo = FiltrosDatosSensibles(estricto=True).filter(registro)
+
+    assert isinstance(para_archivo, logging.LogRecord)
+    assert "483920" not in para_archivo.getMessage()
+    assert "eyJ" not in para_archivo.getMessage()
+    assert "483920" in registro.getMessage()
+
+
+def test_tambien_limpia_los_tracebacks():
+    try:
+        raise ValueError("password=Secreta123")
+    except ValueError:
+
+        registro = logging.LogRecord(
+            "svc",
+            logging.ERROR,
+            __file__,
+            1,
+            "falló",
+            (),
+            sys.exc_info(),
+        )
+
+    FiltrosDatosSensibles().filter(registro)
+
+    assert registro.exc_text is not None
+    assert "Secreta123" not in registro.exc_text
