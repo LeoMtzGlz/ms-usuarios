@@ -8,8 +8,8 @@ from rest_framework.views import APIView
 
 from comun.eventos import registrar_evento
 from usuarios.codigos import generar_codigo
-from usuarios.models import Proposito
-from usuarios.serializers import RegistroSerializer
+from usuarios.models import Canal, Estado, Proposito
+from usuarios.serializers import ActivarSerializer, RegistroSerializer
 
 
 class RegistroView(APIView):
@@ -35,3 +35,37 @@ class RegistroView(APIView):
 
         registrar_evento("registro", usuario, request, canal=usuario.canal_preferido)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
+    # ST-72: activar cuenta
+
+class ActivarCuentaView(APIView):
+    """HU-03 / ST-72: POST /api/v1/auth/activar/"""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []  # activación pública: un token viejo no debe dar 401
+
+    @extend_schema(request=ActivarSerializer, responses={200: ActivarSerializer}, tags=["auth"])
+    def post(self, request):
+        serializer = ActivarSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        usuario = serializer.validated_data["usuario"]
+        registro = serializer.validated_data["registro_codigo"]
+
+        # Activar la cuenta
+        usuario.estado = Estado.ACTIVO
+        if registro.canal == Canal.CORREO:
+            usuario.email_verificado = True
+        elif registro.canal == Canal.WHATSAPP:
+            usuario.telefono_verificado = True
+        usuario.save(update_fields=["estado", "email_verificado", "telefono_verificado"])
+
+        return Response(
+            {
+                "id": str(usuario.id),
+                "correo": usuario.email,
+                "estado": usuario.estado,
+                "mensaje": "Cuenta activada.",
+            },
+            status=status.HTTP_200_OK,
+        )
