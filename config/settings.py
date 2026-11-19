@@ -152,6 +152,7 @@ REST_FRAMEWORK = {
         # t-13/st-123: todo endpoint exige autenticación salvo que declare AllowAny.
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
+        "comun.permisos.ContrasenaDefinitiva",  # t-12/st-116: 403 mientras la contraseña sea temporal
         ),
 }
 
