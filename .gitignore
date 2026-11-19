@@ -9,3 +9,6 @@ staticfiles/
 *.pem
 llaves/*
 !llaves/.gitkeep
+
+# hu-27/st-193: evitar subir archivos de registro
+logs/

@@ -151,13 +151,41 @@ REST_FRAMEWORK = {
        ),
 }
 
+# hu-27/st-193: directorio para los registros de seguridad
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {"simple": {"format": "{asctime} {levelname} {name} {message}", "style": "{"}},
-    "handlers": {"consola": {"class": "logging.StreamHandler", "formatter": "simple"}},
+    "filters": {
+        "datos_sensibles": {
+            "()": "comun.filtros_logging.FiltrosDatosSensibles"
+        },
+        # El archivo además oculta cualquier JWT y código de seis dígitos.
+        "datos_sensibles_estricto": {
+            "()": "comun.filtros_logging.FiltrosDatosSensibles",
+            "estricto": True,
+        },
+    },
+    "handlers": {
+        "consola": {
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+            "filters": ["datos_sensibles"],
+        },
+        "archivo": {
+            "class": "logging.FileHandler",
+            "filename": str(LOG_DIR / "seguridad.log"),
+            "encoding": "utf-8",
+            "formatter": "simple",
+            "filters": ["datos_sensibles_estricto"],
+            "delay": True,
+        },
+    },
     "loggers": {
-        "svc": {"handlers": ["consola"], "level": env("LOG_LEVEL", default="INFO"), "propagate": False},
+        "svc": {"handlers": ["consola", "archivo"], "level": env("LOG_LEVEL", default="INFO"), "propagate": False},
     },
 }
 
