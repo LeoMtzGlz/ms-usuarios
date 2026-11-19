@@ -63,3 +63,30 @@ def test_bloqueo_axes_usa_formato_estandar():
         "mensaje": "Demasiados intentos fallidos. Tu cuenta está bloqueada 15 minutos.",
         "campos": {},
     }
+
+# hu-25/st-184: el bloqueo por DRF responde con el formato estándar
+def test_bloqueo_por_drf_responde_403_estandar(client):
+    from usuarios.tests.factories import PASSWORD_PRUEBA, UsuarioFactory
+
+    usuario = UsuarioFactory()
+
+    for _ in range(4):
+        respuesta = client.post(
+            "/login/",
+            {"email": usuario.email, "password": "mala"},
+        )
+        assert respuesta.status_code == 401
+
+    quinto = client.post(
+        "/login/",
+        {"email": usuario.email, "password": "mala"},
+    )
+    correcta = client.post(
+        "/login/",
+        {"email": usuario.email, "password": PASSWORD_PRUEBA},
+    )
+
+    for respuesta in (quinto, correcta):
+        assert respuesta.status_code == 403
+        assert respuesta.json()["codigo"] == "cuenta_bloqueada"
+        assert set(respuesta.json()) == {"codigo", "mensaje", "campos"}
