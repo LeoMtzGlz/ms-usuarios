@@ -149,6 +149,10 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
        ),
+        # t-13/st-123: todo endpoint exige autenticación salvo que declare AllowAny.
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticated",
+        ),
 }
 
 # hu-27/st-193: directorio para los registros de seguridad
