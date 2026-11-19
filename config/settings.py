@@ -221,3 +221,6 @@ AXES_FAILURE_LIMIT = 5
 AXES_COOLOFF_TIME = timedelta(minutes=15)
 AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
 AXES_RESET_ON_SUCCESS = True
+
+# t-03/st-71: vigencia de los codigos de verificacion, en minutos
+CODIGO_MINUTOS = env.int("CODIGO_MINUTOS", default=10)
