@@ -29,8 +29,10 @@ def sesion():
 
 def codigo_incorrecto(secreto):
     totp = pyotp.TOTP(secreto)
-    validos = {totp.at(ahora) for ahora in (totp.timecode and [])} or set()
-    return next(c for c in ("000000", "111111", "222222") if not totp.verify(c, valid_window=1))
+    return next(
+        c for c in ("000000", "111111", "222222")
+        if not totp.verify(c, valid_window=1)
+    )
 
 
 def test_activar_exige_sesion():
