@@ -149,15 +149,47 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
        ),
+        # t-13/st-123: todo endpoint exige autenticación salvo que declare AllowAny.
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticated",
+        ),
 }
+
+# hu-27/st-193: directorio para los registros de seguridad
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {"simple": {"format": "{asctime} {levelname} {name} {message}", "style": "{"}},
-    "handlers": {"consola": {"class": "logging.StreamHandler", "formatter": "simple"}},
+    "filters": {
+        "datos_sensibles": {
+            "()": "comun.filtros_logging.FiltrosDatosSensibles"
+        },
+        # El archivo además oculta cualquier JWT y código de seis dígitos.
+        "datos_sensibles_estricto": {
+            "()": "comun.filtros_logging.FiltrosDatosSensibles",
+            "estricto": True,
+        },
+    },
+    "handlers": {
+        "consola": {
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+            "filters": ["datos_sensibles"],
+        },
+        "archivo": {
+            "class": "logging.FileHandler",
+            "filename": str(LOG_DIR / "seguridad.log"),
+            "encoding": "utf-8",
+            "formatter": "simple",
+            "filters": ["datos_sensibles_estricto"],
+            "delay": True,
+        },
+    },
     "loggers": {
-        "svc": {"handlers": ["consola"], "level": env("LOG_LEVEL", default="INFO"), "propagate": False},
+        "svc": {"handlers": ["consola", "archivo"], "level": env("LOG_LEVEL", default="INFO"), "propagate": False},
     },
 }
 
@@ -216,8 +248,21 @@ SIMPLE_JWT = {
 # t-07/st-36: Canal por defecto para las notificaciones
 CANAL_NOTIFICACIONES = env("CANAL_NOTIFICACIONES", default="consola")
 
+# T-08/ST-41: Configuración del correo electrónico
+
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = env("EMAIL_HOST", default="smtp.gmail.com")
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="")
+
 # hu-25/st-183: configuración de bloqueo por intentos fallidos
 AXES_FAILURE_LIMIT = 5
 AXES_COOLOFF_TIME = timedelta(minutes=15)
 AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
 AXES_RESET_ON_SUCCESS = True
+
+# t-03/st-71: vigencia de los codigos de verificacion, en minutos
+CODIGO_MINUTOS = env.int("CODIGO_MINUTOS", default=10)

@@ -1,6 +1,9 @@
 import logging
 from abc import ABC, abstractmethod
 
+from django.core.mail import EmailMultiAlternatives
+from django.conf import settings
+
 logger = logging.getLogger("svc.notificaciones")
 
 
@@ -22,3 +25,19 @@ class CanalConsola(Canal):
         logger.info("Asunto: %s", asunto)
         logger.info("Mensaje: %s", texto)
         logger.info("-------------------------")
+
+# T-08/ST-41: Crear la clase CanalCorreo para enviar notificaciones por correo electrónico
+class CanalCorreo(Canal):
+    """Canal para enviar notificaciones por correo electrónico."""
+
+    def enviar(self, destino: str, asunto: str, texto: str) -> None:
+        mensaje = EmailMultiAlternatives(
+            subject=asunto,
+            body=texto,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[destino],
+        )
+
+        mensaje.send(fail_silently=False)
+
+        logger.info("Correo enviado correctamente a: %s", destino)
