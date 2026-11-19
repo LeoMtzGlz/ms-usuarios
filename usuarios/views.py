@@ -6,6 +6,11 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+# --- Imports para el Login (ST-82) ---
+from rest_framework_simplejwt.views import TokenObtainPairView
+from usuarios.tokens import CustomTokenObtainPairSerializer
+# -------------------------------------
+
 from comun.eventos import registrar_evento
 from usuarios.codigos import generar_codigo
 from usuarios.models import Proposito
@@ -22,7 +27,7 @@ class RegistroView(APIView):
     """
 
     permission_classes = [AllowAny]
-    authentication_classes = []  # registro público: un token viejo o inválido no debe dar 401
+    authentication_classes = []  
 
     @extend_schema(request=RegistroSerializer, responses={201: RegistroSerializer}, tags=["auth"])
     def post(self, request):
@@ -30,8 +35,13 @@ class RegistroView(APIView):
         serializer.is_valid(raise_exception=True)
 
         with transaction.atomic():
-            usuario = serializer.save()  # Usuario.objects.create_user(...)
+            usuario = serializer.save()
             generar_codigo(usuario, Proposito.ACTIVACION)
 
         registrar_evento("registro", usuario, request, canal=usuario.canal_preferido)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    """HU-05 / ST-82: POST /api/v1/auth/login/"""
+    serializer_class = CustomTokenObtainPairSerializer
