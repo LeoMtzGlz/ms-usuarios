@@ -27,7 +27,6 @@ Toda respuesta de error de la API tiene esta forma:
 | `metodo_no_permitido` | 405 | Método HTTP equivocado | Error de programación del cliente |
 | `demasiados_intentos` | 429 | Se rebasó el límite de solicitudes; trae `Retry-After` | Esperar los segundos indicados |
 | `error_interno` | 500 | Error inesperado del servidor; queda en el log | Mostrar "intenta más tarde" |
-
-| `2FA ya iniciado` | 400 | La autentificacion doble ya esta activa | Mostrar "volver al inicio" |
-| `2FA no activo` | 400 | Solicita la activacion doble | Mostrar "volver al inicio" |
+| `dos_factores_ya_activo` | 400 | La verificación en dos pasos ya está activa en la cuenta | Informar que ya está activa; no repetir la activación |
+| `dos_factores_no_iniciado` | 400 | Se intentó confirmar sin haber solicitado antes la activación | Llevar al paso de activación (`POST /api/v1/auth/2fa/activar/`) |
 Las clases de Python que producen cada código están en `comun/errores.py`.
