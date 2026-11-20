@@ -103,12 +103,50 @@ Por qué tres apps: `config/` es el proyecto y cada app agrupa un tema (es la co
 
 ## Lo que ya hace la API
 
-### Endpoints
+### Matriz endpoint × rol (HU-13 / ST-127)
 
-| Método | Ruta | Acceso | Respuesta |
-| --- | --- | --- | --- |
-| `GET` | `/api/v1/salud/` | Público | `200 {"estado":"ok","bd":"ok"}`, o `503` si PostgreSQL no responde |
-| — | `/admin/` | Superusuario | Admin de Django: usuarios, búsqueda por correo y filtros por rol y estado |
+La columna **Estado** evita confundir las rutas que ya existen en `development` con las que todavía están en un PR,
+en una rama o en el backlog. Una ruta pública puede usarse sin token y, por lo tanto, también por cualquier rol.
+
+| Método | Ruta | Estado | Sin token | Cliente | Operativo | Administrador | Permiso esperado |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `GET` | `/api/v1/salud/` | Disponible | Sí | Sí | Sí | Sí | `AllowAny` |
+| `POST` | `/api/v1/auth/registro/` | Disponible | Sí | Sí | Sí | Sí | `AllowAny` |
+| `GET` | `/api/schema/` | Disponible | Sí | Sí | Sí | Sí | Pública (`drf-spectacular`) |
+| `GET` | `/api/docs/` | Disponible | Sí | Sí | Sí | Sí | Pública (`drf-spectacular`) |
+| `GET`, `POST` | `/admin/` y sus rutas internas | Disponible | No | No¹ | No¹ | No¹ | Autenticación de Django |
+| `POST` | `/api/v1/auth/login/` | En rama ST-82 | Sí | Sí | Sí | Sí | `AllowAny` |
+| `GET` | `/api/v1/auth/privacidad/` | En PR #60 | Sí | Sí | Sí | Sí | `AllowAny` |
+| `POST` | `/api/v1/auth/privacidad/aceptar/` | En PR #60 | No | Sí | Sí | Sí | `IsAuthenticated` |
+| `POST` | `/api/v1/auth/activar/` | Planeado (ST-72) | Sí | Sí | Sí | Sí | `AllowAny` |
+| `POST` | `/api/v1/auth/reenviar-codigo/` | Planeado (ST-75) | Sí | Sí | Sí | Sí | `AllowAny` |
+| `POST` | `/api/v1/auth/token/renovar/` | Planeado (HU-06) | Sí² | Sí | Sí | Sí | Token de renovación válido |
+| `POST` | `/api/v1/auth/logout/` | Planeado (HU-08) | No | Sí | Sí | Sí | `IsAuthenticated` |
+| `POST` | `/api/v1/auth/logout-todo/` | Planeado (HU-09) | No | Sí | Sí | Sí | `IsAuthenticated` |
+| `POST` | `/api/v1/auth/recuperar/` | Planeado (HU-10) | Sí | Sí | Sí | Sí | `AllowAny` |
+| `POST` | `/api/v1/auth/restablecer/` | Planeado (HU-10) | Sí | Sí | Sí | Sí | `AllowAny` |
+| `POST` | `/api/v1/auth/cambiar-password/` | Planeado (ST-112) | No | Sí | Sí | Sí | Propietario autenticado |
+| `GET` | `/api/v1/auth/llave-publica/` | Planeado (ST-135) | Sí | Sí | Sí | Sí | `AllowAny` |
+| `GET`, `PATCH` | `/api/v1/auth/perfil/` | Planeado (ST-163) | No | Sí | Sí | Sí | Propietario autenticado |
+| `GET` | `/api/v1/auth/accesos/` | Planeado (ST-168) | No | Sí | Sí | Sí | Propietario autenticado |
+| `POST` | `/api/v1/auth/eliminar-cuenta/` | Planeado (ST-174) | No | Sí | Sí | Sí³ | Propietario autenticado |
+| `GET`, `POST` | `/api/v1/usuarios/` | Planeado (HU-15/HU-16) | No | No | No | Sí | `EsAdministrador` |
+| `PATCH` | `/api/v1/usuarios/{id}/` | Planeado (ST-149) | No | No | No | Sí | `EsAdministrador` |
+| `PATCH` | `/api/v1/usuarios/{id}/rol/` | Planeado (ST-131) | No | No | No | Sí | `EsAdministrador` |
+| `GET` | `/api/v1/auditoria/` | Planeado (ST-189) | No | No | No | Sí | `EsAdministrador` |
+
+¹ El campo `rol` de `Usuario` no concede acceso al administrador de Django. `/admin/` exige una cuenta con
+`is_staff=True`; las cuentas creadas con `createsuperuser` tienen además `is_superuser=True`.
+
+² La renovación no usa un token de acceso en el encabezado, pero sí exige un token de renovación válido en la petición.
+
+³ El único administrador del sistema no puede eliminar su propia cuenta, según HU-23.
+
+Para los endpoints de DRF, cualquier vista que no declare permisos hereda `IsAuthenticated`. ST-128 aplicará las
+clases de `comun/permisos.py` cuando una ruta necesite restringirse a un rol concreto o al dueño del recurso.
+Las rutas de historias que todavía no fijan una URL se registran en
+[`docs/HU-13/ST-127-matriz-endpoint-rol.md`](docs/HU-13/ST-127-matriz-endpoint-rol.md) y se agregarán a esta tabla
+cuando el equipo confirme su contrato.
 
 ### El modelo `Usuario` (T-02)
 
