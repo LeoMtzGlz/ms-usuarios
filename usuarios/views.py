@@ -46,7 +46,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 # ==========================================
 class PrivacidadInfoView(APIView):
     permission_classes = [AllowAny]
-    authentication_classes = []
+    authentication_classes = []  # t-29/st-201: Permite acceso público incluso con tokens expirados
     
     @extend_schema(
         tags=["Privacidad"],
@@ -73,6 +73,7 @@ class AceptarPrivacidadView(APIView):
         user.acepto_privacidad_en = timezone.now()
         user.save(update_fields=['version_privacidad', 'acepto_privacidad_en'])
         
+        # t-29/st-201: Registro en la bitácora
         registrar_evento("privacidad_aceptada", user, request, version=user.version_privacidad)
         
         return Response({
