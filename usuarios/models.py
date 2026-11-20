@@ -189,3 +189,17 @@ class Dispositivo2FA(models.Model):
 
     def verificar(self, codigo: str) -> bool:
         return pyotp.TOTP(self.secreto).verify(codigo, valid_window=1)
+
+
+class Zona(models.Model):
+    """Catálogo de zonas para asignar a los usuarios operativos."""
+
+    nombre = models.CharField(max_length=100, unique=True)
+    activa = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "zona"
+        verbose_name_plural = "zonas"
+
+    def __str__(self):
+        return self.nombre
