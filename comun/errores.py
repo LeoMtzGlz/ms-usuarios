@@ -144,3 +144,24 @@ def _primer_mensaje(detalle):
     if isinstance(detalle, dict) and detalle:
         return _primer_mensaje(next(iter(detalle.values())))
     return str(detalle)
+
+
+# hu-25/st-184: handler propio para el bloqueo de django-axes
+def respuesta_bloqueo_axes(request, response, credentials, *args, **kwargs):
+    """Devuelve el bloqueo de django-axes con el formato estándar de la API."""
+    exc = CuentaBloqueada()
+    return JsonResponse(
+        {
+            "codigo": exc.default_code,
+            "mensaje": str(exc.detail),
+            "campos": {},
+        },
+        status=status.HTTP_403_FORBIDDEN,
+    )
+
+def marcar_bloqueo_en_request_django(sender, request, **kwargs):
+    """Copia la marca de bloqueo de DRF al HttpRequest original."""
+    original = getattr(request, "_request", None)
+    if original is not None:
+        original.axes_locked_out = True
+        original.axes_credentials = getattr(request, "axes_credentials", None)
