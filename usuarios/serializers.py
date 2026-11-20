@@ -115,6 +115,14 @@ class RegistroSerializer(serializers.Serializer):
             "estado": usuario.estado,
         }
 
+
+class SolicitudRecuperacionSerializer(serializers.Serializer):
+    """HU-10 / ST-107: correo o teléfono de la cuenta y canal opcional para recibir el código."""
+
+    identificador = serializers.CharField(max_length=254, trim_whitespace=True)
+    canal = serializers.ChoiceField(choices=Canal.choices, required=False)
+
+    
 class CodigoDosFactoresSerializer(serializers.Serializer):
     """T-30 / ST-206: código de 6 dígitos de la app autenticadora."""
 
