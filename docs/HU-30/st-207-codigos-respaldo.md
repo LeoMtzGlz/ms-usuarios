@@ -11,7 +11,7 @@ Al confirmar el 2FA se entregan 10 códigos de respaldo una sola vez. Se guardan
 
 ### Resultado:
 - `usuarios/models.py` : modelo ```CodigoRespaldo``` (```usuario```, ```codigo_hash```, ```usado_en```, ```creado_en```); migración ```usuarios/<0006>_codigo_respaldo```.
-- ```usuarios/codigos_respaldo.py```:
+- ```usuarios/dos_factores.py```:
   - ```generar_codigos_respaldo(usuario)``` → borra los anteriores, crea 10 códigos nuevos con formato ```XXX-XXX``` (con ```secrets``` y sin caracteres confusos: 0/O, 1/I/L) y guarda solo su hash con ```make_password``` (Argon2). Devuelve los códigos en claro: es la única vez que existen así.
   - ```usar_codigo_respaldo(usuario, codigo)``` → valida y marca como usado un código (un solo uso). Acepta minúsculas y sin guion. La usará HU-31 (st-210 / st-211).
 - ```usuarios/views_2fa.py```, en ```Confirmar2FAView```: cuando el primer código TOTP es correcto, se generan los códigos dentro de la misma transacción y la respuesta agrega ```codigos_respaldo```:
