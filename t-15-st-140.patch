@@ -1,0 +1,651 @@
+From 9e00d1c2beba8b9b7ff8c3be068b5d3ef8fe84b7 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 20 Nov 2026 01:44:42 +0000
+Subject: [PATCH 1/2] =?UTF-8?q?t-15/st-141:=20generador=20de=20contrase?=
+ =?UTF-8?q?=C3=B1a=20temporal=20con=20secrets?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+12 caracteres con mayúscula, minúscula, número y símbolo, sin caracteres ambiguos. Lo usa el alta de HU-15 (st-140).
+---
+ usuarios/contrasenas.py            | 34 +++++++++++++++++++++
+ usuarios/tests/test_contrasenas.py | 49 ++++++++++++++++++++++++++++++
+ 2 files changed, 83 insertions(+)
+ create mode 100644 usuarios/contrasenas.py
+ create mode 100644 usuarios/tests/test_contrasenas.py
+
+diff --git a/usuarios/contrasenas.py b/usuarios/contrasenas.py
+new file mode 100644
+index 0000000..103bc50
+--- /dev/null
++++ b/usuarios/contrasenas.py
+@@ -0,0 +1,34 @@
++"""HU-15: contraseña temporal para las cuentas que da de alta un administrador."""
++import secrets
++
++LONGITUD_TEMPORAL = 12
++LONGITUD_MINIMA = 8
++
++# Sin caracteres ambiguos (O/0, I/l/1): la contraseña se le dicta o se le imprime a una persona.
++MAYUSCULAS = "ABCDEFGHJKLMNPQRSTUVWXYZ"
++MINUSCULAS = "abcdefghijkmnopqrstuvwxyz"
++NUMEROS = "23456789"
++SIMBOLOS = "!@#$%&*-_+="
++
++_GRUPOS = (MAYUSCULAS, MINUSCULAS, NUMEROS, SIMBOLOS)
++
++
++def generar_contrasena_temporal(longitud: int = LONGITUD_TEMPORAL) -> str:
++    """Devuelve una contraseña aleatoria con mayúscula, minúscula, número y símbolo.
++
++    Usa `secrets` (no `random`): el generador es criptográficamente seguro. Cumple
++    AUTH_PASSWORD_VALIDATORS (T-12). Quien la llama es responsable de no guardarla
++    en texto plano ni escribirla en la bitácora: solo se guarda su hash y se
++    devuelve una vez en la respuesta del alta.
++    """
++    if longitud < LONGITUD_MINIMA:
++        raise ValueError(f"La contraseña temporal necesita al menos {LONGITUD_MINIMA} caracteres.")
++
++    # Un carácter de cada grupo garantiza la mezcla; el resto sale de todos los grupos.
++    caracteres = [secrets.choice(grupo) for grupo in _GRUPOS]
++    todos = "".join(_GRUPOS)
++    caracteres += [secrets.choice(todos) for _ in range(longitud - len(caracteres))]
++
++    # Sin el barajado, los cuatro primeros caracteres siempre serían del mismo tipo y orden.
++    secrets.SystemRandom().shuffle(caracteres)
++    return "".join(caracteres)
+diff --git a/usuarios/tests/test_contrasenas.py b/usuarios/tests/test_contrasenas.py
+new file mode 100644
+index 0000000..fad4c44
+--- /dev/null
++++ b/usuarios/tests/test_contrasenas.py
+@@ -0,0 +1,49 @@
++"""HU-15: pruebas del generador de contraseña temporal."""
++import pytest
++from django.contrib.auth.password_validation import validate_password
++
++from usuarios.contrasenas import (
++    LONGITUD_TEMPORAL,
++    MAYUSCULAS,
++    MINUSCULAS,
++    NUMEROS,
++    SIMBOLOS,
++    generar_contrasena_temporal,
++)
++
++
++def test_tiene_doce_caracteres_por_defecto():
++    assert len(generar_contrasena_temporal()) == LONGITUD_TEMPORAL == 12
++
++
++@pytest.mark.parametrize("longitud", [8, 12, 20])
++def test_respeta_la_longitud_pedida(longitud):
++    assert len(generar_contrasena_temporal(longitud)) == longitud
++
++
++def test_siempre_trae_mayuscula_minuscula_numero_y_simbolo():
++    for _ in range(200):
++        contrasena = generar_contrasena_temporal()
++        assert any(c in MAYUSCULAS for c in contrasena)
++        assert any(c in MINUSCULAS for c in contrasena)
++        assert any(c in NUMEROS for c in contrasena)
++        assert any(c in SIMBOLOS for c in contrasena)
++
++
++def test_no_usa_caracteres_ambiguos():
++    for _ in range(200):
++        assert not set(generar_contrasena_temporal()) & set("O0Il1")
++
++
++def test_cumple_la_politica_de_contrasenas():
++    for _ in range(50):
++        validate_password(generar_contrasena_temporal())
++
++
++def test_dos_llamadas_dan_contrasenas_distintas():
++    assert len({generar_contrasena_temporal() for _ in range(100)}) == 100
++
++
++def test_rechaza_longitudes_menores_a_ocho():
++    with pytest.raises(ValueError):
++        generar_contrasena_temporal(7)
+-- 
+2.43.0
+
+
+From d08136652ea3837ea86fa3a9f8e6a66b524314c6 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 20 Nov 2026 01:44:42 +0000
+Subject: [PATCH 2/2] t-15/st-140: crear el serializer y endpoint de alta de
+ usuario operativo
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+POST /api/v1/usuarios/ solo EsAdministrador; valida correo y teléfono duplicados; cuenta activa, operativa y con debe_cambiar_password=True; devuelve la contraseña temporal una sola vez.
+---
+ config/urls.py                              |   1 +
+ docs/HU-15/ST-140-alta-usuario-operativo.md |  59 +++++
+ usuarios/serializers_admin.py               |  74 ++++++
+ usuarios/tests/test_alta_usuario.py         | 267 ++++++++++++++++++++
+ usuarios/urls_admin.py                      |  10 +
+ usuarios/views_admin.py                     |  56 ++++
+ 6 files changed, 467 insertions(+)
+ create mode 100644 docs/HU-15/ST-140-alta-usuario-operativo.md
+ create mode 100644 usuarios/serializers_admin.py
+ create mode 100644 usuarios/tests/test_alta_usuario.py
+ create mode 100644 usuarios/urls_admin.py
+ create mode 100644 usuarios/views_admin.py
+
+diff --git a/config/urls.py b/config/urls.py
+index 8f62623..a9e80b4 100644
+--- a/config/urls.py
++++ b/config/urls.py
+@@ -10,6 +10,7 @@ urlpatterns = [
+     path("admin/", admin.site.urls),
+     path("api/v1/salud/", SaludView.as_view(), name="salud"),
+     path("api/v1/auth/", include("usuarios.urls")),  # hu-02/st-66
++    path("api/v1/usuarios/", include("usuarios.urls_admin")),  # hu-15/st-140
+     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+ path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+ ]
+diff --git a/docs/HU-15/ST-140-alta-usuario-operativo.md b/docs/HU-15/ST-140-alta-usuario-operativo.md
+new file mode 100644
+index 0000000..37b5043
+--- /dev/null
++++ b/docs/HU-15/ST-140-alta-usuario-operativo.md
+@@ -0,0 +1,59 @@
++# ST-140 - Endpoint de alta de usuario operativo
++
++## Objetivo
++
++Que un administrador registre a un trabajador, repartidor o conductor sin que tenga que registrarse él mismo
++(HU-15). Esta subtarea crea el serializer y el endpoint; el aviso por correo es ST-142.
++
++## Endpoint
++
++`POST /api/v1/usuarios/` · permiso: `EsAdministrador` (más `IsAuthenticated` y `ContrasenaDefinitiva` de settings).
++
++Cuerpo:
++
++```json
++{"nombre": "Luis", "apellidos": "Ramírez Soto", "correo": "luis@ejemplo.com", "telefono": "443 123 4567"}
++```
++
++Respuesta `201`:
++
++```json
++{
++  "id": "…", "nombre": "Luis", "apellidos": "Ramírez Soto", "correo": "luis@ejemplo.com",
++  "telefono": "+524431234567", "rol": "operativo", "estado": "activo",
++  "debe_cambiar_password": true, "contrasena_temporal": "…"
++}
++```
++
++`contrasena_temporal` se devuelve **una sola vez**: la base solo guarda su hash Argon2. La respuesta lleva
++`Cache-Control: no-store`.
++
++## Reglas
++
++| Regla | Dónde |
++| --- | --- |
++| Correo (sin importar mayúsculas) y teléfono duplicados responden `400 datos_invalidos` con el campo | `AltaUsuarioSerializer` |
++| Dos altas simultáneas las frena la restricción única de la base | `AltaUsuarioSerializer.create` |
++| La cuenta nace activa, rol operativo y `debe_cambiar_password=True`; `rol`, `estado`, `password`... enviados por el cliente se ignoran | `AltaUsuarioSerializer.create` |
++| Sin token `401`; cliente u operativo `403 sin_permiso`; administrador con contraseña temporal `403 debe_cambiar_password` | `AltaUsuarioView.permission_classes` |
++| La bitácora registra `alta_usuario` con quién creó a quién y el rol, nunca la contraseña | `AltaUsuarioView.post` |
++
++## Archivos
++
++| Archivo | Cambio |
++| --- | --- |
++| `usuarios/serializers_admin.py` | `AltaUsuarioSerializer` |
++| `usuarios/views_admin.py` | `AltaUsuarioView` |
++| `usuarios/urls_admin.py` | Ruta `""` montada en `/api/v1/usuarios/` |
++| `config/urls.py` | `include("usuarios.urls_admin")` |
++| `usuarios/tests/test_alta_usuario.py` | Pruebas del endpoint |
++
++## Pendiente en otras subtareas
++
++- **ST-141:** `usuarios/contrasenas.py` ya trae un generador con `secrets` para que el endpoint funcione.
++- **ST-142:** el aviso de cuenta creada se encola dentro de la transacción de `AltaUsuarioView.post`.
++- **ST-143:** pruebas generales de HU-15.
++- **HU-16:** el `GET` de listado se agrega en la misma ruta.
++- **Login (ST-82):** `usuarios/tokens.py` ya agrega el claim `rol` al token y `EsAdministrador` lo lee, pero el endpoint de
++  login todavía está en la rama `t-05/st-82`. Mientras no se integre no hay forma de obtener un token real; las pruebas
++  lo emiten con `RefreshToken` y le ponen el claim a mano.
+diff --git a/usuarios/serializers_admin.py b/usuarios/serializers_admin.py
+new file mode 100644
+index 0000000..9fa10b3
+--- /dev/null
++++ b/usuarios/serializers_admin.py
+@@ -0,0 +1,74 @@
++"""Serializers de administración de usuarios (HU-15 en adelante)."""
++from django.core.exceptions import ValidationError as DjangoValidationError
++from django.db import IntegrityError, transaction
++from rest_framework import serializers
++
++from comun.roles import Rol
++from usuarios.models import Estado, Usuario
++from usuarios.serializers import CORREO_REGISTRADO, TELEFONO_REGISTRADO
++from usuarios.telefono import normalizar_telefono
++
++
++class AltaUsuarioSerializer(serializers.Serializer):
++    """HU-15 / ST-140: un administrador da de alta a un usuario operativo.
++
++    - Solo se leen nombre, apellidos, correo y teléfono. Cualquier otro dato que mande el
++      cliente (rol, estado, password...) se ignora: la cuenta nace siempre activa, con
++      rol operativo y debe_cambiar_password=True.
++    - El correo (sin importar mayúsculas) y el teléfono no pueden estar ya registrados.
++    - La contraseña temporal no se genera aquí: la vista la crea y la pasa a `save()`.
++      Este serializer solo guarda su hash y nunca la devuelve.
++    """
++
++    nombre = serializers.CharField(max_length=150, trim_whitespace=True)
++    apellidos = serializers.CharField(max_length=150, trim_whitespace=True)
++    correo = serializers.EmailField(max_length=254)
++    telefono = serializers.CharField(max_length=30)
++
++    def validate_correo(self, valor):
++        correo = valor.strip().lower()
++        if Usuario.objects.filter(email__iexact=correo).exists():
++            raise serializers.ValidationError(CORREO_REGISTRADO)
++        return correo
++
++    def validate_telefono(self, valor):
++        try:
++            telefono = normalizar_telefono(valor)
++        except DjangoValidationError as error:
++            raise serializers.ValidationError(error.messages) from error
++        if Usuario.objects.filter(telefono=telefono).exists():
++            raise serializers.ValidationError(TELEFONO_REGISTRADO)
++        return telefono
++
++    def create(self, datos):
++        """`datos` trae los campos validados más `contrasena`, que agrega la vista."""
++        try:
++            with transaction.atomic():
++                return Usuario.objects.create_user(
++                    email=datos["correo"],
++                    password=datos["contrasena"],  # create_user guarda el hash (Argon2)
++                    first_name=datos["nombre"],
++                    last_name=datos["apellidos"],
++                    telefono=datos["telefono"],
++                    rol=Rol.OPERATIVO,
++                    estado=Estado.ACTIVO,
++                    debe_cambiar_password=True,
++                )
++        except IntegrityError as error:
++            # Dos altas simultáneas con el mismo dato: lo frena la restricción única de la base
++            if "email" in str(error).lower():
++                raise serializers.ValidationError({"correo": [CORREO_REGISTRADO]}) from error
++            raise serializers.ValidationError({"telefono": [TELEFONO_REGISTRADO]}) from error
++
++    def to_representation(self, usuario):
++        """Datos públicos de la cuenta. La contraseña temporal la agrega la vista."""
++        return {
++            "id": str(usuario.id),
++            "nombre": usuario.first_name,
++            "apellidos": usuario.last_name,
++            "correo": usuario.email,
++            "telefono": usuario.telefono,
++            "rol": usuario.rol,
++            "estado": usuario.estado,
++            "debe_cambiar_password": usuario.debe_cambiar_password,
++        }
+diff --git a/usuarios/tests/test_alta_usuario.py b/usuarios/tests/test_alta_usuario.py
+new file mode 100644
+index 0000000..acd2d54
+--- /dev/null
++++ b/usuarios/tests/test_alta_usuario.py
+@@ -0,0 +1,267 @@
++"""HU-15 / ST-140: pruebas del endpoint POST /api/v1/usuarios/ (alta de operativo)."""
++import logging
++
++import pytest
++from django.db import IntegrityError
++from rest_framework_simplejwt.tokens import RefreshToken
++
++from comun.roles import Rol
++from usuarios.models import Estado, Usuario
++from usuarios.tests.factories import UsuarioFactory
++
++pytestmark = pytest.mark.django_db
++
++URL = "/api/v1/usuarios/"
++
++
++def datos_validos(**cambios):
++    datos = {
++        "nombre": "Luis",
++        "apellidos": "Ramírez Soto",
++        "correo": "luis.ramirez@ejemplo.com",
++        "telefono": "443 123 4567",
++    }
++    datos.update(cambios)
++    return datos
++
++
++def cliente_como(api_client, usuario, **claims):
++    """Autentica con un token que lleva el claim `rol`, como el que emite usuarios/tokens.py."""
++    acceso = RefreshToken.for_user(usuario).access_token
++    acceso["rol"] = usuario.rol
++    for nombre, valor in claims.items():
++        acceso[nombre] = valor
++    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {acceso}")
++    return api_client
++
++
++@pytest.fixture
++def admin(llaves):
++    return UsuarioFactory(rol=Rol.ADMINISTRADOR)
++
++
++@pytest.fixture
++def cliente_admin(api_client, admin):
++    return cliente_como(api_client, admin)
++
++
++# --- Alta correcta -------------------------------------------------------------------
++
++
++def test_alta_correcta_responde_201_con_los_datos_y_la_contrasena(cliente_admin):
++    respuesta = cliente_admin.post(URL, datos_validos(), format="json")
++
++    assert respuesta.status_code == 201
++    cuerpo = respuesta.json()
++    assert cuerpo["nombre"] == "Luis"
++    assert cuerpo["apellidos"] == "Ramírez Soto"
++    assert cuerpo["correo"] == "luis.ramirez@ejemplo.com"
++    assert cuerpo["telefono"] == "+524431234567"
++    assert cuerpo["rol"] == Rol.OPERATIVO
++    assert cuerpo["estado"] == Estado.ACTIVO
++    assert cuerpo["debe_cambiar_password"] is True
++    assert len(cuerpo["contrasena_temporal"]) == 12
++
++
++def test_la_cuenta_queda_activa_operativa_y_con_contrasena_temporal(cliente_admin):
++    cliente_admin.post(URL, datos_validos(), format="json")
++
++    usuario = Usuario.objects.get(email="luis.ramirez@ejemplo.com")
++    assert usuario.rol == Rol.OPERATIVO
++    assert usuario.estado == Estado.ACTIVO
++    assert usuario.is_active is True
++    assert usuario.debe_cambiar_password is True
++    assert usuario.is_staff is False
++    assert usuario.is_superuser is False
++
++
++def test_la_contrasena_devuelta_es_la_que_se_guardo_y_solo_se_guarda_su_hash(cliente_admin):
++    contrasena = cliente_admin.post(URL, datos_validos(), format="json").json()["contrasena_temporal"]
++
++    usuario = Usuario.objects.get(email="luis.ramirez@ejemplo.com")
++    assert usuario.check_password(contrasena)
++    assert usuario.password != contrasena
++    assert contrasena not in usuario.password
++    assert usuario.password.startswith("argon2")
++
++
++def test_cada_alta_genera_una_contrasena_distinta(cliente_admin):
++    primera = cliente_admin.post(URL, datos_validos(), format="json").json()["contrasena_temporal"]
++    segunda = cliente_admin.post(
++        URL, datos_validos(correo="otro@ejemplo.com", telefono="443 765 4321"), format="json"
++    ).json()["contrasena_temporal"]
++
++    assert primera != segunda
++
++
++def test_la_respuesta_no_se_guarda_en_cache(cliente_admin):
++    respuesta = cliente_admin.post(URL, datos_validos(), format="json")
++
++    assert respuesta["Cache-Control"] == "no-store"
++
++
++def test_normaliza_correo_y_telefono(cliente_admin):
++    respuesta = cliente_admin.post(
++        URL, datos_validos(correo="  Luis.Ramirez@Ejemplo.COM ", telefono="+52 443 123 4567"), format="json"
++    )
++
++    assert respuesta.status_code == 201
++    assert respuesta.json()["correo"] == "luis.ramirez@ejemplo.com"
++    assert respuesta.json()["telefono"] == "+524431234567"
++
++
++def test_ignora_rol_estado_y_permisos_enviados_por_el_cliente(cliente_admin):
++    respuesta = cliente_admin.post(
++        URL,
++        datos_validos(
++            rol=Rol.ADMINISTRADOR,
++            estado=Estado.PENDIENTE,
++            is_staff=True,
++            is_superuser=True,
++            debe_cambiar_password=False,
++            password="Mia12345",
++        ),
++        format="json",
++    )
++
++    assert respuesta.status_code == 201
++    usuario = Usuario.objects.get(email="luis.ramirez@ejemplo.com")
++    assert usuario.rol == Rol.OPERATIVO
++    assert usuario.estado == Estado.ACTIVO
++    assert usuario.is_staff is False
++    assert usuario.is_superuser is False
++    assert usuario.debe_cambiar_password is True
++    assert not usuario.check_password("Mia12345")
++
++
++# --- Quién puede darlo de alta -------------------------------------------------------
++
++
++def test_sin_token_responde_401(api_client, llaves):
++    respuesta = api_client.post(URL, datos_validos(), format="json")
++
++    assert respuesta.status_code == 401
++    assert respuesta.json()["codigo"] == "no_autenticado"
++    assert not Usuario.objects.filter(email="luis.ramirez@ejemplo.com").exists()
++
++
++@pytest.mark.parametrize("rol", [Rol.CLIENTE, Rol.OPERATIVO])
++def test_un_no_administrador_recibe_403(api_client, llaves, rol):
++    cliente_como(api_client, UsuarioFactory(rol=rol))
++
++    respuesta = api_client.post(URL, datos_validos(), format="json")
++
++    assert respuesta.status_code == 403
++    assert respuesta.json()["codigo"] == "sin_permiso"
++    assert not Usuario.objects.filter(email="luis.ramirez@ejemplo.com").exists()
++
++
++def test_un_administrador_con_contrasena_temporal_recibe_403(api_client, admin):
++    cliente_como(api_client, admin, debe_cambiar_password=True)
++
++    respuesta = api_client.post(URL, datos_validos(), format="json")
++
++    assert respuesta.status_code == 403
++    assert respuesta.json()["codigo"] == "debe_cambiar_password"
++
++
++def test_solo_acepta_post(cliente_admin):
++    assert cliente_admin.delete(URL).status_code == 405
++
++
++# --- Validaciones --------------------------------------------------------------------
++
++
++def test_correo_duplicado_responde_400(cliente_admin):
++    UsuarioFactory(email="luis.ramirez@ejemplo.com")
++
++    respuesta = cliente_admin.post(URL, datos_validos(), format="json")
++
++    assert respuesta.status_code == 400
++    assert respuesta.json()["codigo"] == "datos_invalidos"
++    assert respuesta.json()["campos"]["correo"] == ["Este correo ya está registrado."]
++
++
++def test_correo_duplicado_sin_importar_mayusculas(cliente_admin):
++    UsuarioFactory(email="luis.ramirez@ejemplo.com")
++
++    respuesta = cliente_admin.post(URL, datos_validos(correo="LUIS.RAMIREZ@EJEMPLO.COM"), format="json")
++
++    assert respuesta.status_code == 400
++    assert "correo" in respuesta.json()["campos"]
++
++
++def test_telefono_duplicado_responde_400(cliente_admin):
++    UsuarioFactory(telefono="+524431234567")
++
++    respuesta = cliente_admin.post(URL, datos_validos(), format="json")
++
++    assert respuesta.status_code == 400
++    assert respuesta.json()["codigo"] == "datos_invalidos"
++    assert respuesta.json()["campos"]["telefono"] == ["Este teléfono ya está registrado."]
++
++
++def test_telefono_invalido_responde_400(cliente_admin):
++    respuesta = cliente_admin.post(URL, datos_validos(telefono="123"), format="json")
++
++    assert respuesta.status_code == 400
++    assert "telefono" in respuesta.json()["campos"]
++
++
++def test_correo_invalido_responde_400(cliente_admin):
++    respuesta = cliente_admin.post(URL, datos_validos(correo="no-es-un-correo"), format="json")
++
++    assert respuesta.status_code == 400
++    assert "correo" in respuesta.json()["campos"]
++
++
++@pytest.mark.parametrize("campo", ["nombre", "apellidos", "correo", "telefono"])
++def test_faltan_campos_obligatorios(cliente_admin, campo):
++    datos = datos_validos()
++    del datos[campo]
++
++    respuesta = cliente_admin.post(URL, datos, format="json")
++
++    assert respuesta.status_code == 400
++    assert campo in respuesta.json()["campos"]
++
++
++def test_un_intento_fallido_no_crea_cuentas(cliente_admin):
++    antes = Usuario.objects.count()
++
++    cliente_admin.post(URL, datos_validos(correo="no-es-un-correo"), format="json")
++
++    assert Usuario.objects.count() == antes
++
++
++def test_alta_simultanea_con_el_mismo_correo_responde_400(cliente_admin, monkeypatch):
++    """Si dos altas pasan la validación a la vez, la restricción única de la base las frena."""
++
++    def choca(*args, **kwargs):
++        raise IntegrityError('duplicate key value violates unique constraint "email_unico_ci"')
++
++    monkeypatch.setattr(Usuario.objects, "create_user", choca)
++
++    respuesta = cliente_admin.post(URL, datos_validos(), format="json")
++
++    assert respuesta.status_code == 400
++    assert respuesta.json()["campos"]["correo"] == ["Este correo ya está registrado."]
++
++
++# --- La contraseña no se filtra ------------------------------------------------------
++
++
++def test_la_contrasena_no_aparece_en_la_bitacora(cliente_admin, caplog):
++    with caplog.at_level(logging.INFO, logger="svc.auditoria"):
++        contrasena = cliente_admin.post(URL, datos_validos(), format="json").json()["contrasena_temporal"]
++
++    assert "alta_usuario" in caplog.text
++    assert contrasena not in caplog.text
++
++
++def test_la_bitacora_registra_quien_creo_la_cuenta(cliente_admin, admin, caplog):
++    with caplog.at_level(logging.INFO, logger="svc.auditoria"):
++        cliente_admin.post(URL, datos_validos(), format="json")
++
++    assert str(admin.pk) in caplog.text
++    assert Rol.OPERATIVO in caplog.text
+diff --git a/usuarios/urls_admin.py b/usuarios/urls_admin.py
+new file mode 100644
+index 0000000..5414208
+--- /dev/null
++++ b/usuarios/urls_admin.py
+@@ -0,0 +1,10 @@
++"""Rutas de administración de usuarios: se montan en /api/v1/usuarios/ (config/urls.py)."""
++from django.urls import path
++
++from usuarios.views_admin import AltaUsuarioView
++
++app_name = "usuarios"
++
++urlpatterns = [
++    path("", AltaUsuarioView.as_view(), name="alta"),  # hu-15/st-140 (HU-16 agrega GET aquí)
++]
+diff --git a/usuarios/views_admin.py b/usuarios/views_admin.py
+new file mode 100644
+index 0000000..ddebcc9
+--- /dev/null
++++ b/usuarios/views_admin.py
+@@ -0,0 +1,56 @@
++"""HU-15 / ST-140: alta de usuarios operativos por un administrador."""
++from django.db import transaction
++from drf_spectacular.utils import extend_schema, inline_serializer
++from rest_framework import serializers, status
++from rest_framework.response import Response
++from rest_framework.views import APIView
++
++from comun.eventos import registrar_evento
++from comun.permisos import EsAdministrador, permisos_por_defecto_mas
++from usuarios.contrasenas import generar_contrasena_temporal
++from usuarios.serializers_admin import AltaUsuarioSerializer
++
++RespuestaAlta = inline_serializer(
++    name="AltaUsuarioRespuesta",
++    fields={
++        "id": serializers.UUIDField(),
++        "nombre": serializers.CharField(),
++        "apellidos": serializers.CharField(),
++        "correo": serializers.EmailField(),
++        "telefono": serializers.CharField(),
++        "rol": serializers.CharField(),
++        "estado": serializers.CharField(),
++        "debe_cambiar_password": serializers.BooleanField(),
++        "contrasena_temporal": serializers.CharField(help_text="Se devuelve una sola vez."),
++    },
++)
++
++
++class AltaUsuarioView(APIView):
++    """POST /api/v1/usuarios/  {"nombre", "apellidos", "correo", "telefono"}
++
++    Crea una cuenta operativa, activa y con contraseña temporal. Responde 201 con los
++    datos de la cuenta y la contraseña temporal, que no se puede volver a consultar.
++    """
++
++    # Se conservan IsAuthenticated y ContrasenaDefinitiva de settings y se suma EsAdministrador
++    permission_classes = permisos_por_defecto_mas(EsAdministrador)
++
++    @extend_schema(request=AltaUsuarioSerializer, responses={201: RespuestaAlta}, tags=["usuarios"])
++    def post(self, request):
++        serializer = AltaUsuarioSerializer(data=request.data)
++        serializer.is_valid(raise_exception=True)
++
++        contrasena = generar_contrasena_temporal()
++        with transaction.atomic():
++            usuario = serializer.save(contrasena=contrasena)
++            # ST-142: aquí se encolará el aviso de cuenta creada (sin la contraseña).
++
++        # La contraseña no va a la bitácora: solo quién creó a quién y con qué rol.
++        registrar_evento("alta_usuario", request.user, request, creado_id=str(usuario.id), rol=usuario.rol)
++
++        respuesta = Response(
++            {**serializer.data, "contrasena_temporal": contrasena}, status=status.HTTP_201_CREATED
++        )
++        respuesta["Cache-Control"] = "no-store"  # la contraseña no debe quedar en cachés
++        return respuesta
+-- 
+2.43.0
+

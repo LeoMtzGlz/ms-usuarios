@@ -1,4 +1,3 @@
-
 from datetime import timedelta
 from pathlib import Path
 
@@ -22,13 +21,13 @@ SECRET_KEY = env("SECRET_KEY")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 DOMINIO_CORREO_INSTITUCIONAL = env("DOMINIO_CORREO_INSTITUCIONAL", default="@jiquilpan.tecnm.mx")
 
-# hu-02/st-65: versión del aviso de privacidad que acepta quien se registra
-VERSION_AVISO_PRIVACIDAD = env("VERSION_AVISO_PRIVACIDAD", default="1.0")
 #t-30/st-205
 CLAVE_CIFRADO_2FA = env("CLAVE_CIFRADO_2FA", default="")
 ISSUER_2FA = "svc-usuarios"
 
-
+# t-22/st-167: IPs de los proxies propios (nginx, balanceador). Solo si la petición viene
+# de uno de ellos se confía en X-Forwarded-For. Vacío = no hay proxy, se usa REMOTE_ADDR.
+PROXIES_CONFIABLES = env.list("PROXIES_CONFIABLES", default=[])
 
 # Application definition
 
@@ -152,6 +151,7 @@ REST_FRAMEWORK = {
         # t-13/st-123: todo endpoint exige autenticación salvo que declare AllowAny.
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
+        "comun.permisos.ContrasenaDefinitiva",  # t-12/st-116: 403 mientras la contraseña sea temporal
         ),
 }
 
@@ -264,5 +264,12 @@ AXES_COOLOFF_TIME = timedelta(minutes=15)
 AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
 AXES_RESET_ON_SUCCESS = True
 
+# hu-25/st-184: respuesta de bloqueo con el formato estándar de errores
+AXES_LOCKOUT_CALLABLE = "comun.errores.respuesta_bloqueo_axes"
+
 # t-03/st-71: vigencia de los codigos de verificacion, en minutos
 CODIGO_MINUTOS = env.int("CODIGO_MINUTOS", default=10)
+
+# t-29/st-200: Configuración del aviso de privacidad
+VERSION_AVISO_PRIVACIDAD = env('VERSION_AVISO_PRIVACIDAD', default='2026-10')
+URL_AVISO_PRIVACIDAD = env('URL_AVISO_PRIVACIDAD', default="")

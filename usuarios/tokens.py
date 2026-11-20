@@ -3,6 +3,7 @@ from django.utils import timezone
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from comun.errores import CredencialesInvalidas, CuentaPendiente, CuentaInactiva
 from usuarios.models import Estado
+from usuarios.accesos import buscar_usuario, registrar_acceso  # t-22/st-167
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     # 1. Sobrescribimos el get_token original para agregar los claims
@@ -22,17 +23,23 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         identificador = attrs.get('email') or attrs.get('username')
         password = attrs.get('password')
         
-        user = authenticate(request=self.context.get('request'), username=identificador, password=password)
+        request = self.context.get('request')
+        user = authenticate(request=request, username=identificador, password=password)
 
         # 3. Lanzamos nuestros propios errores en español
         if not user:
+            registrar_acceso(request, buscar_usuario(identificador), exitoso=False)  # t-22/st-167
             raise CredencialesInvalidas()
         
         if user.estado == Estado.PENDIENTE:
+            registrar_acceso(request, user, exitoso=False)  # t-22/st-167
             raise CuentaPendiente()
             
         if user.estado == Estado.INACTIVO:
+            registrar_acceso(request, user, exitoso=False)  # t-22/st-167
             raise CuentaInactiva()
+
+        registrar_acceso(request, user, exitoso=True)  # t-22/st-167
 
         # 4. Actualizamos el último acceso
         user.last_login = timezone.now()
