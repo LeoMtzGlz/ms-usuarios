@@ -1,8 +1,11 @@
 """t-22/st-167 (HU-22): registrar cada intento de login en RegistroAcceso.
 
-- IP: el primer valor de X-Forwarded-For (la IP real detrás del proxy) o REMOTE_ADDR.
+- IP: REMOTE_ADDR; X-Forwarded-For solo si la petición viene de un proxy de PROXIES_CONFIABLES.
 - Dispositivo: texto legible con la librería user-agents, p. ej. "Chrome 131 en Windows 10".
 """
+import ipaddress
+
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from user_agents import parse
@@ -13,14 +16,35 @@ LARGO_DISPOSITIVO = 120
 LARGO_USER_AGENT = 500
 
 
+def _es_ip(valor):
+    try:
+        ipaddress.ip_address(valor)
+    except ValueError:
+        return False
+    return True
+
+
 def ip_del_request(request):
-    """IP del cliente: primero X-Forwarded-For, si no, REMOTE_ADDR. None si no hay request."""
+    """IP del cliente. Solo se confía en X-Forwarded-For si la petición viene de un proxy propio.
+
+    X-Forwarded-For lo puede escribir el cliente, así que se lee de derecha a izquierda,
+    saltando los proxies de PROXIES_CONFIABLES, y se toma la primera IP que no sea de ellos.
+    Cualquier valor que no sea una IP válida se descarta (nunca rompe el login).
+    """
     if request is None:
         return None
-    reenviada = request.META.get("HTTP_X_FORWARDED_FOR", "")
-    if reenviada:
-        return reenviada.split(",")[0].strip() or None
-    return request.META.get("REMOTE_ADDR") or None
+    remota = request.META.get("REMOTE_ADDR") or None
+    remota = remota if remota and _es_ip(remota) else None
+    confiables = set(getattr(settings, "PROXIES_CONFIABLES", []))
+    if remota is None or remota not in confiables:
+        return remota
+    reenviada = [p.strip() for p in request.META.get("HTTP_X_FORWARDED_FOR", "").split(",") if p.strip()]
+    for ip in reversed(reenviada):
+        if not _es_ip(ip):
+            break
+        if ip not in confiables:
+            return ip
+    return remota
 
 
 def dispositivo_legible(user_agent):

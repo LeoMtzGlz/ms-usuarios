@@ -20,7 +20,8 @@ historial (ST-168) y la limpieza de 90 días (ST-169).
 | `usuarios/accesos.py` | `ip_del_request`, `dispositivo_legible`, `buscar_usuario`, `registrar_acceso` |
 | `usuarios/tokens.py` | El login de la ST-81 llama a `registrar_acceso` (líneas marcadas `# t-22/st-167`) |
 | `requirements.txt` | `user-agents==2.2.0` |
-| `usuarios/tests/test_registro_acceso.py` | 10 pruebas |
+| `config/settings.py` y `.env.example` | `PROXIES_CONFIABLES` (bloque `# t-22/st-167`) |
+| `usuarios/tests/test_registro_acceso.py` | 18 pruebas |
 
 ## Modelo
 
@@ -44,7 +45,10 @@ Orden por defecto: del más reciente al más antiguo. Índice por `(usuario, -fe
 | Cuenta pendiente o inactiva | Sí | `False` |
 | Correo o teléfono que no existe | **No** (no hay a quién mostrárselo) | — |
 
-- **IP:** el primer valor de `X-Forwarded-For` (la IP real detrás del proxy); si no viene, `REMOTE_ADDR`.
+- **IP:** `REMOTE_ADDR`. Solo si la petición viene de un proxy de `PROXIES_CONFIABLES` se lee
+  `X-Forwarded-For` **de derecha a izquierda**, saltando esos proxies, y se toma la primera IP que no
+  sea de ellos. Un valor que no es una IP válida se descarta: nunca rompe el login.
+  (Corrección de la revisión de Isis: `X-Forwarded-For` lo puede escribir cualquier cliente.)
 - **Dispositivo:** se arma con la librería `user-agents`; si no se reconoce, `Desconocido`.
 
 ## Cómo probarlo
@@ -55,7 +59,7 @@ docker compose run --rm api python manage.py migrate
 docker compose run --rm api pytest usuarios/tests/test_registro_acceso.py -v
 ```
 
-Resultado: 10 pruebas en verde; `ruff` y `makemigrations --check` limpios.
+Resultado: 18 pruebas en verde; `ruff` y `makemigrations --check` limpios.
 
 ## Pendiente (otras subtareas)
 

@@ -75,14 +75,47 @@ def test_cuenta_pendiente_o_inactiva_guarda_acceso_fallido(estado, error):
     assert RegistroAcceso.objects.get(usuario=usuario).exitoso is False
 
 
-def test_ip_toma_el_primer_valor_de_x_forwarded_for():
-    request = _request(HTTP_X_FORWARDED_FOR="200.1.2.3, 10.0.0.1", REMOTE_ADDR="10.0.0.1")
+def test_sin_proxy_confiable_ignora_x_forwarded_for():
+    request = _request(HTTP_X_FORWARDED_FOR="1.2.3.4", REMOTE_ADDR="192.168.1.20")
 
-    assert ip_del_request(request) == "200.1.2.3"
+    assert ip_del_request(request) == "192.168.1.20"
 
 
 def test_ip_sin_proxy_usa_remote_addr():
     assert ip_del_request(_request(REMOTE_ADDR="192.168.1.20")) == "192.168.1.20"
+
+
+def test_con_proxy_confiable_lee_x_forwarded_for_de_derecha_a_izquierda(settings):
+    settings.PROXIES_CONFIABLES = ["10.0.0.1"]
+    request = _request(HTTP_X_FORWARDED_FOR="1.2.3.4, 201.141.10.5", REMOTE_ADDR="10.0.0.1")
+
+    assert ip_del_request(request) == "201.141.10.5"
+
+
+def test_con_proxy_confiable_salta_los_proxies_de_la_lista(settings):
+    settings.PROXIES_CONFIABLES = ["10.0.0.1", "10.0.0.2"]
+    request = _request(HTTP_X_FORWARDED_FOR="201.141.10.5, 10.0.0.2", REMOTE_ADDR="10.0.0.1")
+
+    assert ip_del_request(request) == "201.141.10.5"
+
+
+@pytest.mark.parametrize("valor", ["hola", "999.1.1.1, 10.0.0.1", ""])
+def test_x_forwarded_for_invalido_no_rompe_y_usa_remote_addr(settings, valor):
+    settings.PROXIES_CONFIABLES = ["10.0.0.1"]
+    request = _request(HTTP_X_FORWARDED_FOR=valor, REMOTE_ADDR="10.0.0.1")
+
+    assert ip_del_request(request) == "10.0.0.1"
+
+
+@pytest.mark.parametrize("valor", ["hola", "999.1.1.1, 10.0.0.1"])
+def test_login_con_x_forwarded_for_invalido_funciona(activo, llaves, valor):
+    _login("activo@ejemplo.com", "Password123", _request(HTTP_X_FORWARDED_FOR=valor, REMOTE_ADDR="10.0.0.5"))
+
+    assert RegistroAcceso.objects.get(usuario=activo).ip == "10.0.0.5"
+
+
+def test_remote_addr_invalido_se_guarda_vacio():
+    assert ip_del_request(_request(REMOTE_ADDR="no-es-ip")) is None
 
 
 def test_dispositivo_desconocido():
