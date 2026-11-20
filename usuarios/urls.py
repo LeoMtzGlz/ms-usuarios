@@ -4,6 +4,8 @@ from django.urls import path
 from usuarios.views import RegistroView, CustomTokenObtainPairView
 from usuarios.views_2fa import Activar2FAView, Confirmar2FAView  # t-30/st-206
 
+from usuarios.views_recuperacion import SolicitarRecuperacionView # t-10/st-107
+
 app_name = "auth"
 
 urlpatterns = [
@@ -11,4 +13,5 @@ urlpatterns = [
     path("login/", CustomTokenObtainPairView.as_view(), name="login"),
     path("2fa/activar/", Activar2FAView.as_view(), name="2fa-activar"),
     path("2fa/confirmar/", Confirmar2FAView.as_view(), name="2fa-confirmar"),
+    path("recuperar/", SolicitarRecuperacionView.as_view(), name="recuperar"),
 ]
