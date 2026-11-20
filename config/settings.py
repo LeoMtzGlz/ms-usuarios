@@ -152,6 +152,7 @@ REST_FRAMEWORK = {
         # t-13/st-123: todo endpoint exige autenticación salvo que declare AllowAny.
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
+        "comun.permisos.ContrasenaDefinitiva",  # t-12/st-116: 403 mientras la contraseña sea temporal
         ),
 }
 
@@ -263,6 +264,9 @@ AXES_FAILURE_LIMIT = 5
 AXES_COOLOFF_TIME = timedelta(minutes=15)
 AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
 AXES_RESET_ON_SUCCESS = True
+
+# hu-25/st-184: respuesta de bloqueo con el formato estándar de errores
+AXES_LOCKOUT_CALLABLE = "comun.errores.respuesta_bloqueo_axes"
 
 # t-03/st-71: vigencia de los codigos de verificacion, en minutos
 CODIGO_MINUTOS = env.int("CODIGO_MINUTOS", default=10)

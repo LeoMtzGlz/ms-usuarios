@@ -1,0 +1,9 @@
+{% extends "notificaciones/correo/base.html" %}
+{% block title %}Activa tu cuenta{% endblock %}
+{% block header_title %}Activación de Cuenta{% endblock %}
+{% block content %}
+<p>Hola <strong>{{ nombre|default:"usuario" }}</strong>,</p>
+<p>Gracias por registrarte. Utiliza el siguiente código para verificar y activar tu cuenta:</p>
+<div class="code-box">{{ codigo }}</div>
+<p>Este código expirará en {{ minutos_expiracion|default:"15" }} minutos. Si no solicitaste este registro, ignora este mensaje.</p>
+{% endblock %}

@@ -22,9 +22,8 @@ TAMANO_LOTE = 20
 INTERVALO_SEGUNDOS = 5
 LARGO_MAXIMO_ERROR = 500
 
-# Función de T-07 (st-35/st-36) que devuelve el canal configurado en CANAL_NOTIFICACIONES.
-# No recibe argumentos: el canal sale del setting, no de la notificación. Si después pasa a
-# recibir el canal de cada notificación, solo cambia la llamada en procesar().
+# Función de T-07 (st-35/st-36) que devuelve el canal de envío. Recibe el canal de cada
+# notificación (obtener_canal(notificacion.canal)), así cada una sale por el suyo.
 RESOLVER_CANAL = "notificaciones.services.obtener_canal"
 ASUNTO_POR_DEFECTO = "Aviso de tu cuenta"
 
@@ -124,7 +123,7 @@ def procesar(notificacion: Notificacion, obtener_canal) -> str:
         # Savepoint: si algo falla aquí, el resto del lote sigue con la transacción sana.
         with transaction.atomic():
             asunto, texto = armar_mensaje(notificacion)
-            canal = obtener_canal()
+            canal = obtener_canal(notificacion.canal)
             canal.enviar(destino_de(notificacion), asunto, texto)
             marcar_enviada(notificacion)
     except Exception as exc:  # cualquier fallo de una notificación no debe tumbar al worker
