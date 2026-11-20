@@ -1,0 +1,12 @@
+{% extends "notificaciones/correo/base.html" %}
+{% block title %}¡Bienvenido!{% endblock %}
+{% block header_title %}¡Bienvenido a la plataforma!{% endblock %}
+{% block content %}
+<p>Hola <strong>{{ nombre|default:"usuario" }}</strong>,</p>
+<p>Tu cuenta ha sido activada correctamente. Ya puedes iniciar sesión y acceder a todos los servicios disponibles.</p>
+{% if url_login %}
+<p style="text-align: center;">
+    <a href="{{ url_login }}" class="btn">Iniciar sesión</a>
+</p>
+{% endif %}
+{% endblock %}

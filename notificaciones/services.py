@@ -1,6 +1,7 @@
 from django.conf import settings
 from .models import Notificacion, CanalNotificacion
 from .canales import Canal, CanalConsola, CanalCorreo
+from .plantillas import ALIAS_PLANTILLAS, PLANTILLAS_CORREO, renderizar_plantilla_correo
 
 # t-10/st-51: clase que envía cada canal. T-09 agrega aquí CanalWhatsApp.
 CLASES_CANAL = {
@@ -10,14 +11,7 @@ CLASES_CANAL = {
 
 
 def obtener_canal(canal: str | None = None) -> Canal:
-    """Devuelve el canal por el que sale una notificación.
-
-    t-10/st-51: recibe el canal de cada notificación (``notificacion.canal``).
-    - Con CANAL_NOTIFICACIONES=consola (desarrollo) todo sale por consola, sin importar ``canal``.
-    - Si no, usa ``canal``; si no se pasa, el del setting (como antes).
-    - Si el canal aún no tiene clase (WhatsApp antes de T-09) lanza ValueError: el worker la
-      marca fallida en lugar de mandarla en silencio por otro medio.
-    """
+    """Devuelve el canal por el que sale una notificación."""
     canal_setting = getattr(settings, "CANAL_NOTIFICACIONES", CanalNotificacion.CONSOLA)
     if canal_setting == CanalNotificacion.CONSOLA:
         return CanalConsola()
@@ -27,6 +21,21 @@ def obtener_canal(canal: str | None = None) -> Canal:
     if clase is None:
         raise ValueError(f"No hay canal disponible para: {canal}")
     return clase()
+
+
+# T-08/ST-42: Prepara asunto, texto plano y HTML desde las 5 plantillas de correo
+def preparar_contenido_notificacion(notificacion: Notificacion) -> tuple[str, str, str | None]:
+    """
+    Devuelve (asunto, texto, html) listos para pasar a canal.enviar(...).
+    Si la plantilla pertenece a PLANTILLAS_CORREO (o sus alias), renderiza su versión HTML y texto plano.
+    """
+    clave = ALIAS_PLANTILLAS.get(notificacion.plantilla, notificacion.plantilla)
+    if clave in PLANTILLAS_CORREO:
+        return renderizar_plantilla_correo(clave, notificacion.contexto)
+
+    asunto = notificacion.contexto.get("asunto", f"Notificación: {notificacion.plantilla}")
+    texto = notificacion.contexto.get("texto", str(notificacion.contexto))
+    return asunto, texto, None
 
 
 def notificar(usuario, plantilla: str, contexto: dict, canal: str = None) -> Notificacion:
