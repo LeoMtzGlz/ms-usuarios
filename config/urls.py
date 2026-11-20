@@ -4,7 +4,8 @@ from django.contrib import admin
 from django.urls import include, path
 
 from comun.views import SaludView
-from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+from config.views import SwaggerView
+from drf_spectacular.views import SpectacularAPIView
 from rest_framework.permissions import AllowAny
 
 urlpatterns = [
@@ -20,7 +21,7 @@ urlpatterns = [
     ),
     path(
         "api/docs/",
-        SpectacularSwaggerView.as_view(
+        SwaggerView.as_view(
             url_name="schema",
             permission_classes=[AllowAny],
         ),
