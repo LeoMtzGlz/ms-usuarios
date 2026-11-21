@@ -203,7 +203,7 @@ class CodigoRespaldo(models.Model):
         indexes = [models.Index(fields=["usuario", "usado_en"])]
 
     def __str__(self):
-        return f"Código de respaldo #{self.pk} de{self.usuario_id}"  # nunca el hash
+        return f"Código de respaldo #{self.pk} de {self.usuario_id}"  # nunca el hash
 
 # t-22/st-167 (HU-22): historial de accesos (cada intento de login)
 class RegistroAcceso(models.Model):

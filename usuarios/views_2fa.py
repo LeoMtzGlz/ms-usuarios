@@ -68,6 +68,8 @@ class Confirmar2FAView(APIView):
                 dispositivo.confirmado_en = timezone.now()
                 dispositivo.ultimo_intervalo = int(time.time() // PASO_TOTP)  # el código usado no se reutiliza (HU-31)
                 dispositivo.save(update_fields=["confirmado", "confirmado_en", "ultimo_intervalo"])
+                #? ST-207 (códigos de respaldo): aquí se generarán y se agregarán a la respuesta, una sola vez.
+                codigos = generar_codigos_respaldo(request.user) 
 
         # El evento va fuera de la transacción para que no se pierda si algo se revierte.
         if not valido:
@@ -75,9 +77,7 @@ class Confirmar2FAView(APIView):
             raise CodigoInvalido()
 
         registrar_evento("2fa_activado", request.user, request)
-        
-        #? ST-207 (códigos de respaldo): aquí se generarán y se agregarán a la respuesta, una sola vez.
-        codigos = generar_codigos_respaldo(request.user) 
+    
         return Response({
                     "confirmado": True, 
                     "mensaje": "Verificación en dos pasos activada.", 

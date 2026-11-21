@@ -1,6 +1,6 @@
 #t-30/st-206
 """Ayudas para la verificación en dos pasos (HU-30)."""
-import secrets # t-3-/st-207
+import secrets # t-30/st-207
 import qrcode
 import base64
 import io
@@ -10,7 +10,7 @@ from django.contrib.auth.hashers import check_password, make_password
 from django.db import transaction
 from django.utils import timezone
 
-from usuarios.models import CodigoRespaldo # t-3-/st-207
+from usuarios.models import CodigoRespaldo # t-30/st-207
 
 ALFABETO = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # sin 0, O, 1, I, L
 CANTIDAD = 10 #? La cantidad de codigos de respaldo
@@ -23,11 +23,11 @@ def qr_base64(uri: str) -> str: #t-30/st-206
     imagen.save(buffer, format="PNG")
     return base64.b64encode(buffer.getvalue()).decode()
 
-def normalizar_codigo(codigo: str) -> str: # t-3-/st-207
+def normalizar_codigo(codigo: str) -> str: # t-30/st-207
     return codigo.replace("-", "").replace(" ", "").upper()
 
 
-def _nuevo_codigo() -> str: # t-3-/st-207
+def _nuevo_codigo() -> str: # t-30/st-207
     MITAD_RANGO = int(LONGITUD / 2)
     crudo = "".join(secrets.choice(ALFABETO) for _ in range(LONGITUD))
     return f"{crudo[:MITAD_RANGO]}-{crudo[MITAD_RANGO:]}"
