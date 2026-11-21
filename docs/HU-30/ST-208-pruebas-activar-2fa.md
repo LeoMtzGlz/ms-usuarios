@@ -10,17 +10,12 @@
 Pruebas de HU-30: activación y código incorrecto. Se revisaron las pruebas de st-206 (```usuarios/tests/test_2fa_endpoints.py```) y se agregaron las que faltaban para el criterio de los códigos de respaldo (st-207).
 
 ### Resultado: 
-- ```usuarios/tests/helpers_admin.py``` (nuevo): ayudantes reutilizables para pruebas con sesión.
-  - ```crear_usuario(rol=Rol.CLIENTE, **campos)``` → usuario activo creado con ```UsuarioFactory``` (contraseña ```PASSWORD_PRUEBA```).
-  - ```api_de(usuario)``` → ```APIClient``` con un token real emitido por ```CustomTokenObtainPairSerializer.get_token()``` (```usuarios/tokens.py```), con los claims ```rol```, ```email_verificado```, ```token_version``` y ```debe_cambiar_password```. Necesita el fixture ```llaves``` de ```conftest.py``` para firmar con RS256.
-  - Las peticiones pasan por ```JWTAuthentication``` y los permisos por defecto (```IsAuthenticated``` y ```ContrasenaDefinitiva```), igual que en producción.
-  - Lo reutilizarán las pruebas de HU-15 (st-143), HU-17 (st-149 y st-150) y HU-19 (st-157).
-- ```usuarios/tests/test_activar_2fa.py``` (5 passed):
-  - ```test_confirmar_entrega_10_codigos_de_respaldo``` → la respuesta trae 10 códigos distintos en ```codigos_respaldo```.
-  - ```test_los_codigos_se_guardan_con_hash``` → ningún código aparece en claro en ```CodigoRespaldo```.
-  - ```test_codigo_incorrecto_no_genera_codigos``` → si la confirmación falla (```codigo_invalido```), no se crea ningún código.
-  - ```test_los_codigos_no_vuelven_a_mostrarse``` → un segundo ```activar``` responde ```dos_factores_ya_activo``` y no los incluye.
-  - ```test_los_codigos_no_van_a_la_bitacora``` → se registra ```2fa_activado``` en ```svc.auditoria```, pero sin los códigos.
+```usuarios/tests/test_activar_2fa.py``` (5 passed). Usa el mismo esquema que st-206: ```UsuarioFactory```, ```force_authenticate``` y una clave Fernet temporal en ```settings.CLAVE_CIFRADO_2FA```.
+- ```test_confirmar_entrega_10_codigos_de_respaldo``` → la respuesta trae 10 códigos distintos en ```codigos_respaldo```.
+- ```test_los_codigos_se_guardan_con_hash``` → ningún código aparece en claro en ```CodigoRespaldo```.
+- ```test_codigo_incorrecto_no_genera_codigos``` → si la confirmación falla (```codigo_invalido```), no se crea ningún código.
+- ```test_los_codigos_no_vuelven_a_mostrarse``` → un segundo ```activar``` responde ```dos_factores_ya_activo``` y no los incluye.
+- ```test_los_codigos_no_van_a_la_bitacora``` → se registra ```2fa_activado``` en ```svc.auditoria```, pero sin los códigos.
 
 El código incorrecto se elige con ```pyotp``` (```verify(..., valid_window=1)```), como en st-206, así que las pruebas no fallan en el cambio de ventana de 30 segundos.
 
