@@ -3,13 +3,13 @@
 **Historia:** HU-27 — Recibir errores claros que no revelan información  
 **Subtarea:** ST-192 — Revisar los mensajes de todos los endpoints de autenticación  
 **Rama:** `t-27/st-192`  
-**Estado del análisis:** Revisión documental; hallazgos pendientes de validación mediante pruebas comparativas.
+**Estado del análisis:** Revisión documental de los flujos integrados en `development` y de los cambios propuestos en PR relacionados con autenticación. Los hallazgos comparativos pendientes corresponden a ST-194.
 
 ## 1. Objetivo
 
 Revisar las respuestas de los endpoints de autenticación para identificar si permiten distinguir entre una cuenta existente y una inexistente.
 
-La descripción de ST-192 solicita comparar ambas respuestas. La HU-27 establece que login, recuperación y reenvío no deben revelar si una cuenta existe.
+La descripción de ST-192 solicita comparar ambas respuestas. La HU-27 establece que los flujos de login, recuperación y reenvío no deben revelar si una cuenta existe.
 
 ## 2. Endpoints revisados
 
@@ -31,7 +31,9 @@ Para los datos duplicados, el serializer utiliza mensajes específicos:
 - `Este correo ya está registrado.`
 - `Este teléfono ya está registrado.`
 
-**Hallazgo:** la respuesta permite conocer si un correo o teléfono ya está registrado. Este comportamiento se documenta como exposición de información sobre las cuentas existentes.
+**Hallazgo:** la respuesta informa si un correo o teléfono ya está registrado. En el flujo de registro, este mensaje permite comunicar que los datos no pueden utilizarse para crear otra cuenta.
+
+La mitigación ante intentos de enumeración contempla los límites de solicitudes definidos en ST-179 y ST-180. La implementación de ST-180 se encuentra en el PR #71 y todavía no está integrada en `development`.
 
 ### 2.2 Activación de 2FA
 
@@ -67,12 +69,10 @@ Estos mensajes describen el estado del dispositivo 2FA de una cuenta autenticada
 
 ### 2.4 Inicio de sesión — PR #67
 
-**Ruta propuesta:** `POST /api/v1/auth/login/`  
-**Estado:** En revisión; no integrado en `development` al momento de la consulta.
+**Ruta:** `POST /api/v1/auth/login/`  
+**Estado:** Integrado en `development` mediante el PR #67.
 
-El PR #67 agrega `CustomTokenObtainPairView` y `CustomTokenObtainPairSerializer`.
-
-Comportamiento descrito por el código del PR:
+Comportamiento observado:
 
 | Situación | HTTP | Código |
 |---|---:|---|
@@ -89,41 +89,58 @@ Mensajes del catálogo de errores:
 
 El backend permite buscar por correo o teléfono. Cuando no encuentra al usuario, calcula un hash ficticio antes de rechazar las credenciales.
 
-**Hallazgo:** las respuestas de cuenta pendiente e inactiva son distintas de la respuesta de credenciales inválidas. Por tanto, el endpoint propuesto puede revelar el estado de una cuenta existente.
+**Hallazgo:** los mensajes de cuenta pendiente e inactiva se devuelven únicamente después de que la contraseña proporcionada fue validada correctamente. Por lo tanto, una persona que desconoce la contraseña no puede utilizar esas respuestas para confirmar la existencia de una cuenta ni conocer su estado.
 
-Las pruebas incluidas en el PR cubren éxito, credenciales inválidas, cuenta pendiente y cuenta inactiva. Sin embargo, no comparan expresamente la respuesta de una cuenta existente con contraseña incorrecta contra la respuesta de una cuenta inexistente.
+Además, HU-05 solicita explícitamente informar cuando una cuenta está pendiente o inactiva. Por este motivo, estos mensajes forman parte del comportamiento esperado del login y no se consideran una exposición de información para quien no conoce las credenciales.
+
+Las pruebas incluidas en el PR cubren éxito, credenciales inválidas, cuenta pendiente y cuenta inactiva. La comparación específica de respuestas para cuentas existentes e inexistentes corresponde a las pruebas contempladas en ST-194.
 
 Referencia: [PR #67 — Crear el endpoint de login](https://github.com/LeoMtzGlz/ms-usuarios/pull/67).
 
-## 3. Flujos no localizados en las rutas revisadas
+## 3. Flujos no integrados o no localizados en las rutas revisadas
 
-En `usuarios/urls.py` y `config/urls.py` no se localizaron rutas para:
+### 3.1 Recuperación de contraseña — PR #79
 
-- Recuperación de contraseña.
-- Reenvío de códigos de activación.
+**Ruta propuesta:** `POST /api/v1/auth/recuperar/`  
+**Estado:** Propuesto en el PR #79; todavía no integrado en `development`.
 
-Por ello, no es posible evaluar todavía sus respuestas ni afirmar que cumplen el criterio de HU-27.
+De acuerdo con la descripción del PR, el endpoint recibe un identificador que puede ser correo o teléfono y responde con HTTP 200 y el mensaje:
+
+`Si la cuenta existe, te enviamos un código.`
+
+La respuesta se mantiene igual tanto si la cuenta existe como si no. También se contempla que los errores del proveedor de notificaciones se registren sin modificar la respuesta pública.
+
+**Análisis:** el comportamiento propuesto evita revelar si el identificador pertenece a una cuenta registrada. Este flujo deberá revisarse nuevamente cuando el PR se integre en `development`.
+
+Referencia: [PR #79 — Recuperación de contraseña](https://github.com/LeoMtzGlz/ms-usuarios/pull/79).
+
+### 3.2 Reenvío de códigos
+
+En las rutas revisadas de `usuarios/urls.py` y `config/urls.py` no se localizó un endpoint de reenvío de códigos de activación.
+
+Por ello, no es posible evaluar todavía sus respuestas ni confirmar si mantiene un comportamiento equivalente para cuentas existentes e inexistentes.
 
 ## 4. Hallazgos generales
 
-1. El registro revela si un correo o teléfono está registrado mediante mensajes específicos.
-2. El login propuesto diferencia cuentas pendientes e inactivas de credenciales inválidas.
-3. Los endpoints 2FA revisados requieren autenticación y comunican estados del dispositivo.
-4. No se localizaron los endpoints de recuperación y reenvío en las rutas inspeccionadas.
-5. Se necesitan pruebas comparativas para verificar que las respuestas de login no revelen la existencia de una cuenta.
+1. **Registro:** informa cuando un correo o teléfono ya está registrado. Es necesario comunicar que esos datos ya están en uso; la mitigación ante intentos de enumeración contempla los límites de solicitudes de ST-179 y ST-180. ST-180 sigue pendiente de integración mediante el PR #71.
+2. **Login:** los mensajes de cuenta pendiente e inactiva aparecen únicamente después de validar correctamente la contraseña. Además, HU-05 solicita explícitamente estos mensajes, por lo que no se consideran una fuga de información para quien desconoce las credenciales.
+3. **2FA:** los endpoints revisados requieren autenticación y comunican estados del dispositivo 2FA.
+4. **Recuperación:** el PR #79 propone una respuesta genérica e idéntica para identificadores existentes e inexistentes, pero todavía no está integrado en `development`.
+5. **Reenvío:** no se identificó el endpoint correspondiente en las rutas revisadas de `development`.
 
 ## 5. Recomendaciones
 
-- Revisar el comportamiento del login antes de integrar el PR #67.
-- Evaluar el uso de una respuesta externa genérica para los estados de cuenta que no deben revelarse.
-- Conservar los detalles específicos para diagnóstico interno cuando corresponda, sin exponerlos en la respuesta pública.
-- Comparar las respuestas HTTP y los cuerpos JSON de cuentas existentes e inexistentes.
-- Completar el inventario cuando estén disponibles los endpoints de recuperación y reenvío.
+- Mantener los mensajes de cuenta pendiente e inactiva en el login, ya que se muestran después de validar correctamente la contraseña y corresponden al comportamiento solicitado por HU-05.
+- Mantener una respuesta genérica en los flujos de recuperación y reenvío para evitar revelar si una cuenta existe.
+- Conservar los detalles específicos para diagnóstico interno cuando corresponda, sin exponerlos en respuestas públicas.
+- Considerar los límites de solicitudes definidos para mitigar intentos de enumeración durante el registro.
+- Completar la revisión de recuperación y reenvío cuando esos endpoints estén integrados en `development`.
+- Realizar las pruebas comparativas de respuestas contempladas en ST-194.
 
 ## 6. Estado de la revisión
 
-ST-192 cuenta con una revisión inicial de los endpoints de registro y 2FA integrados, así como del login propuesto en el PR #67.
+ST-192 cuenta con una revisión documental de los endpoints de registro, login y 2FA integrados en `development`. También se consideró el comportamiento propuesto para recuperación de contraseña en el PR #79, diferenciándolo de los cambios ya integrados.
 
-La revisión no se considera exhaustiva: faltan los flujos de recuperación y reenvío y las pruebas comparativas de respuestas. La subtarea ST-194 contempla las pruebas de respuestas idénticas para cuentas existentes e inexistentes.
+La revisión no sustituye las pruebas comparativas de respuestas para cuentas existentes e inexistentes, contempladas en ST-194. Tampoco permite confirmar el comportamiento del reenvío de códigos, cuyo endpoint no se localizó en las rutas revisadas.
 
-**Conclusión:** se identificaron respuestas que pueden revelar información de cuentas existentes. Los hallazgos deben atenderse y validarse antes de considerar cumplido el objetivo de HU-27.
+**Conclusión:** los mensajes de cuenta pendiente e inactiva del login no se consideran una fuga de información porque se muestran únicamente después de validar correctamente la contraseña y son requeridos por HU-05. El mensaje de registro para correo o teléfono duplicado informa que los datos ya están en uso; la mitigación ante intentos de enumeración contempla los límites de solicitudes. La recuperación de contraseña cuenta con una propuesta de respuesta genérica en el PR #79, todavía pendiente de integración en `development`.
