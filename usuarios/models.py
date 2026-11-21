@@ -190,6 +190,21 @@ class Dispositivo2FA(models.Model):
     def verificar(self, codigo: str) -> bool:
         return pyotp.TOTP(self.secreto).verify(codigo, valid_window=1)
 
+# t-30/st-207: códigos de respaldo de 2FA, guardados con hash
+class CodigoRespaldo(models.Model):
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="codigos_respaldo"
+    )
+    codigo_hash = models.CharField(max_length=128)
+    usado_en = models.DateTimeField(null=True, blank=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["usuario", "usado_en"])]
+
+    def __str__(self):
+        return f"Código de respaldo #{self.pk} de {self.usuario_id}"  # nunca el hash
+
 # t-22/st-167 (HU-22): historial de accesos (cada intento de login)
 class RegistroAcceso(models.Model):
     usuario = models.ForeignKey(
