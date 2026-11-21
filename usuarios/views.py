@@ -25,6 +25,9 @@ class RegistroView(APIView):
     hasta que la cuenta se active (HU-03).
     """
 
+    # t-24/st-179: Limitar el registro a 5 solicitudes por hora por IP
+    throttle_scope = "registro"
+
     permission_classes = [AllowAny]
     authentication_classes = []  # registro público: un token viejo o inválido no debe dar 401
 
