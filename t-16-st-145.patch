@@ -1,0 +1,767 @@
+From e56751b02e9b18e6e5cf1da702302d23b7eaf777 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 21 Nov 2026 03:44:20 +0000
+Subject: [PATCH] =?UTF-8?q?t-16/st-145:=20crear=20el=20endpoint=20GET=20/u?=
+ =?UTF-8?q?suarios/=20con=20b=C3=BAsqueda,=20filtros=20y=20paginaci=C3=B3n?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+SearchFilter por nombre, apellidos, correo y teléfono; django-filter para rol y estado; páginas de 20; solo EsAdministrador. Agrega bloqueada (django-axes) y ultimo_acceso sin consultas por usuario. AltaUsuarioView pasa a UsuariosView (GET + POST).
+---
+ comun/paginacion.py                         |  12 +
+ config/settings.py                          |   1 +
+ docs/HU-15/ST-140-alta-usuario-operativo.md |   8 +-
+ docs/HU-16/ST-145-listar-usuarios.md        |  98 +++++
+ requirements.txt                            |   1 +
+ usuarios/bloqueos.py                        |  26 ++
+ usuarios/filtros.py                         |  16 +
+ usuarios/serializers_admin.py               |  23 ++
+ usuarios/tests/test_listar_usuarios.py      | 382 ++++++++++++++++++++
+ usuarios/urls_admin.py                      |   4 +-
+ usuarios/views_admin.py                     |  42 ++-
+ 11 files changed, 600 insertions(+), 13 deletions(-)
+ create mode 100644 comun/paginacion.py
+ create mode 100644 docs/HU-16/ST-145-listar-usuarios.md
+ create mode 100644 usuarios/bloqueos.py
+ create mode 100644 usuarios/filtros.py
+ create mode 100644 usuarios/tests/test_listar_usuarios.py
+
+diff --git a/comun/paginacion.py b/comun/paginacion.py
+new file mode 100644
+index 0000000..a297efa
+--- /dev/null
++++ b/comun/paginacion.py
+@@ -0,0 +1,12 @@
++"""Paginación compartida por los listados de la API (HU-16 en adelante)."""
++from rest_framework.pagination import PageNumberPagination
++
++
++class PaginacionDe20(PageNumberPagination):
++    """Páginas de 20 en 20: `?page=2`. El cliente no puede cambiar el tamaño.
++
++    Responde {"count", "next", "previous", "results"}. Una página fuera de rango
++    responde 404, igual que en el resto de DRF.
++    """
++
++    page_size = 20
+diff --git a/config/settings.py b/config/settings.py
+index 9b0fdc6..da34a43 100644
+--- a/config/settings.py
++++ b/config/settings.py
+@@ -41,6 +41,7 @@ INSTALLED_APPS = [
+ 
+     "rest_framework",
+     "drf_spectacular",
++    "django_filters",  # t-16/st-145
+     "rest_framework_simplejwt.token_blacklist", # t-07/st-89
+ 
+     "comun",
+diff --git a/docs/HU-15/ST-140-alta-usuario-operativo.md b/docs/HU-15/ST-140-alta-usuario-operativo.md
+index 37b5043..9871d0e 100644
+--- a/docs/HU-15/ST-140-alta-usuario-operativo.md
++++ b/docs/HU-15/ST-140-alta-usuario-operativo.md
+@@ -35,15 +35,15 @@ Respuesta `201`:
+ | Correo (sin importar mayúsculas) y teléfono duplicados responden `400 datos_invalidos` con el campo | `AltaUsuarioSerializer` |
+ | Dos altas simultáneas las frena la restricción única de la base | `AltaUsuarioSerializer.create` |
+ | La cuenta nace activa, rol operativo y `debe_cambiar_password=True`; `rol`, `estado`, `password`... enviados por el cliente se ignoran | `AltaUsuarioSerializer.create` |
+-| Sin token `401`; cliente u operativo `403 sin_permiso`; administrador con contraseña temporal `403 debe_cambiar_password` | `AltaUsuarioView.permission_classes` |
+-| La bitácora registra `alta_usuario` con quién creó a quién y el rol, nunca la contraseña | `AltaUsuarioView.post` |
++| Sin token `401`; cliente u operativo `403 sin_permiso`; administrador con contraseña temporal `403 debe_cambiar_password` | `UsuariosView.permission_classes` |
++| La bitácora registra `alta_usuario` con quién creó a quién y el rol, nunca la contraseña | `UsuariosView.post` |
+ 
+ ## Archivos
+ 
+ | Archivo | Cambio |
+ | --- | --- |
+ | `usuarios/serializers_admin.py` | `AltaUsuarioSerializer` |
+-| `usuarios/views_admin.py` | `AltaUsuarioView` |
++| `usuarios/views_admin.py` | `UsuariosView` |
+ | `usuarios/urls_admin.py` | Ruta `""` montada en `/api/v1/usuarios/` |
+ | `config/urls.py` | `include("usuarios.urls_admin")` |
+ | `usuarios/tests/test_alta_usuario.py` | Pruebas del endpoint |
+@@ -51,7 +51,7 @@ Respuesta `201`:
+ ## Pendiente en otras subtareas
+ 
+ - **ST-141:** `usuarios/contrasenas.py` ya trae un generador con `secrets` para que el endpoint funcione.
+-- **ST-142:** el aviso de cuenta creada se encola dentro de la transacción de `AltaUsuarioView.post`.
++- **ST-142:** el aviso de cuenta creada se encola dentro de la transacción de `UsuariosView.post`.
+ - **ST-143:** pruebas generales de HU-15.
+ - **HU-16:** el `GET` de listado se agrega en la misma ruta.
+ - **Login (ST-82):** `usuarios/tokens.py` ya agrega el claim `rol` al token y `EsAdministrador` lo lee, pero el endpoint de
+diff --git a/docs/HU-16/ST-145-listar-usuarios.md b/docs/HU-16/ST-145-listar-usuarios.md
+new file mode 100644
+index 0000000..822bb4d
+--- /dev/null
++++ b/docs/HU-16/ST-145-listar-usuarios.md
+@@ -0,0 +1,98 @@
++# ST-145 - Endpoint para listar, buscar y filtrar usuarios
++
++## Objetivo
++
++Que un administrador consulte las cuentas y encuentre una rápido, sin revisarlas una por una (HU-16).
++Esta subtarea agrega el `GET` a la ruta que ya tenía el `POST` de alta (ST-140). Los índices son ST-146 y las pruebas
++generales de la historia, ST-147.
++
++## Endpoint
++
++`GET /api/v1/usuarios/` · permiso: `EsAdministrador` (más `IsAuthenticated` y `ContrasenaDefinitiva` de settings).
++
++| Parámetro | Ejemplo | Qué hace |
++| --- | --- | --- |
++| `search` | `?search=ana blanco` | Busca en nombre, apellidos, correo y teléfono, sin importar mayúsculas. Cada palabra debe aparecer en alguno de esos campos |
++| `rol` | `?rol=operativo` | `administrador`, `cliente` u `operativo` |
++| `estado` | `?estado=activo` | `pendiente`, `activo` o `inactivo` |
++| `page` | `?page=2` | Páginas de 20 en 20. El tamaño no se puede cambiar |
++
++Los parámetros se combinan: `?search=blanco&rol=operativo&page=1`. Un `rol` o `estado` inexistente responde
++`400 datos_invalidos`; un valor vacío se ignora.
++
++Respuesta `200`:
++
++```json
++{
++  "count": 25,
++  "next": "http://…/api/v1/usuarios/?page=2",
++  "previous": null,
++  "results": [
++    {
++      "id": "…", "nombre": "Ana", "apellidos": "Blanco", "correo": "ana.blanco@ejemplo.com",
++      "telefono": "+524431110001", "rol": "operativo", "estado": "activo",
++      "bloqueada": false, "ultimo_acceso": "2026-11-20T15:04:11Z"
++    }
++  ]
++}
++```
++
++`ultimo_acceso` es `null` si la persona nunca ha iniciado sesión. La respuesta no incluye contraseña, `token_version`
++ni datos de 2FA. Una página fuera de rango responde `404`.
++
++## Reglas
++
++| Regla | Dónde |
++| --- | --- |
++| Sin token `401`; cliente u operativo `403 sin_permiso`; administrador con contraseña temporal `403 debe_cambiar_password` | `UsuariosView.permission_classes` |
++| Orden fijo por nombre, apellidos y correo; sin él, las páginas podrían repetir o saltarse usuarios | `UsuariosView.get_queryset` |
++| `rol` y `estado` salen de los `choices` del modelo | `usuarios/filtros.py` |
++| Páginas de 20; reutilizable por otros listados | `comun/paginacion.py` |
++| `bloqueada` se calcula en la misma consulta del listado (sin una consulta por usuario) | `usuarios/bloqueos.py` |
++
++## Cómo se calcula `bloqueada`
++
++Una cuenta está bloqueada si django-axes tiene un intento con al menos `AXES_FAILURE_LIMIT` fallos (5) dentro del
++`AXES_COOLOFF_TIME` (15 minutos). El intento se asocia a la cuenta por su `username`: el correo (sin importar
++mayúsculas) o el teléfono en formato E.164.
++
++> **Limitación conocida, fuera de esta subtarea (HU-25).** Hoy Axes guarda `username = None` en los logins reales:
++> `AXES_USERNAME_FORM_FIELD` vale `email` (el `USERNAME_FIELD` del modelo) pero `usuarios/tokens.py` autentica con
++> `username=`, así que Axes no encuentra el dato. Consecuencias:
++>
++> - `bloqueada` aparecerá siempre en `false` hasta que se corrija.
++> - El bloqueo actual es **por IP, no por cuenta**: cinco fallos desde una IP bloquean a cualquier cuenta que se intente
++>   desde esa IP, y los fallos contra cuentas distintas se suman.
++>
++> `test_tras_cinco_logins_fallidos_reales_la_cuenta_aparece_bloqueada` documenta el problema con un `xfail` estricto:
++> cuando se corrija HU-25 pasará y habrá que quitarle la marca.
++
++## Búsqueda: qué esperar
++
++- Es de tipo "contiene" (`icontains`: el texto puede estar en cualquier parte del campo). Los índices de correo y teléfono no la aceleran; para pocos miles de
++  usuarios no importa, y de crecer habría que usar un índice `pg_trgm` (ST-146).
++- En PostgreSQL no ignora acentos: `ramirez` no encuentra a `Ramírez`. Para ignorarlos haría falta la extensión
++  `unaccent`.
++- El teléfono se guarda en E.164 (`+524431234567`), así que `443 123` no coincide; sí coincide `443` o `+52443`.
++
++## Archivos
++
++| Archivo | Cambio |
++| --- | --- |
++| `usuarios/views_admin.py` | `AltaUsuarioView` pasa a `UsuariosView` con `GET` (listado) y `POST` (alta, sin cambios) |
++| `usuarios/serializers_admin.py` | `UsuarioListaSerializer` |
++| `usuarios/filtros.py` | `UsuarioFilter` (`rol`, `estado`) |
++| `usuarios/bloqueos.py` | `con_bloqueada()` |
++| `comun/paginacion.py` | `PaginacionDe20` |
++| `usuarios/urls_admin.py`, `config/settings.py`, `requirements.txt` | Ruta, `django_filters` en `INSTALLED_APPS` y `django-filter==26.2` |
++| `usuarios/tests/test_listar_usuarios.py` | 44 pruebas y 1 `xfail` |
++| `docs/HU-15/ST-140-alta-usuario-operativo.md` | Nombre de la vista actualizado |
++
++## Pendiente en otras subtareas
++
++- **ST-146:** índices. El correo (`Lower(email)`) y el teléfono ya tienen índices únicos; falta decidir si hace falta
++  `pg_trgm` para la búsqueda por "contiene".
++- **ST-147:** pruebas generales de HU-16 (esta subtarea ya trae las suyas).
++- **HU-17:** si el detalle reutiliza `UsuarioListaSerializer`, su queryset debe anotar `bloqueada` con
++  `con_bloqueada()`; de lo contrario el serializer fallará.
++- **HU-25:** corregir el `username` que guarda Axes.
+diff --git a/requirements.txt b/requirements.txt
+index 96f47ab..32177dc 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -15,3 +15,4 @@ django-axes==9.0.0 # hu-25/st-183
+ pyotp==2.10.0 #t-30/st-205
+ user-agents==2.2.0 # t-22/st-167: dispositivo legible en el historial de accesos
+ qrcode[pil]==8.2 #t-30/st-206
++django-filter==26.2 # t-16/st-145
+diff --git a/usuarios/bloqueos.py b/usuarios/bloqueos.py
+new file mode 100644
+index 0000000..ef6c755
+--- /dev/null
++++ b/usuarios/bloqueos.py
+@@ -0,0 +1,26 @@
++"""¿Qué cuentas están bloqueadas ahora por intentos fallidos? (HU-16 / ST-145)
++
++django-axes guarda un AccessAttempt por cada combinación bloqueada. Una cuenta se considera
++bloqueada si tiene algún intento con al menos AXES_FAILURE_LIMIT fallos y todavía dentro del
++tiempo de espera (AXES_COOLOFF_TIME). El intento se asocia a la cuenta por el `username` que
++guardó Axes: el correo (sin importar mayúsculas) o el teléfono en formato E.164.
++"""
++from axes.helpers import get_cool_off
++from axes.models import AccessAttempt
++from django.conf import settings
++from django.db.models import Exists, OuterRef, Q
++from django.db.models.functions import Lower
++from django.utils import timezone
++
++
++def con_bloqueada(usuarios):
++    """Agrega `bloqueada` (bool) a cada usuario con una sola consulta, sin N+1."""
++    intentos = (
++        AccessAttempt.objects.annotate(identificador=Lower("username"))
++        .filter(failures_since_start__gte=settings.AXES_FAILURE_LIMIT)
++        .filter(Q(identificador=OuterRef("email")) | Q(username=OuterRef("telefono")))
++    )
++    espera = get_cool_off()  # timedelta, o None si el bloqueo no vence
++    if espera is not None:
++        intentos = intentos.filter(attempt_time__gte=timezone.now() - espera)
++    return usuarios.annotate(bloqueada=Exists(intentos))
+diff --git a/usuarios/filtros.py b/usuarios/filtros.py
+new file mode 100644
+index 0000000..7fdd2bb
+--- /dev/null
++++ b/usuarios/filtros.py
+@@ -0,0 +1,16 @@
++"""Filtros del listado de usuarios (HU-16 / ST-145)."""
++import django_filters
++
++from comun.roles import Rol
++from usuarios.models import Estado, Usuario
++
++
++class UsuarioFilter(django_filters.FilterSet):
++    """`?rol=operativo&estado=activo`. Un valor que no existe responde 400, no una lista vacía."""
++
++    rol = django_filters.ChoiceFilter(choices=Rol.choices)
++    estado = django_filters.ChoiceFilter(choices=Estado.choices)
++
++    class Meta:
++        model = Usuario
++        fields = ["rol", "estado"]
+diff --git a/usuarios/serializers_admin.py b/usuarios/serializers_admin.py
+index 9fa10b3..14435a5 100644
+--- a/usuarios/serializers_admin.py
++++ b/usuarios/serializers_admin.py
+@@ -72,3 +72,26 @@ class AltaUsuarioSerializer(serializers.Serializer):
+             "estado": usuario.estado,
+             "debe_cambiar_password": usuario.debe_cambiar_password,
+         }
++
++
++class UsuarioListaSerializer(serializers.ModelSerializer):
++    """HU-16 / ST-145: una fila del listado de usuarios. Solo lectura.
++
++    `bloqueada` no es un campo del modelo: la agrega `usuarios.bloqueos.con_bloqueada()` al
++    queryset. Si se usa este serializer con otro queryset hay que anotarlo también.
++    Nunca expone la contraseña, token_version ni datos de 2FA.
++    """
++
++    nombre = serializers.CharField(source="first_name")
++    apellidos = serializers.CharField(source="last_name")
++    correo = serializers.EmailField(source="email")
++    bloqueada = serializers.BooleanField()
++    ultimo_acceso = serializers.DateTimeField(source="last_login", allow_null=True)
++
++    class Meta:
++        model = Usuario
++        fields = [
++            "id", "nombre", "apellidos", "correo", "telefono",
++            "rol", "estado", "bloqueada", "ultimo_acceso",
++        ]
++        read_only_fields = fields
+diff --git a/usuarios/tests/test_listar_usuarios.py b/usuarios/tests/test_listar_usuarios.py
+new file mode 100644
+index 0000000..23c553b
+--- /dev/null
++++ b/usuarios/tests/test_listar_usuarios.py
+@@ -0,0 +1,382 @@
++"""HU-16 / ST-145: pruebas de GET /api/v1/usuarios/ (listar, buscar y filtrar)."""
++from datetime import timedelta
++
++import pytest
++from axes.models import AccessAttempt
++from django.conf import settings
++from django.db import connection
++from django.test.utils import CaptureQueriesContext
++from django.utils import timezone
++from rest_framework.test import APIClient
++from rest_framework_simplejwt.tokens import RefreshToken
++
++from comun.roles import Rol
++from usuarios.models import Estado
++from usuarios.tests.factories import UsuarioFactory
++
++pytestmark = pytest.mark.django_db
++
++URL = "/api/v1/usuarios/"
++CAMPOS = {"id", "nombre", "apellidos", "correo", "telefono", "rol", "estado", "bloqueada", "ultimo_acceso"}
++
++
++def cliente_como(api_client, usuario, **claims):
++    """Autentica con un token que lleva el claim `rol`, como el que emite usuarios/tokens.py."""
++    acceso = RefreshToken.for_user(usuario).access_token
++    acceso["rol"] = usuario.rol
++    for nombre, valor in claims.items():
++        acceso[nombre] = valor
++    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {acceso}")
++    return api_client
++
++
++@pytest.fixture(autouse=True)
++def hash_rapido(settings):
++    """Estas pruebas crean decenas de usuarios; con Argon2 (lento a propósito) tardarían un minuto.
++
++    Ninguna revisa contraseñas: el hash real de Argon2 lo cubren test_hash_password y test_alta_usuario.
++    """
++    settings.PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
++
++
++def correos(respuesta):
++    return [fila["correo"] for fila in respuesta.json()["results"]]
++
++
++@pytest.fixture
++def admin(llaves):
++    return UsuarioFactory(
++        rol=Rol.ADMINISTRADOR, first_name="Zeta", last_name="Admin", email="zeta.admin@ejemplo.com",
++        telefono="+524430000001",
++    )
++
++
++@pytest.fixture
++def cliente_admin(api_client, admin):
++    return cliente_como(api_client, admin)
++
++
++@pytest.fixture
++def equipo(admin):
++    """Cuatro personas con nombres fáciles de buscar, además del administrador."""
++    return {
++        "ana": UsuarioFactory(
++            first_name="Ana", last_name="Blanco", email="ana.blanco@ejemplo.com",
++            telefono="+524431110001", rol=Rol.OPERATIVO, estado=Estado.ACTIVO,
++        ),
++        "beto": UsuarioFactory(
++            first_name="Beto", last_name="Campos", email="beto.campos@ejemplo.com",
++            telefono="+524432220002", rol=Rol.OPERATIVO, estado=Estado.INACTIVO,
++        ),
++        "carla": UsuarioFactory(
++            first_name="Carla", last_name="Blanco", email="carla@otro.org",
++            telefono="+524433330003", rol=Rol.CLIENTE, estado=Estado.ACTIVO,
++        ),
++        "dario": UsuarioFactory(
++            first_name="Dario", last_name="Duran", email="dario.duran@ejemplo.com",
++            telefono="+524434440004", rol=Rol.CLIENTE, estado=Estado.PENDIENTE,
++        ),
++    }
++
++
++def intento_de_acceso(username, fallos, hace=timedelta(0)):
++    """Registro de django-axes: `fallos` intentos fallidos de `username`, de hace `hace`."""
++    intento = AccessAttempt.objects.create(
++        username=username, ip_address="10.0.0.1", user_agent="pytest", http_accept="*/*",
++        path_info="/api/v1/auth/login/", get_data="", post_data="", failures_since_start=fallos,
++    )
++    AccessAttempt.objects.filter(pk=intento.pk).update(attempt_time=timezone.now() - hace)
++    return intento
++
++
++# --- Qué devuelve --------------------------------------------------------------------
++
++
++def test_lista_los_campos_del_criterio_de_aceptacion(cliente_admin, equipo):
++    respuesta = cliente_admin.get(URL)
++
++    assert respuesta.status_code == 200
++    fila = next(f for f in respuesta.json()["results"] if f["correo"] == "ana.blanco@ejemplo.com")
++    assert set(fila) == CAMPOS
++    assert fila["nombre"] == "Ana"
++    assert fila["apellidos"] == "Blanco"
++    assert fila["telefono"] == "+524431110001"
++    assert fila["rol"] == Rol.OPERATIVO
++    assert fila["estado"] == Estado.ACTIVO
++    assert fila["bloqueada"] is False
++    assert fila["ultimo_acceso"] is None
++
++
++def test_no_expone_datos_sensibles(cliente_admin, equipo):
++    for fila in cliente_admin.get(URL).json()["results"]:
++        for prohibido in ("password", "token_version", "is_staff", "is_superuser", "debe_cambiar_password"):
++            assert prohibido not in fila
++
++
++def test_ultimo_acceso_muestra_la_fecha_del_ultimo_login(cliente_admin, equipo):
++    ahora = timezone.now()
++    equipo["ana"].last_login = ahora
++    equipo["ana"].save(update_fields=["last_login"])
++
++    fila = next(f for f in cliente_admin.get(URL).json()["results"] if f["correo"] == "ana.blanco@ejemplo.com")
++
++    assert fila["ultimo_acceso"] is not None
++    assert fila["ultimo_acceso"].startswith(ahora.astimezone().strftime("%Y-"))
++
++
++def test_incluye_a_todos_los_usuarios(cliente_admin, equipo):
++    cuerpo = cliente_admin.get(URL).json()
++
++    assert cuerpo["count"] == 5  # cuatro del equipo + el administrador
++
++
++def test_ordena_por_nombre_apellidos_y_correo(cliente_admin, equipo):
++    assert correos(cliente_admin.get(URL)) == [
++        "ana.blanco@ejemplo.com",
++        "beto.campos@ejemplo.com",
++        "carla@otro.org",
++        "dario.duran@ejemplo.com",
++        "zeta.admin@ejemplo.com",
++    ]
++
++
++# --- Paginación ----------------------------------------------------------------------
++
++
++def test_pagina_de_20_en_20(cliente_admin):
++    for n in range(24):
++        UsuarioFactory(first_name=f"Persona{n:02d}", email=f"persona{n:02d}@ejemplo.com")  # + el admin = 25
++
++    primera = cliente_admin.get(URL).json()
++    segunda = cliente_admin.get(URL, {"page": 2}).json()
++
++    assert primera["count"] == 25
++    assert len(primera["results"]) == 20
++    assert primera["previous"] is None
++    assert primera["next"] is not None
++    assert len(segunda["results"]) == 5
++    assert segunda["next"] is None
++
++
++def test_las_paginas_no_repiten_ni_saltan_usuarios(cliente_admin):
++    for n in range(24):
++        UsuarioFactory(first_name=f"Persona{n:02d}", email=f"persona{n:02d}@ejemplo.com")
++
++    vistos = correos(cliente_admin.get(URL)) + correos(cliente_admin.get(URL, {"page": 2}))
++
++    assert len(vistos) == 25
++    assert len(set(vistos)) == 25
++
++
++def test_el_cliente_no_puede_cambiar_el_tamano_de_pagina(cliente_admin):
++    for n in range(24):
++        UsuarioFactory(email=f"persona{n:02d}@ejemplo.com")
++
++    assert len(cliente_admin.get(URL, {"page_size": 100}).json()["results"]) == 20
++
++
++def test_una_pagina_fuera_de_rango_responde_404(cliente_admin, equipo):
++    assert cliente_admin.get(URL, {"page": 99}).status_code == 404
++
++
++def test_la_busqueda_tambien_se_pagina(cliente_admin):
++    for n in range(22):
++        UsuarioFactory(first_name="Lupe", email=f"lupe{n:02d}@ejemplo.com")
++
++    cuerpo = cliente_admin.get(URL, {"search": "lupe"}).json()
++
++    assert cuerpo["count"] == 22
++    assert len(cuerpo["results"]) == 20
++
++
++# --- Búsqueda ------------------------------------------------------------------------
++
++
++@pytest.mark.parametrize(
++    ("busqueda", "esperados"),
++    [
++        ("Beto", ["beto.campos@ejemplo.com"]),                       # por nombre
++        ("Campos", ["beto.campos@ejemplo.com"]),                     # por apellido
++        ("Blanco", ["ana.blanco@ejemplo.com", "carla@otro.org"]),    # varios resultados
++        ("Carla Blanco", ["carla@otro.org"]),                        # nombre completo: cada palabra debe aparecer
++        ("otro.org", ["carla@otro.org"]),                            # por correo
++        ("dario.duran", ["dario.duran@ejemplo.com"]),                # por parte del correo
++        ("4432220002", ["beto.campos@ejemplo.com"]),                 # por teléfono
++        ("+52443333", ["carla@otro.org"]),                           # por inicio del teléfono
++    ],
++)
++def test_busca_por_nombre_correo_o_telefono(cliente_admin, equipo, busqueda, esperados):
++    assert correos(cliente_admin.get(URL, {"search": busqueda})) == esperados
++
++
++@pytest.mark.parametrize("busqueda", ["BETO", "beto", "BeTo"])
++def test_la_busqueda_ignora_mayusculas(cliente_admin, equipo, busqueda):
++    assert correos(cliente_admin.get(URL, {"search": busqueda})) == ["beto.campos@ejemplo.com"]
++
++
++def test_busqueda_sin_coincidencias_responde_lista_vacia(cliente_admin, equipo):
++    cuerpo = cliente_admin.get(URL, {"search": "nadie"}).json()
++
++    assert cuerpo["count"] == 0
++    assert cuerpo["results"] == []
++
++
++def test_todas_las_palabras_de_la_busqueda_deben_coincidir(cliente_admin, equipo):
++    assert correos(cliente_admin.get(URL, {"search": "Ana Campos"})) == []
++
++
++def test_busqueda_vacia_devuelve_todos(cliente_admin, equipo):
++    assert cliente_admin.get(URL, {"search": ""}).json()["count"] == 5
++
++
++# --- Filtros -------------------------------------------------------------------------
++
++
++def test_filtra_por_rol(cliente_admin, equipo):
++    assert correos(cliente_admin.get(URL, {"rol": "operativo"})) == [
++        "ana.blanco@ejemplo.com",
++        "beto.campos@ejemplo.com",
++    ]
++
++
++@pytest.mark.parametrize(
++    ("estado", "esperados"),
++    [
++        ("inactivo", ["beto.campos@ejemplo.com"]),
++        ("pendiente", ["dario.duran@ejemplo.com"]),
++        ("activo", ["ana.blanco@ejemplo.com", "carla@otro.org", "zeta.admin@ejemplo.com"]),
++    ],
++)
++def test_filtra_por_estado(cliente_admin, equipo, estado, esperados):
++    assert correos(cliente_admin.get(URL, {"estado": estado})) == esperados
++
++
++def test_combina_rol_y_estado(cliente_admin, equipo):
++    assert correos(cliente_admin.get(URL, {"rol": "cliente", "estado": "activo"})) == ["carla@otro.org"]
++
++
++def test_combina_busqueda_y_filtros(cliente_admin, equipo):
++    assert correos(cliente_admin.get(URL, {"search": "Blanco", "rol": "operativo"})) == [
++        "ana.blanco@ejemplo.com"
++    ]
++
++
++def test_un_filtro_vacio_se_ignora(cliente_admin, equipo):
++    assert cliente_admin.get(URL, {"rol": "", "estado": ""}).json()["count"] == 5
++
++
++@pytest.mark.parametrize("parametros", [{"rol": "jefe"}, {"estado": "dormido"}])
++def test_un_valor_de_filtro_inexistente_responde_400(cliente_admin, equipo, parametros):
++    respuesta = cliente_admin.get(URL, parametros)
++
++    assert respuesta.status_code == 400
++    assert respuesta.json()["codigo"] == "datos_invalidos"
++
++
++# --- Cuenta bloqueada ----------------------------------------------------------------
++
++
++def fila_de(cliente, correo):
++    return next(f for f in cliente.get(URL).json()["results"] if f["correo"] == correo)
++
++
++def test_una_cuenta_con_bloqueo_vigente_aparece_bloqueada(cliente_admin, equipo):
++    intento_de_acceso("ana.blanco@ejemplo.com", settings.AXES_FAILURE_LIMIT)
++
++    assert fila_de(cliente_admin, "ana.blanco@ejemplo.com")["bloqueada"] is True
++    assert fila_de(cliente_admin, "beto.campos@ejemplo.com")["bloqueada"] is False
++
++
++def test_el_correo_del_intento_se_compara_sin_importar_mayusculas(cliente_admin, equipo):
++    intento_de_acceso("Ana.Blanco@EJEMPLO.com", settings.AXES_FAILURE_LIMIT)
++
++    assert fila_de(cliente_admin, "ana.blanco@ejemplo.com")["bloqueada"] is True
++
++
++def test_tambien_cuenta_el_intento_hecho_con_el_telefono(cliente_admin, equipo):
++    intento_de_acceso("+524432220002", settings.AXES_FAILURE_LIMIT)
++
++    assert fila_de(cliente_admin, "beto.campos@ejemplo.com")["bloqueada"] is True
++
++
++def test_con_menos_fallos_que_el_limite_no_esta_bloqueada(cliente_admin, equipo):
++    intento_de_acceso("ana.blanco@ejemplo.com", settings.AXES_FAILURE_LIMIT - 1)
++
++    assert fila_de(cliente_admin, "ana.blanco@ejemplo.com")["bloqueada"] is False
++
++
++def test_pasado_el_tiempo_de_espera_deja_de_estar_bloqueada(cliente_admin, equipo):
++    intento_de_acceso(
++        "ana.blanco@ejemplo.com", settings.AXES_FAILURE_LIMIT, hace=settings.AXES_COOLOFF_TIME + timedelta(minutes=1)
++    )
++
++    assert fila_de(cliente_admin, "ana.blanco@ejemplo.com")["bloqueada"] is False
++
++
++def test_un_intento_sin_usuario_no_bloquea_a_nadie(cliente_admin, equipo):
++    intento_de_acceso(None, settings.AXES_FAILURE_LIMIT)
++
++    assert not any(f["bloqueada"] for f in cliente_admin.get(URL).json()["results"])
++
++
++@pytest.mark.xfail(
++    strict=True,
++    reason="Axes guarda username=None en los logins reales: AXES_USERNAME_FORM_FIELD vale 'email' pero "
++    "tokens.py autentica con username=. El bloqueo es por IP, no por cuenta (HU-25). Al corregirlo, "
++    "esta prueba pasará y habrá que quitar el xfail.",
++)
++def test_tras_cinco_logins_fallidos_reales_la_cuenta_aparece_bloqueada(cliente_admin, equipo):
++    anonimo = APIClient()
++    for _ in range(settings.AXES_FAILURE_LIMIT):
++        anonimo.post(
++            "/api/v1/auth/login/", {"email": "ana.blanco@ejemplo.com", "password": "incorrecta"}, format="json"
++        )
++
++    assert fila_de(cliente_admin, "ana.blanco@ejemplo.com")["bloqueada"] is True
++
++
++# --- Rendimiento ---------------------------------------------------------------------
++
++
++def test_el_numero_de_consultas_no_crece_con_los_usuarios(cliente_admin):
++    UsuarioFactory(email="uno@ejemplo.com")
++    with CaptureQueriesContext(connection) as pocas:
++        cliente_admin.get(URL)
++
++    for n in range(19):
++        UsuarioFactory(email=f"extra{n:02d}@ejemplo.com")
++    intento_de_acceso("extra00@ejemplo.com", settings.AXES_FAILURE_LIMIT)
++    with CaptureQueriesContext(connection) as muchas:
++        respuesta = cliente_admin.get(URL)
++
++    assert len(respuesta.json()["results"]) == 20
++    assert len(muchas) == len(pocas)
++
++
++# --- Quién puede consultarla ---------------------------------------------------------
++
++
++def test_sin_token_responde_401(api_client, llaves):
++    respuesta = api_client.get(URL)
++
++    assert respuesta.status_code == 401
++    assert respuesta.json()["codigo"] == "no_autenticado"
++
++
++@pytest.mark.parametrize("rol", [Rol.CLIENTE, Rol.OPERATIVO])
++def test_un_no_administrador_recibe_403(api_client, llaves, rol):
++    cliente_como(api_client, UsuarioFactory(rol=rol))
++
++    respuesta = api_client.get(URL)
++
++    assert respuesta.status_code == 403
++    assert respuesta.json()["codigo"] == "sin_permiso"
++
++
++def test_un_administrador_con_contrasena_temporal_recibe_403(api_client, admin):
++    cliente_como(api_client, admin, debe_cambiar_password=True)
++
++    respuesta = api_client.get(URL)
++
++    assert respuesta.status_code == 403
++    assert respuesta.json()["codigo"] == "debe_cambiar_password"
+diff --git a/usuarios/urls_admin.py b/usuarios/urls_admin.py
+index 5414208..25345e5 100644
+--- a/usuarios/urls_admin.py
++++ b/usuarios/urls_admin.py
+@@ -1,10 +1,10 @@
+ """Rutas de administración de usuarios: se montan en /api/v1/usuarios/ (config/urls.py)."""
+ from django.urls import path
+ 
+-from usuarios.views_admin import AltaUsuarioView
++from usuarios.views_admin import UsuariosView
+ 
+ app_name = "usuarios"
+ 
+ urlpatterns = [
+-    path("", AltaUsuarioView.as_view(), name="alta"),  # hu-15/st-140 (HU-16 agrega GET aquí)
++    path("", UsuariosView.as_view(), name="usuarios"),  # hu-15/st-140 (POST) y hu-16/st-145 (GET)
+ ]
+diff --git a/usuarios/views_admin.py b/usuarios/views_admin.py
+index ddebcc9..528577a 100644
+--- a/usuarios/views_admin.py
++++ b/usuarios/views_admin.py
+@@ -1,14 +1,21 @@
+-"""HU-15 / ST-140: alta de usuarios operativos por un administrador."""
++"""Administración de usuarios: alta (HU-15 / ST-140) y listado (HU-16 / ST-145)."""
+ from django.db import transaction
++from django_filters.rest_framework import DjangoFilterBackend
+ from drf_spectacular.utils import extend_schema, inline_serializer
+ from rest_framework import serializers, status
++from rest_framework.filters import SearchFilter
++from rest_framework.generics import GenericAPIView
++from rest_framework.mixins import ListModelMixin
+ from rest_framework.response import Response
+-from rest_framework.views import APIView
+ 
+ from comun.eventos import registrar_evento
++from comun.paginacion import PaginacionDe20
+ from comun.permisos import EsAdministrador, permisos_por_defecto_mas
++from usuarios.bloqueos import con_bloqueada
+ from usuarios.contrasenas import generar_contrasena_temporal
+-from usuarios.serializers_admin import AltaUsuarioSerializer
++from usuarios.filtros import UsuarioFilter
++from usuarios.models import Usuario
++from usuarios.serializers_admin import AltaUsuarioSerializer, UsuarioListaSerializer
+ 
+ RespuestaAlta = inline_serializer(
+     name="AltaUsuarioRespuesta",
+@@ -26,15 +33,36 @@ RespuestaAlta = inline_serializer(
+ )
+ 
+ 
+-class AltaUsuarioView(APIView):
+-    """POST /api/v1/usuarios/  {"nombre", "apellidos", "correo", "telefono"}
++class UsuariosView(ListModelMixin, GenericAPIView):
++    """/api/v1/usuarios/ · solo administradores.
+ 
+-    Crea una cuenta operativa, activa y con contraseña temporal. Responde 201 con los
+-    datos de la cuenta y la contraseña temporal, que no se puede volver a consultar.
++    GET (HU-16): lista paginada de 20 en 20. `?search=` busca por nombre, apellidos, correo o
++    teléfono; `?rol=` y `?estado=` filtran. Ordenada por nombre, apellidos y correo.
++
++    POST (HU-15) {"nombre", "apellidos", "correo", "telefono"}: crea una cuenta operativa, activa
++    y con contraseña temporal. Responde 201 con los datos de la cuenta y la contraseña temporal,
++    que no se puede volver a consultar.
+     """
+ 
+     # Se conservan IsAuthenticated y ContrasenaDefinitiva de settings y se suma EsAdministrador
+     permission_classes = permisos_por_defecto_mas(EsAdministrador)
++    filter_backends = [DjangoFilterBackend, SearchFilter]
++    filterset_class = UsuarioFilter
++    search_fields = ["first_name", "last_name", "email", "telefono"]
++    pagination_class = PaginacionDe20
++
++    def get_queryset(self):
++        # El orden fijo es necesario: sin él, las páginas podrían repetir o saltarse usuarios
++        return con_bloqueada(Usuario.objects.all()).order_by("first_name", "last_name", "email")
++
++    def get_serializer_class(self):
++        if getattr(self.request, "method", None) == "POST":
++            return AltaUsuarioSerializer
++        return UsuarioListaSerializer
++
++    @extend_schema(responses=UsuarioListaSerializer(many=True), tags=["usuarios"])
++    def get(self, request):
++        return self.list(request)
+ 
+     @extend_schema(request=AltaUsuarioSerializer, responses={201: RespuestaAlta}, tags=["usuarios"])
+     def post(self, request):
+-- 
+2.43.0
+
