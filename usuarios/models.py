@@ -190,6 +190,21 @@ class Dispositivo2FA(models.Model):
     def verificar(self, codigo: str) -> bool:
         return pyotp.TOTP(self.secreto).verify(codigo, valid_window=1)
 
+
+class Zona(models.Model):
+    """Catálogo de zonas para asignar a los usuarios operativos."""
+
+    nombre = models.CharField(max_length=100, unique=True)
+    activa = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "zona"
+        verbose_name_plural = "zonas"
+
+    def __str__(self):
+        return self.nombre
+
+
 # t-30/st-207: códigos de respaldo de 2FA, guardados con hash
 class CodigoRespaldo(models.Model):
     usuario = models.ForeignKey(
@@ -203,7 +218,8 @@ class CodigoRespaldo(models.Model):
         indexes = [models.Index(fields=["usuario", "usado_en"])]
 
     def __str__(self):
-        return f"Código de respaldo #{self.pk} de {self.usuario_id}"  # nunca el hash
+        return f"Código de respaldo #{self.pk} de {self.usuario_id}"
+
 
 # t-22/st-167 (HU-22): historial de accesos (cada intento de login)
 class RegistroAcceso(models.Model):
@@ -214,7 +230,7 @@ class RegistroAcceso(models.Model):
     )
     fecha = models.DateTimeField(auto_now_add=True, db_index=True)
     ip = models.GenericIPAddressField(null=True, blank=True)
-    dispositivo = models.CharField(max_length=120)  # legible: "Chrome 131 en Windows 10"
+    dispositivo = models.CharField(max_length=120)
     user_agent = models.CharField(max_length=500, blank=True)
     exitoso = models.BooleanField()
 
