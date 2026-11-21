@@ -25,7 +25,9 @@ DOMINIO_CORREO_INSTITUCIONAL = env("DOMINIO_CORREO_INSTITUCIONAL", default="@jiq
 CLAVE_CIFRADO_2FA = env("CLAVE_CIFRADO_2FA", default="")
 ISSUER_2FA = "svc-usuarios"
 
-
+# t-22/st-167: IPs de los proxies propios (nginx, balanceador). Solo si la petición viene
+# de uno de ellos se confía en X-Forwarded-For. Vacío = no hay proxy, se usa REMOTE_ADDR.
+PROXIES_CONFIABLES = env.list("PROXIES_CONFIABLES", default=[])
 
 # Application definition
 
