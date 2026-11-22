@@ -4,7 +4,7 @@ from django.db import IntegrityError, transaction
 from rest_framework import serializers
 
 from comun.roles import Rol
-from usuarios.models import Estado, Usuario
+from usuarios.models import Estado, Usuario, Zona
 from usuarios.serializers import CORREO_REGISTRADO, TELEFONO_REGISTRADO
 from usuarios.telefono import normalizar_telefono
 
@@ -24,6 +24,7 @@ class AltaUsuarioSerializer(serializers.Serializer):
     apellidos = serializers.CharField(max_length=150, trim_whitespace=True)
     correo = serializers.EmailField(max_length=254)
     telefono = serializers.CharField(max_length=30)
+    zona = serializers.PrimaryKeyRelatedField(queryset=Zona.objects.filter(activa=True)) #t-35/st-227
 
     def validate_correo(self, valor):
         correo = valor.strip().lower()
@@ -50,6 +51,7 @@ class AltaUsuarioSerializer(serializers.Serializer):
                     first_name=datos["nombre"],
                     last_name=datos["apellidos"],
                     telefono=datos["telefono"],
+                    zona=datos["zona"], #t-35/st-227
                     rol=Rol.OPERATIVO,
                     estado=Estado.ACTIVO,
                     debe_cambiar_password=True,
@@ -68,6 +70,11 @@ class AltaUsuarioSerializer(serializers.Serializer):
             "apellidos": usuario.last_name,
             "correo": usuario.email,
             "telefono": usuario.telefono,
+            #t-35/st-227
+            "zona": {
+                "id": usuario.zona_id,
+                "nombre": usuario.zona.nombre,
+            } if usuario.zona else None,
             "rol": usuario.rol,
             "estado": usuario.estado,
             "debe_cambiar_password": usuario.debe_cambiar_password,
