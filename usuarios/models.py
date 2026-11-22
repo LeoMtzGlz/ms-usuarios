@@ -50,6 +50,14 @@ class Usuario(AbstractUser):
     token_version = models.PositiveIntegerField(
         default=0, help_text="Al incrementarse invalida todas las sesiones del usuario."
     )
+    #t-35/st-227: zona para usuarios 
+    zona = models.ForeignKey(
+    "Zona",
+    on_delete=models.PROTECT,
+    null=True,
+    blank=True,
+    related_name="usuarios",
+)
     acepto_privacidad_en = models.DateTimeField(null=True, blank=True)
     version_privacidad = models.CharField(max_length=20, blank=True)
 

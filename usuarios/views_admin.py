@@ -21,6 +21,7 @@ RespuestaAlta = inline_serializer(
         "rol": serializers.CharField(),
         "estado": serializers.CharField(),
         "debe_cambiar_password": serializers.BooleanField(),
+        "zona": serializers.DictField(),
         "contrasena_temporal": serializers.CharField(help_text="Se devuelve una sola vez."),
     },
 )
