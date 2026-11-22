@@ -79,3 +79,26 @@ class AltaUsuarioSerializer(serializers.Serializer):
             "estado": usuario.estado,
             "debe_cambiar_password": usuario.debe_cambiar_password,
         }
+
+
+class UsuarioListaSerializer(serializers.ModelSerializer):
+    """HU-16 / ST-145: una fila del listado de usuarios. Solo lectura.
+
+    `bloqueada` no es un campo del modelo: la agrega `usuarios.bloqueos.con_bloqueada()` al
+    queryset. Si se usa este serializer con otro queryset hay que anotarlo también.
+    Nunca expone la contraseña, token_version ni datos de 2FA.
+    """
+
+    nombre = serializers.CharField(source="first_name")
+    apellidos = serializers.CharField(source="last_name")
+    correo = serializers.EmailField(source="email")
+    bloqueada = serializers.BooleanField()
+    ultimo_acceso = serializers.DateTimeField(source="last_login", allow_null=True)
+
+    class Meta:
+        model = Usuario
+        fields = [
+            "id", "nombre", "apellidos", "correo", "telefono",
+            "rol", "estado", "bloqueada", "ultimo_acceso",
+        ]
+        read_only_fields = fields

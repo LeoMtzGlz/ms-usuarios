@@ -1,14 +1,21 @@
-"""HU-15 / ST-140: alta de usuarios operativos por un administrador."""
+"""Administración de usuarios: alta (HU-15 / ST-140) y listado (HU-16 / ST-145)."""
 from django.db import transaction
+from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers, status
+from rest_framework.filters import SearchFilter
+from rest_framework.generics import GenericAPIView
+from rest_framework.mixins import ListModelMixin
 from rest_framework.response import Response
-from rest_framework.views import APIView
 
 from comun.eventos import registrar_evento
+from comun.paginacion import PaginacionDe20
 from comun.permisos import EsAdministrador, permisos_por_defecto_mas
+from usuarios.bloqueos import con_bloqueada
 from usuarios.contrasenas import generar_contrasena_temporal
-from usuarios.serializers_admin import AltaUsuarioSerializer
+from usuarios.filtros import UsuarioFilter
+from usuarios.models import Usuario
+from usuarios.serializers_admin import AltaUsuarioSerializer, UsuarioListaSerializer
 
 RespuestaAlta = inline_serializer(
     name="AltaUsuarioRespuesta",
@@ -27,15 +34,36 @@ RespuestaAlta = inline_serializer(
 )
 
 
-class AltaUsuarioView(APIView):
-    """POST /api/v1/usuarios/  {"nombre", "apellidos", "correo", "telefono"}
+class UsuariosView(ListModelMixin, GenericAPIView):
+    """/api/v1/usuarios/ · solo administradores.
 
-    Crea una cuenta operativa, activa y con contraseña temporal. Responde 201 con los
-    datos de la cuenta y la contraseña temporal, que no se puede volver a consultar.
+    GET (HU-16): lista paginada de 20 en 20. `?search=` busca por nombre, apellidos, correo o
+    teléfono; `?rol=` y `?estado=` filtran. Ordenada por nombre, apellidos y correo.
+
+    POST (HU-15) {"nombre", "apellidos", "correo", "telefono"}: crea una cuenta operativa, activa
+    y con contraseña temporal. Responde 201 con los datos de la cuenta y la contraseña temporal,
+    que no se puede volver a consultar.
     """
 
     # Se conservan IsAuthenticated y ContrasenaDefinitiva de settings y se suma EsAdministrador
     permission_classes = permisos_por_defecto_mas(EsAdministrador)
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_class = UsuarioFilter
+    search_fields = ["first_name", "last_name", "email", "telefono"]
+    pagination_class = PaginacionDe20
+
+    def get_queryset(self):
+        # El orden fijo es necesario: sin él, las páginas podrían repetir o saltarse usuarios
+        return con_bloqueada(Usuario.objects.all()).order_by("first_name", "last_name", "email")
+
+    def get_serializer_class(self):
+        if getattr(self.request, "method", None) == "POST":
+            return AltaUsuarioSerializer
+        return UsuarioListaSerializer
+
+    @extend_schema(responses=UsuarioListaSerializer(many=True), tags=["usuarios"])
+    def get(self, request):
+        return self.list(request)
 
     @extend_schema(request=AltaUsuarioSerializer, responses={201: RespuestaAlta}, tags=["usuarios"])
     def post(self, request):
