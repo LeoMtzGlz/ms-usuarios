@@ -6,7 +6,7 @@ from django.db import IntegrityError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from comun.roles import Rol
-from usuarios.models import Estado, Usuario
+from usuarios.models import Estado, Usuario , Zona
 from usuarios.tests.factories import UsuarioFactory
 
 pytestmark = pytest.mark.django_db
@@ -15,12 +15,19 @@ URL = "/api/v1/usuarios/"
 
 
 def datos_validos(**cambios):
+    zona, _ = Zona.objects.get_or_create(
+        nombre="Centro",
+        defaults={"activa": True},
+    )
+
     datos = {
         "nombre": "Luis",
         "apellidos": "Ramírez Soto",
         "correo": "luis.ramirez@ejemplo.com",
         "telefono": "443 123 4567",
+        "zona": zona.pk,
     }
+
     datos.update(cambios)
     return datos
 
@@ -215,7 +222,7 @@ def test_correo_invalido_responde_400(cliente_admin):
     assert "correo" in respuesta.json()["campos"]
 
 
-@pytest.mark.parametrize("campo", ["nombre", "apellidos", "correo", "telefono"])
+@pytest.mark.parametrize("campo", ["nombre", "apellidos", "correo", "telefono", "zona"]) 
 def test_faltan_campos_obligatorios(cliente_admin, campo):
     datos = datos_validos()
     del datos[campo]
