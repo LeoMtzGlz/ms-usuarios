@@ -46,12 +46,13 @@ def test_falla_dos_veces_y_sale_al_tercer_ciclo(usuario):
         assert ciclo(mal).fallidas == 1
         noti.refresh_from_db()
         assert (noti.estado, noti.intentos) == (Notificacion.ESTADO_PENDIENTE, esperado)
+        assert noti.contexto == {"codigo": "123456"}
     assert ciclo(bien).enviadas == 1
     noti.refresh_from_db()
     assert noti.estado == Notificacion.ESTADO_ENVIADA
     assert noti.contexto == {}
     assert noti.error == ""
-    assert len(bien.enviados) == 1
+    assert [e[2] for e in bien.enviados] == ["Tu código es 123456"]
 
 
 def test_whatsapp_agota_intentos_y_la_copia_sale_por_correo(usuario):
@@ -121,10 +122,13 @@ def test_codigo_vigente_si_se_envia(usuario):
 def test_el_codigo_no_aparece_en_error_ni_en_el_contexto_final(usuario):
     noti = crear(usuario, contexto={"codigo": "123456", "minutos": 10})
     mal = CanalFalso(falla_con=FALLO)
-    for _ in range(3):
+    for i in range(3):
         ciclo(mal)
         noti.refresh_from_db()
         assert "123456" not in noti.error
+        assert noti.error.startswith("RuntimeError")
+        if i < 2:
+            assert noti.contexto == {"codigo": "123456", "minutos": 10}
     assert noti.estado == Notificacion.ESTADO_FALLIDA
     assert noti.contexto == {}
     assert noti.error.startswith("RuntimeError")
@@ -155,6 +159,7 @@ def test_el_comando_una_vez_aplica_los_reintentos(usuario, monkeypatch):
         call_command("procesar_notificaciones", "--una-vez")
         noti.refresh_from_db()
         assert (noti.estado, noti.intentos) == (Notificacion.ESTADO_PENDIENTE, esperado)
+        assert noti.contexto == {"codigo": "123456"}
     call_command("procesar_notificaciones", "--una-vez")
     noti.refresh_from_db()
     assert (noti.estado, noti.intentos, noti.contexto) == (Notificacion.ESTADO_FALLIDA, 3, {})
