@@ -22,7 +22,7 @@ Archivo de pruebas: `comun/tests/test_bitacora_flujos.py`.
 | `2fa_confirmacion_fallida` | `POST /api/v1/auth/2fa/confirmar/` (código incorrecto) | el usuario autenticado |
 | `admin_creado` | comando `crear_admin` | el administrador creado |
 
-Observación: `2fa_confirmacion_fallida` hoy se guarda con `resultado="ok"` porque el llamador (`usuarios/views_2fa.py`) no pasa `resultado`. Es de otra historia; la prueba refleja lo que el código registra hoy. Lo correcto sería `resultado="fallo"`.
+Observación: `2fa_confirmacion_fallida` hoy se guarda con `resultado="ok"` porque el llamador (`usuarios/views_2fa.py`) no pasa `resultado`. Es de otra historia; la prueba refleja lo que el código registra hoy. Lo correcto sería `resultado="error"` (los únicos valores válidos de `ResultadoEvento` son `ok` y `error`), y quien debe pasarlo es el llamador (`usuarios/views_2fa.py`, otra historia).
 
 ## Flujos pendientes (de otras historias)
 
