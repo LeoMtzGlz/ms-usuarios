@@ -109,14 +109,10 @@ def codigo_vencido(notificacion: Notificacion, ahora: datetime | None = None) ->
     contexto = notificacion.contexto or {}
     if not contexto.get("codigo"):
         return False
-    try:
-        minutos = float(contexto["minutos"])
-    except (KeyError, TypeError, ValueError):
-        return False
     ahora = ahora or timezone.now()
-    try:
-        return ahora > notificacion.creado_en + timedelta(minutes=minutos)
-    except OverflowError:
+    try:  # nan/inf parsean como float pero timedelta los rechaza: también sin vencimiento
+        return ahora > notificacion.creado_en + timedelta(minutes=float(contexto["minutos"]))
+    except (KeyError, TypeError, ValueError, OverflowError):
         return False
 
 
@@ -150,9 +146,23 @@ def manejar_fallo(notificacion: Notificacion, exc: Exception) -> None:
         notificacion.error = error
         notificacion.save(update_fields=["intentos", "error", "actualizado_en"])
         return
-    if notificacion.canal == CanalNotificacion.WHATSAPP and not codigo_vencido(notificacion):
-        crear_respaldo_por_correo(notificacion)
-    marcar_fallida(notificacion, error)
+    contexto = notificacion.contexto
+    try:
+        with transaction.atomic():  # savepoint: copia y marca fallida son todo o nada
+            if notificacion.canal == CanalNotificacion.WHATSAPP and not codigo_vencido(notificacion):
+                crear_respaldo_por_correo(notificacion)
+            marcar_fallida(notificacion, error)
+    except Exception as exc_respaldo:
+        # Sin perder el mensaje: queda pendiente (con el contexto) y se reintenta el cierre en el
+        # siguiente ciclo; el resto del lote sigue.
+        logger.error(
+            "No se pudo cerrar la notificación %s tras %s fallos: %s",
+            notificacion.pk, notificacion.intentos, exc_respaldo.__class__.__name__,
+        )
+        notificacion.estado = Notificacion.ESTADO_PENDIENTE
+        notificacion.contexto = contexto
+        notificacion.error = error
+        notificacion.save(update_fields=["estado", "error", "contexto", "intentos", "actualizado_en"])
 
 
 def marcar_enviada(notificacion: Notificacion) -> None:

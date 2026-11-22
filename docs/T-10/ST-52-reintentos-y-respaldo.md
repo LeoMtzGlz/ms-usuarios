@@ -32,7 +32,7 @@ Sin migraciones ni cambios en modelos, `usuarios/codigos.py` o configuración.
 | cualquiera, código vencido | (no se intenta) | `fallida`, error «Código vencido: no se envió», contexto vacío, sin copia |
 
 Un código está vencido si tiene `codigo` y `minutos` en el contexto y `ahora > creado_en + minutos`.
-Se revisa en `procesar()` antes de `antes_de_enviar()`. Si `minutos` falta, es `None` o no es numérico,
+Se revisa en `procesar()` antes de `antes_de_enviar()`. Si `minutos` falta, es `None`, no es numérico o no es finito (`nan`, `inf`),
 no vence (nunca lanza error). Si vence entre el segundo y el tercer fallo, tampoco se crea la copia.
 
 ### 4. Decisiones
@@ -41,6 +41,8 @@ no vence (nunca lanza error). Si vence entre el segundo y el tercer fallo, tampo
 - **La copia conserva el `creado_en` original** (se fija con `update()` porque `auto_now_add` lo ignora al crear), así mantiene su lugar en la cola y el mismo vencimiento.
 - **El error nunca lleva el código**: se limpia antes de vaciar el contexto. El contexto solo se vacía en el fallo definitivo.
 - `procesar_lote` sigue contando cada intento fallido como `fallidas`, aunque la notificación quede pendiente.
+
+- **Si falla el cierre definitivo** (crear la copia o marcar `fallida`, p. ej. error de base de datos), ambos pasos corren en un savepoint y se revierten juntos; se registra en el log (sin el código), la original queda `pendiente` con su contexto y se reintenta el cierre en el siguiente ciclo. El resto del lote sigue.
 
 ### 5. Qué no hace
 

@@ -106,7 +106,7 @@ def test_codigo_vencido_en_el_tercer_fallo_no_crea_copia(usuario):
     assert not Notificacion.objects.filter(canal="correo").exists()
 
 
-@pytest.mark.parametrize("minutos", [None, "abc", "falta"])
+@pytest.mark.parametrize("minutos", [None, "abc", "nan", "inf", "-inf", "falta"])
 def test_minutos_invalidos_no_truenan(usuario, minutos):
     contexto = {"codigo": "123456"}
     if minutos != "falta":
@@ -124,3 +124,24 @@ def test_notificacion_sin_codigo_no_vence(usuario):
     noti = crear(usuario, contexto={"minutos": 1})
     Notificacion.objects.filter(pk=noti.pk).update(creado_en=timezone.now() - timedelta(days=1))
     assert worker.codigo_vencido(Notificacion.objects.get(pk=noti.pk)) is False
+
+
+def test_fallo_al_crear_el_respaldo_no_rompe_el_lote(usuario, monkeypatch):
+    def roto(n):
+        raise RuntimeError("db caída 123456")
+
+    monkeypatch.setattr(worker, "crear_respaldo_por_correo", roto)
+    mala = crear(usuario, canal="whatsapp", intentos=2)
+    buena = crear(usuario, canal="consola", plantilla="prueba")
+    canales = {"whatsapp": falla(), "consola": CanalFalso()}
+
+    resultado = worker.procesar_lote(obtener_canal=lambda nombre: canales[nombre])
+
+    mala.refresh_from_db()
+    buena.refresh_from_db()
+    assert resultado.enviadas == 1
+    assert buena.estado == Notificacion.ESTADO_ENVIADA
+    assert mala.estado == Notificacion.ESTADO_PENDIENTE  # no se pierde, se reintenta
+    assert mala.contexto == {"codigo": "123456"}
+    assert "123456" not in mala.error
+    assert not Notificacion.objects.filter(canal="correo").exists()
