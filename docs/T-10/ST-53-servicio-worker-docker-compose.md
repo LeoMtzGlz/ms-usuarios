@@ -25,11 +25,18 @@ No se tocan `db`, `api`, el código Python ni las migraciones.
 ```bash
 docker compose up -d worker      # levantarlo (también levanta db)
 docker compose logs -f worker    # debe decir «Worker de notificaciones iniciado»
-docker compose stop worker       # SIGTERM: termina el lote en curso y sale con código 0
+docker compose stop worker       # SIGTERM: termina el lote en curso (hasta 60 s) y sale con código 0
 docker compose up -d --scale worker=2   # dos workers a la vez
 ```
 
 No publica puertos (el 5433 ya es de `db`), por lo que se puede escalar sin choques.
+
+El servicio tiene `stop_grace_period: 60s` (Docker usa 10 s por defecto): «termina el lote en curso» solo vale
+dentro de ese plazo. Un SIGKILL o una caída a mitad de lote revierte la transacción y ese lote se reenvía
+(al-menos-una-vez, heredado de ST-51, donde todo el lote va en una sola transacción).
+
+`docker compose up -d` ahora también arranca el worker, así que sobre una base ya existente procesará las
+notificaciones `pendiente` que haya y, con `CANAL_NOTIFICACIONES=correo`, saldrán como correos reales.
 
 ### 4. Las migraciones: lo que se observó
 
@@ -38,7 +45,7 @@ comando, así que **no migra**. Decidimos no hacerlo migrar para no competir con
 
 Con una base nueva (`docker compose down -v` y luego `docker compose up -d worker`, sin `api`) el worker
 falla con `relation "notificaciones_notificacion" does not exist` y, por `restart: unless-stopped`, queda
-reiniciándose. Al levantar `api` (que migra), el worker se recuperó solo en unos segundos y escribió
+reiniciándose. Al levantar `api` (que migra), el worker se recuperó solo en alrededor de 25 s y escribió
 «Worker de notificaciones iniciado». Por eso:
 
 - Con una base nueva, levantar `api` primero (o `docker compose up -d`, que levanta ambos): el worker puede
@@ -56,6 +63,6 @@ haya terminado, así que no resolvería nada.
 | `up -d worker` en base ya migrada / tras migrar `api` | Log «Worker de notificaciones iniciado (cada 5s, lotes de 20)» |
 | `up -d --scale worker=2` | Dos contenedores `worker` en ejecución, cada uno con su mensaje de inicio |
 | `docker compose stop worker` | Terminó en unos 3 s; ambos contenedores `Exited (0)` |
-| `docker compose run --rm api pytest notificaciones -q` y `ruff check .` | Ver el resultado en el reporte de la tarea |
+| `docker compose run --rm api pytest notificaciones -q` y `ruff check .` | `ruff check .` limpio; `pytest notificaciones` 59 passed; suite completa 421 passed y 1 xfailed (como en ST-54 §5) |
 
 Dos workers son seguros por el `select_for_update(skip_locked=True)` de ST-51.
