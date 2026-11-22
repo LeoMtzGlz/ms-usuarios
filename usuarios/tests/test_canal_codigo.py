@@ -66,4 +66,4 @@ def test_registro_fallido_no_cambia_su_error(api_client):
         respuesta = api_client.post(URL, datos_validos(), format="json")
 
     assert respuesta.status_code == 500
-    assert not Usuario.objects.filter(email="maria.hernandez@ejemplo.com").exists()
+    assert Usuario.objects.count() == 0

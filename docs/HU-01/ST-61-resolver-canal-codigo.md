@@ -1,7 +1,7 @@
 # ST-61 · Avisar en el registro por qué canal sale el código
 
-**Historia:** HU-01 · Canal de envío del código
-**Subtarea:** ST-61 · `canal_codigo` y `canal_sustituido` en el registro
+**Historia:** HU-01 · Elegir por dónde recibo mis códigos
+**Subtarea:** ST-61 · [Backend] Resolver el canal al pedir un código
 **Estado:** terminada
 
 ## Qué es y para qué sirve
@@ -20,7 +20,7 @@ Al registrarse, la persona elige un canal (correo o WhatsApp). Si WhatsApp no es
 
 ```json
 {
-  "id": 7,
+  "id": "3f6c0a52-9d1e-4b7a-8c25-5e1f0d2a7b10",
   "correo": "maria.hernandez@ejemplo.com",
   "canal_preferido": "whatsapp",
   "estado": "pendiente",
@@ -42,6 +42,7 @@ Al registrarse, la persona elige un canal (correo o WhatsApp). Si WhatsApp no es
 ## Qué no hace
 
 - No toca el perfil (ST-60), la recuperación de contraseña ni al proveedor de mensajes.
+- Hoy `canal_sustituido` es siempre `false` en un registro real: el registro exige teléfono. Solo será `true` si `elegir_canal` aprende otros casos de «no disponible» (p. ej. el respaldo de T-10) o con un mock en pruebas. Ese `false` no es un fallo.
 - No cambia modelos, migraciones ni configuración.
 
 ## Cómo comprobarlo

@@ -55,6 +55,7 @@ class RegistroView(APIView):
             registro = generar_codigo(usuario, Proposito.ACTIVACION)
 
         registrar_evento("registro", usuario, request, canal=usuario.canal_preferido)
+        # No replicar este aviso en la recuperación de contraseña (HU-10): revelaría si la cuenta existe.
         cuerpo = {
             **serializer.data,
             "canal_codigo": str(registro.canal),
