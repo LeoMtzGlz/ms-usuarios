@@ -62,6 +62,6 @@ def test_worker_manda_cada_notificacion_por_su_canal(usuario):
     assert por_correo.estado == Notificacion.ESTADO_ENVIADA
     assert len(mail.outbox) == 1
     assert mail.outbox[0].to == [usuario.email]
-    # WhatsApp aún no tiene clase (T-09): falla en lugar de salir por correo sin avisar.
-    assert por_whatsapp.estado == Notificacion.ESTADO_FALLIDA
+    # WhatsApp aún no tiene clase (T-09): falla (queda pendiente para reintento, ST-52) en lugar de salir por correo.
+    assert por_whatsapp.estado == Notificacion.ESTADO_PENDIENTE
     assert "No hay canal disponible para: whatsapp" in por_whatsapp.error

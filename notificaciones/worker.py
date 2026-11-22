@@ -3,15 +3,19 @@
 El comando ``procesar_notificaciones`` solo repite ``procesar_lote()`` cada 5 s.
 Aquí vive todo lo demás para poder probarlo sin bucles ni sleeps.
 
-Puntos de extensión (cada uno lo completa otra subtarea, sin tocar el resto):
+t-10/st-52: ``manejar_fallo()`` reintenta hasta 3 fallos, respalda WhatsApp por correo al
+tercero y ``procesar()`` descarta los códigos vencidos antes de enviar.
+
+Punto de extensión pendiente:
 - ``antes_de_enviar()``  -> t-11/st-57: límite diario por canal (cambio de canal o espera).
-- ``manejar_fallo()``    -> t-10/st-52: reintentos (intentos += 1) y respaldo a correo.
 """
 import logging
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 
 from django.db import transaction
 from django.template.loader import render_to_string
+from django.utils import timezone
 from django.utils.module_loading import import_string
 
 from notificaciones.models import CanalNotificacion, Notificacion
@@ -21,6 +25,7 @@ logger = logging.getLogger("svc.notificaciones")
 TAMANO_LOTE = 20
 INTERVALO_SEGUNDOS = 5
 LARGO_MAXIMO_ERROR = 500
+MAX_INTENTOS = 3  # fallos en total; sin espera, se reintenta en el siguiente ciclo de 5 s
 
 # Función de T-07 (st-35/st-36) que devuelve el canal de envío. Recibe el canal de cada
 # notificación (obtener_canal(notificacion.canal)), así cada una sale por el suyo.
@@ -96,15 +101,58 @@ def limpiar_error(notificacion: Notificacion, exc: Exception) -> str:
     return texto[:LARGO_MAXIMO_ERROR]
 
 
-def manejar_fallo(notificacion: Notificacion, exc: Exception) -> None:
-    """Punto de st-52. Por ahora: marcar como fallida y guardar el error.
+def codigo_vencido(notificacion: Notificacion, ahora: datetime | None = None) -> bool:
+    """True si lleva ``codigo`` y ``minutos`` y ya pasó creado_en + minutos.
 
-    st-52 cambia el cuerpo: intentos += 1, dejarla pendiente hasta 3 fallos y, si es
-    WhatsApp, crear la copia por correo.
+    Un ``minutos`` ausente, None o no numérico se trata como sin vencimiento (nunca truena).
     """
+    contexto = notificacion.contexto or {}
+    if not contexto.get("codigo"):
+        return False
+    try:
+        minutos = float(contexto["minutos"])
+    except (KeyError, TypeError, ValueError):
+        return False
+    ahora = ahora or timezone.now()
+    try:
+        return ahora > notificacion.creado_en + timedelta(minutes=minutos)
+    except OverflowError:
+        return False
+
+
+def crear_respaldo_por_correo(notificacion: Notificacion) -> Notificacion:
+    """Copia pendiente por correo (misma plantilla y contexto) con el creado_en original."""
+    copia = Notificacion.objects.create(
+        destinatario=notificacion.destinatario,
+        canal=CanalNotificacion.CORREO,
+        plantilla=notificacion.plantilla,
+        contexto=notificacion.contexto,
+    )
+    # auto_now_add ignora creado_en al crear; el update lo fija para conservar el orden y el vencimiento.
+    Notificacion.objects.filter(pk=copia.pk).update(creado_en=notificacion.creado_en)
+    copia.creado_en = notificacion.creado_en
+    return copia
+
+
+def marcar_fallida(notificacion: Notificacion, error: str) -> None:
+    """Fallo definitivo: guarda el error y vacía el contexto, que lleva el código."""
     notificacion.estado = Notificacion.ESTADO_FALLIDA
-    notificacion.error = limpiar_error(notificacion, exc)
-    notificacion.save(update_fields=["estado", "error", "actualizado_en"])
+    notificacion.error = error
+    notificacion.contexto = {}
+    notificacion.save(update_fields=["estado", "error", "contexto", "intentos", "actualizado_en"])
+
+
+def manejar_fallo(notificacion: Notificacion, exc: Exception) -> None:
+    """Suma un intento; pendiente hasta MAX_INTENTOS fallos, luego fallida (y respaldo si WhatsApp)."""
+    error = limpiar_error(notificacion, exc)  # antes de vaciar el contexto
+    notificacion.intentos += 1
+    if notificacion.intentos < MAX_INTENTOS:
+        notificacion.error = error
+        notificacion.save(update_fields=["intentos", "error", "actualizado_en"])
+        return
+    if notificacion.canal == CanalNotificacion.WHATSAPP and not codigo_vencido(notificacion):
+        crear_respaldo_por_correo(notificacion)
+    marcar_fallida(notificacion, error)
 
 
 def marcar_enviada(notificacion: Notificacion) -> None:
@@ -117,6 +165,9 @@ def marcar_enviada(notificacion: Notificacion) -> None:
 
 def procesar(notificacion: Notificacion, obtener_canal) -> str:
     """Envía una notificación ya bloqueada. Devuelve 'enviada', 'fallida' o 'pospuesta'."""
+    if codigo_vencido(notificacion):
+        marcar_fallida(notificacion, "Código vencido: no se envió")
+        return "fallida"
     if not antes_de_enviar(notificacion):
         return "pospuesta"
     try:
