@@ -24,7 +24,7 @@ def limpiar_detalles(detalles):
             k: "***" if any(s in str(k).lower() for s in CLAVES_SENSIBLES) else limpiar_detalles(v)
             for k, v in detalles.items()
         }
-    if isinstance(detalles, list):
+    if isinstance(detalles, (list, tuple)):
         return [limpiar_detalles(v) for v in detalles]
     return detalles
 

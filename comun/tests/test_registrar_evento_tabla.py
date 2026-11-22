@@ -72,3 +72,21 @@ def test_sigue_escribiendo_al_log(caplog):
     evento = json.loads(caplog.records[-1].message)
     assert evento["accion"] == "login"
     assert evento["detalles"] == {"motivo": "x"}
+
+
+def test_enmascara_tuplas(caplog):
+    caplog.set_level(logging.INFO, logger="svc.auditoria")
+    registrar_evento("x", datos=({"password": "Secreta123"},))
+    fila = EventoAuditoria.objects.get()
+    assert fila.detalles == {"datos": [{"password": "***"}]}
+    assert "Secreta123" not in str(fila.detalles)
+    assert "Secreta123" not in caplog.text
+
+
+def test_fallo_real_en_la_base_no_rompe_la_transaccion(caplog):
+    caplog.set_level(logging.ERROR, logger="svc.auditoria")
+    registrar_evento("x" * 51)  # accion max_length=50: lo rechaza PostgreSQL
+    assert any(r.name == "svc.auditoria" and r.levelno == logging.ERROR for r in caplog.records)
+    assert Usuario.objects.count() == 0
+    registrar_evento("ok")
+    assert EventoAuditoria.objects.get().accion == "ok"

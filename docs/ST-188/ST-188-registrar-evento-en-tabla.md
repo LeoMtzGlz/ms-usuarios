@@ -22,7 +22,7 @@ Terminada. Lista para que la st-189 exponga la consulta.
 ## Decisiones
 
 - **Savepoint.** El guardado va en `transaction.atomic()` dentro de un `try/except`. Si la base falla, PostgreSQL deja rota solo esa parte y la transacción del llamador sigue usable. El error se registra con `logger.exception` y no se propaga.
-- **Enmascarado recursivo.** Las claves sensibles (`password`, `codigo`, `token`…) valen `"***"` a cualquier profundidad, dentro de dicts y listas. Nunca se guarda una contraseña, código o token.
+- **Enmascarado recursivo.** Las claves sensibles (`password`, `codigo`, `token`…) valen `"***"` a cualquier profundidad, dentro de dicts, listas y tuplas. Nunca se guarda una contraseña, código o token.
 - **IP inválida a `None`.** La columna es `inet`; un valor que no sea IP (por ejemplo, de un encabezado mal formado) haría fallar el guardado. Se guarda `None` y el evento no se pierde.
 - **El log se conserva.** Sigue saliendo la misma línea JSON de antes.
 
@@ -31,6 +31,7 @@ Terminada. Lista para que la st-189 exponga la consulta.
 - No cambia el modelo ni agrega migraciones.
 - No expone endpoint: eso es la ST-189. Las pruebas de los flujos son la ST-190.
 - Si el guardado falla, el evento queda solo en el log.
+- Si la transacción del propio llamador hace rollback (por ejemplo `crear_admin` guarda su evento dentro de `transaction.atomic()`), la fila del evento se revierte con ella. El savepoint solo aísla fallos del guardado, no los rollbacks del llamador.
 
 ## Cómo comprobarlo
 
