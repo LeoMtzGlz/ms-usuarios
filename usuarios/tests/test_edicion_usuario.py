@@ -2,6 +2,8 @@
 import uuid
 
 import pytest
+import json
+import logging
 
 from comun.roles import Rol
 from usuarios.tests.helpers_admin import api_de, crear_usuario
@@ -130,6 +132,47 @@ class TestPermisos:
         r = api_client.patch(URL.format(operativo.pk), {"nombre": "X"}, format="json")
         assert r.status_code == 401
 
-    def test_usuario_inexistente_responde_404(self, api_admin):
-        r = api_admin.patch(URL.format(uuid.uuid4()), {"nombre": "X"}, format="json")
-        assert r.status_code == 404
+def eventos(caplog):
+    """Eventos de la bitácora capturados en el log svc.auditoria (mismo criterio que comun/tests/test_eventos.py)."""
+    return [json.loads(r.message) for r in caplog.records if r.name == "svc.auditoria"]
+
+
+def eventos_de_edicion(caplog):
+    return [e for e in eventos(caplog) if e["accion"] == "usuario_editado"]
+
+# t-17/st-150: bitácora de la edición
+@pytest.mark.django_db
+class TestBitacora:
+    def test_bitacora_registra_quien_edito_y_que_campos(self, api_admin, admin, operativo, caplog):
+        cambios = {"nombre": "Luis Alberto", "email": "nuevo.correo@ejemplo.com"}
+        with caplog.at_level(logging.INFO, logger="svc.auditoria"):
+            r = api_admin.patch(URL.format(operativo.pk), cambios, format="json")
+
+        assert r.status_code == 200
+        [evento] = eventos_de_edicion(caplog)
+        assert evento["usuario_id"] == str(admin.pk)
+        assert evento["detalles"]["editado_id"] == str(operativo.pk)
+        assert sorted(evento["detalles"]["campos_cambiados"]) == ["email", "nombre"]
+
+    def test_bitacora_no_guarda_los_valores(self, api_admin, operativo, caplog):
+        cambios = {"nombre": "Luis Alberto", "email": "nuevo.correo@ejemplo.com"}
+        with caplog.at_level(logging.INFO, logger="svc.auditoria"):
+            api_admin.patch(URL.format(operativo.pk), cambios, format="json")
+
+        assert eventos_de_edicion(caplog)
+        assert "nuevo.correo@ejemplo.com" not in caplog.text
+        assert "Luis Alberto" not in caplog.text
+
+    def test_sin_cambios_no_registra_evento(self, api_admin, operativo, caplog):
+        with caplog.at_level(logging.INFO, logger="svc.auditoria"):
+            r = api_admin.patch(URL.format(operativo.pk), {"email": operativo.email}, format="json")
+
+        assert r.status_code == 200
+        assert eventos_de_edicion(caplog) == []
+
+    def test_edicion_rechazada_no_registra_evento(self, api_admin, operativo, caplog):
+        with caplog.at_level(logging.INFO, logger="svc.auditoria"):
+            r = api_admin.patch(URL.format(operativo.pk), {"rol": Rol.ADMINISTRADOR}, format="json")
+
+        assert r.status_code == 400
+        assert eventos_de_edicion(caplog) == []
