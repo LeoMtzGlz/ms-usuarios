@@ -15,7 +15,12 @@ from usuarios.bloqueos import con_bloqueada
 from usuarios.contrasenas import generar_contrasena_temporal
 from usuarios.filtros import UsuarioFilter
 from usuarios.models import Usuario
-from usuarios.serializers_admin import AltaUsuarioSerializer, EdicionUsuarioSerializer, UsuarioListaSerializer
+from usuarios.serializers_admin import (
+        AltaUsuarioSerializer, 
+        UsuarioListaSerializer, 
+        EdicionUsuarioSerializer,
+        CAMPOS_EDITABLES
+)
 
 RespuestaAlta = inline_serializer(
     name="AltaUsuarioRespuesta",
@@ -111,3 +116,22 @@ class UsuarioDetalleView(UpdateModelMixin, GenericAPIView):
     )
     def patch(self, request, *args, **kwargs):
         return self.partial_update(request, *args, **kwargs)
+
+    # t-17/st-150: registra en la bitácora qué campos cambiaron y quién lo hizo
+    def perform_update(self, serializer):
+        usuario = serializer.instance
+        fuentes = {campo: serializer.fields[campo].source for campo in CAMPOS_EDITABLES}
+        antes = {campo: getattr(usuario, fuente) for campo, fuente in fuentes.items()}
+
+        usuario = serializer.save()
+
+        cambiados = [campo for campo, fuente in fuentes.items() if getattr(usuario, fuente) != antes[campo]]
+        if cambiados:
+            # Solo los nombres de los campos: correo y teléfono son datos personales.
+            registrar_evento(
+                "usuario_editado",
+                self.request.user,
+                self.request,
+                editado_id=str(usuario.pk),
+                campos_cambiados=cambiados,
+            )
