@@ -9,6 +9,14 @@ from usuarios.serializers import CORREO_REGISTRADO, TELEFONO_REGISTRADO
 from usuarios.telefono import normalizar_telefono
 
 
+CAMPOS_EDITABLES = ("nombre", "apellidos", "email", "telefono")
+MENSAJES_CAMPO_PROHIBIDO = {
+    "password": "La contraseña no se edita aquí; usa POST /api/v1/usuarios/{id}/restablecer-password/.",
+    "rol": "El rol se cambia con PATCH /api/v1/usuarios/{id}/rol/.",
+}
+MENSAJE_GENERICO = "Este campo no se puede modificar en este endpoint."
+
+
 class AltaUsuarioSerializer(serializers.Serializer):
     """HU-15 / ST-140: un administrador da de alta a un usuario operativo.
 
@@ -102,3 +110,62 @@ class UsuarioListaSerializer(serializers.ModelSerializer):
             "rol", "estado", "bloqueada", "ultimo_acceso",
         ]
         read_only_fields = fields
+
+
+
+#? t-17/st-149: edición de usuarios por el administrador (HU-17)
+class EdicionUsuarioSerializer(serializers.ModelSerializer):
+    nombre = serializers.CharField(
+        source="first_name",
+        required=False,
+    )
+    apellidos = serializers.CharField(
+        source="last_name",
+        required=False,
+    )
+
+    class Meta:
+        model = Usuario
+        fields = ("id", *CAMPOS_EDITABLES, "rol", "estado")
+        read_only_fields = ("id", "rol", "estado")
+
+    def to_internal_value(self, data):
+        #? Lista blanca: cualquier campo fuera de CAMPOS_EDITABLES se rechaza con 400
+        #? (password, rol, estado, is_active, debe_cambiar_password, token_version...).
+        prohibidos = sorted(set(data) - set(CAMPOS_EDITABLES))
+        if prohibidos:
+            raise serializers.ValidationError(
+                {c: [MENSAJES_CAMPO_PROHIBIDO.get(c, MENSAJE_GENERICO)] for c in prohibidos}
+            )
+        return super().to_internal_value(data)
+
+    def validate_email(self, valor):
+        valor = valor.strip().lower()
+        duplicado = (
+            Usuario.objects.filter(email__iexact=valor)
+            .exclude(pk=self.instance.pk)
+            .exists()
+        )
+        if duplicado:
+            raise serializers.ValidationError("Ya existe otra cuenta con este correo.", code="duplicado")
+        return valor
+
+    def validate_telefono(self, valor):
+        valor = normalizar_telefono(valor)
+        duplicado = (
+            Usuario.objects.filter(telefono=valor)
+            .exclude(pk=self.instance.pk)
+            .exists()
+        )
+        if duplicado:
+            raise serializers.ValidationError("Ya existe otra cuenta con este teléfono.", code="duplicado")
+        return valor
+
+    def update(self, instance, validated_data):
+        try:
+            with transaction.atomic():
+                return super().update(instance, validated_data)
+        except IntegrityError:
+            raise serializers.ValidationError(
+                {"campos": ["El correo o el teléfono ya está registrado en otra cuenta."]}
+            )
