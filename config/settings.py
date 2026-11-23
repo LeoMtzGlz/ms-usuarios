@@ -41,6 +41,7 @@ INSTALLED_APPS = [
 
     "rest_framework",
     "drf_spectacular",
+    "django_filters",  # t-16/st-145
     "rest_framework_simplejwt.token_blacklist", # t-07/st-89
 
     "comun",

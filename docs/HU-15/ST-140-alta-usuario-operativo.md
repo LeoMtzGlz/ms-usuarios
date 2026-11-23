@@ -35,15 +35,15 @@ Respuesta `201`:
 | Correo (sin importar mayúsculas) y teléfono duplicados responden `400 datos_invalidos` con el campo | `AltaUsuarioSerializer` |
 | Dos altas simultáneas las frena la restricción única de la base | `AltaUsuarioSerializer.create` |
 | La cuenta nace activa, rol operativo y `debe_cambiar_password=True`; `rol`, `estado`, `password`... enviados por el cliente se ignoran | `AltaUsuarioSerializer.create` |
-| Sin token `401`; cliente u operativo `403 sin_permiso`; administrador con contraseña temporal `403 debe_cambiar_password` | `AltaUsuarioView.permission_classes` |
-| La bitácora registra `alta_usuario` con quién creó a quién y el rol, nunca la contraseña | `AltaUsuarioView.post` |
+| Sin token `401`; cliente u operativo `403 sin_permiso`; administrador con contraseña temporal `403 debe_cambiar_password` | `UsuariosView.permission_classes` |
+| La bitácora registra `alta_usuario` con quién creó a quién y el rol, nunca la contraseña | `UsuariosView.post` |
 
 ## Archivos
 
 | Archivo | Cambio |
 | --- | --- |
 | `usuarios/serializers_admin.py` | `AltaUsuarioSerializer` |
-| `usuarios/views_admin.py` | `AltaUsuarioView` |
+| `usuarios/views_admin.py` | `UsuariosView` |
 | `usuarios/urls_admin.py` | Ruta `""` montada en `/api/v1/usuarios/` |
 | `config/urls.py` | `include("usuarios.urls_admin")` |
 | `usuarios/tests/test_alta_usuario.py` | Pruebas del endpoint |
@@ -51,7 +51,7 @@ Respuesta `201`:
 ## Pendiente en otras subtareas
 
 - **ST-141:** `usuarios/contrasenas.py` ya trae un generador con `secrets` para que el endpoint funcione.
-- **ST-142:** el aviso de cuenta creada se encola dentro de la transacción de `AltaUsuarioView.post`.
+- **ST-142:** el aviso de cuenta creada se encola dentro de la transacción de `UsuariosView.post`.
 - **ST-143:** pruebas generales de HU-15.
 - **HU-16:** el `GET` de listado se agrega en la misma ruta.
 - **Login (ST-82):** `usuarios/tokens.py` ya agrega el claim `rol` al token y `EsAdministrador` lo lee, pero el endpoint de
