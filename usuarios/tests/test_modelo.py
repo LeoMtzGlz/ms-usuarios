@@ -6,6 +6,7 @@ from usuarios.models import Estado, Rol, Usuario
 from usuarios.telefono import normalizar_telefono
 
 from .factories import UsuarioFactory
+from usuarios.models import Zona
 
 pytestmark = pytest.mark.django_db
 
@@ -77,3 +78,10 @@ def test_reactivar_vuelve_a_permitir_el_acceso_sin_cambiar_token_version():
 def test_cambiar_estado_rechaza_estados_desconocidos():
     with pytest.raises(ValueError):
         UsuarioFactory().cambiar_estado("borrado")
+
+@pytest.mark.django_db
+def test_crear_zona():
+    zona = Zona.objects.create(nombre="Centro")
+    assert zona.nombre == "Centro"
+    assert zona.activa is True
+    assert str(zona) == "Centro"
