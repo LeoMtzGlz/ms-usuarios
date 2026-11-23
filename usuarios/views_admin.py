@@ -1,11 +1,11 @@
 """Administración de usuarios: alta (HU-15 / ST-140) y listado (HU-16 / ST-145)."""
 from django.db import transaction
 from django_filters.rest_framework import DjangoFilterBackend
-from drf_spectacular.utils import extend_schema, inline_serializer
+from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiResponse
 from rest_framework import serializers, status
 from rest_framework.filters import SearchFilter
 from rest_framework.generics import GenericAPIView
-from rest_framework.mixins import ListModelMixin
+from rest_framework.mixins import ListModelMixin, UpdateModelMixin
 from rest_framework.response import Response
 
 from comun.eventos import registrar_evento
@@ -15,7 +15,7 @@ from usuarios.bloqueos import con_bloqueada
 from usuarios.contrasenas import generar_contrasena_temporal
 from usuarios.filtros import UsuarioFilter
 from usuarios.models import Usuario
-from usuarios.serializers_admin import AltaUsuarioSerializer, UsuarioListaSerializer
+from usuarios.serializers_admin import AltaUsuarioSerializer, UsuarioListaSerializer, EdicionUsuarioSerializer
 
 RespuestaAlta = inline_serializer(
     name="AltaUsuarioRespuesta",
@@ -34,7 +34,11 @@ RespuestaAlta = inline_serializer(
 )
 
 
-class UsuariosView(ListModelMixin, GenericAPIView):
+class UsuariosView(
+        ListModelMixin, 
+        UpdateModelMixin,
+        GenericAPIView,
+    ):
     """/api/v1/usuarios/ · solo administradores.
 
     GET (HU-16): lista paginada de 20 en 20. `?search=` busca por nombre, apellidos, correo o
@@ -57,8 +61,10 @@ class UsuariosView(ListModelMixin, GenericAPIView):
         return con_bloqueada(Usuario.objects.all()).order_by("first_name", "last_name", "email")
 
     def get_serializer_class(self):
-        if getattr(self.request, "method", None) == "POST":
+        if self.request.method == "POST":
             return AltaUsuarioSerializer
+        if self.request.method == "PATCH":
+            return EdicionUsuarioSerializer
         return UsuarioListaSerializer
 
     @extend_schema(responses=UsuarioListaSerializer(many=True), tags=["usuarios"])
@@ -83,3 +89,17 @@ class UsuariosView(ListModelMixin, GenericAPIView):
         )
         respuesta["Cache-Control"] = "no-store"  # la contraseña no debe quedar en cachés
         return respuesta
+
+    @extend_schema(
+        summary="Editar datos de un usuario (solo admin)",
+        request=EdicionUsuarioSerializer,
+        responses={
+            200: EdicionUsuarioSerializer,
+            400: OpenApiResponse(description="Duplicado o campo no editable"),
+            401: OpenApiResponse(description="Sin token"),
+            403: OpenApiResponse(description="No es administrador"),
+            404: OpenApiResponse(description="Usuario no existe"),
+        },
+    )
+    def patch(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
