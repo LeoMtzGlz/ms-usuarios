@@ -102,3 +102,64 @@ class UsuarioListaSerializer(serializers.ModelSerializer):
             "rol", "estado", "bloqueada", "ultimo_acceso",
         ]
         read_only_fields = fields
+
+
+# t-17/st-149: edición de usuarios por el administrador (HU-17)
+CAMPOS_EDITABLES = ("nombre", "apellidos", "correo", "telefono")
+MENSAJES_CAMPO_PROHIBIDO = {
+    "password": "La contraseña no se edita aquí; usa POST /api/v1/usuarios/{id}/restablecer-password/.",
+    "rol": "El rol se cambia con PATCH /api/v1/usuarios/{id}/rol/.",
+}
+MENSAJE_GENERICO = "Este campo no se puede modificar en este endpoint."
+
+
+class EdicionUsuarioSerializer(serializers.ModelSerializer):
+    """HU-17 / ST-149: un administrador edita nombre, apellidos, correo y teléfono.
+
+    - Usa los mismos nombres que el alta (HU-15): nombre, apellidos, correo y telefono.
+    - Lista blanca: cualquier otro campo (password, rol, estado...) responde 400.
+    - Los duplicados no cuentan al propio usuario (exclude(pk=...)).
+    """
+
+    nombre = serializers.CharField(source="first_name", max_length=150, required=False)
+    apellidos = serializers.CharField(source="last_name", max_length=150, required=False)
+    correo = serializers.EmailField(source="email", max_length=254, required=False)
+    telefono = serializers.CharField(max_length=30, required=False)
+
+    class Meta:
+        model = Usuario
+        fields = ("id", *CAMPOS_EDITABLES, "rol", "estado")
+        read_only_fields = ("id", "rol", "estado")
+
+    def to_internal_value(self, data):
+        prohibidos = sorted(set(data) - set(CAMPOS_EDITABLES))
+        if prohibidos:
+            raise serializers.ValidationError(
+                {c: [MENSAJES_CAMPO_PROHIBIDO.get(c, MENSAJE_GENERICO)] for c in prohibidos}
+            )
+        return super().to_internal_value(data)
+
+    def validate_correo(self, valor):
+        correo = valor.strip().lower()
+        if Usuario.objects.filter(email__iexact=correo).exclude(pk=self.instance.pk).exists():
+            raise serializers.ValidationError(CORREO_REGISTRADO)
+        return correo
+
+    def validate_telefono(self, valor):
+        try:
+            telefono = normalizar_telefono(valor)
+        except DjangoValidationError as error:
+            raise serializers.ValidationError(error.messages) from error
+        if Usuario.objects.filter(telefono=telefono).exclude(pk=self.instance.pk).exists():
+            raise serializers.ValidationError(TELEFONO_REGISTRADO)
+        return telefono
+
+    def update(self, instance, validated_data):
+        # Dos ediciones simultáneas con el mismo dato: lo frena la restricción única de la base
+        try:
+            with transaction.atomic():
+                return super().update(instance, validated_data)
+        except IntegrityError as error:
+            if "email" in str(error).lower():
+                raise serializers.ValidationError({"correo": [CORREO_REGISTRADO]}) from error
+            raise serializers.ValidationError({"telefono": [TELEFONO_REGISTRADO]}) from error
