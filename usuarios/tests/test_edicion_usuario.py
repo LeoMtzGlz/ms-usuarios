@@ -1,6 +1,4 @@
 """HU-17 / t-17/st-149: PATCH /api/v1/usuarios/{id}/ (edición por el administrador)."""
-import uuid
-
 import pytest
 import json
 import logging
