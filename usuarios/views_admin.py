@@ -16,10 +16,10 @@ from usuarios.contrasenas import generar_contrasena_temporal
 from usuarios.filtros import UsuarioFilter
 from usuarios.models import Usuario
 from usuarios.serializers_admin import (
-        AltaUsuarioSerializer, 
-        UsuarioListaSerializer, 
-        EdicionUsuarioSerializer,
-        CAMPOS_EDITABLES
+    CAMPOS_EDITABLES,
+    AltaUsuarioSerializer,
+    EdicionUsuarioSerializer,
+    UsuarioListaSerializer,
 )
 
 RespuestaAlta = inline_serializer(
