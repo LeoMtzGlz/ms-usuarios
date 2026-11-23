@@ -7,17 +7,17 @@ URL = "/api/v1/usuarios/{}/"
 
 
 @pytest.fixture
-def admin(db):
+def admin(db, llaves):
     return crear_usuario(Rol.ADMINISTRADOR)
 
 
 @pytest.fixture
-def operativo(db):
+def operativo(db, llaves):
     return crear_usuario(Rol.OPERATIVO)
 
 
 @pytest.fixture
-def cliente(db):
+def cliente(db, llaves):
     return crear_usuario(Rol.CLIENTE)
 
 
