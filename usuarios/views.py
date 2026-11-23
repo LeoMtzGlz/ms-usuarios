@@ -45,6 +45,8 @@ class RegistroView(APIView):
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     """HU-05 / ST-82: POST /api/v1/auth/login/"""
+
+    permission_classes = [AllowAny]
     serializer_class = CustomTokenObtainPairSerializer
 
 
