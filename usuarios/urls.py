@@ -9,6 +9,7 @@ from usuarios.views import (
     CambiarPasswordView,
 )
 from usuarios.views_2fa import Activar2FAView, Confirmar2FAView  # t-30/st-206
+from usuarios.views_2fa_desactivar import Desactivar2FAView  # t-32/st-215
 
 app_name = "auth"
 
@@ -19,6 +20,7 @@ urlpatterns = [
     # t-30/st-206
     path("2fa/activar/", Activar2FAView.as_view(), name="2fa-activar"),
     path("2fa/confirmar/", Confirmar2FAView.as_view(), name="2fa-confirmar"),
+    path("2fa/desactivar/", Desactivar2FAView.as_view(), name="2fa-desactivar"),  # t-32/st-215
     
     # t-29/st-201
     path("privacidad/", PrivacidadInfoView.as_view(), name="privacidad-info"),
