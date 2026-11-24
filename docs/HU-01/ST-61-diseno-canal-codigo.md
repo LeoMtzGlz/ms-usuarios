@@ -3,7 +3,7 @@
 **Historia:** HU-01 · Elegir por dónde recibo mis códigos
 **Subtarea:** ST-61 · [Backend] Resolver el canal al pedir un código
 **Responsable:** Santiago Mora (santiago-amn)
-**Estado:** aprobado el 2026-11-22.
+**Estado:** diseño aprobado por Santiago Mora (autor) el 2026-11-22; implementación aprobada en la PR #93 por Daniel Gómez (gomez-d), Katia Victoria (KPVE2004) y Leonardo (LeoMtzGlz).
 
 ## Para qué
 

@@ -1,11 +1,11 @@
 """Administración de usuarios: alta (HU-15 / ST-140) y listado (HU-16 / ST-145)."""
 from django.db import transaction
 from django_filters.rest_framework import DjangoFilterBackend
-from drf_spectacular.utils import extend_schema, inline_serializer
+from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
 from rest_framework import serializers, status
 from rest_framework.filters import SearchFilter
 from rest_framework.generics import GenericAPIView
-from rest_framework.mixins import ListModelMixin
+from rest_framework.mixins import ListModelMixin, UpdateModelMixin
 from rest_framework.response import Response
 
 from comun.eventos import registrar_evento
@@ -15,7 +15,12 @@ from usuarios.bloqueos import con_bloqueada
 from usuarios.contrasenas import generar_contrasena_temporal
 from usuarios.filtros import UsuarioFilter
 from usuarios.models import Usuario
-from usuarios.serializers_admin import AltaUsuarioSerializer, UsuarioListaSerializer
+from usuarios.serializers_admin import (
+    CAMPOS_EDITABLES,
+    AltaUsuarioSerializer,
+    EdicionUsuarioSerializer,
+    UsuarioListaSerializer,
+)
 
 RespuestaAlta = inline_serializer(
     name="AltaUsuarioRespuesta",
@@ -83,3 +88,50 @@ class UsuariosView(ListModelMixin, GenericAPIView):
         )
         respuesta["Cache-Control"] = "no-store"  # la contraseña no debe quedar en cachés
         return respuesta
+
+
+# t-17/st-149: edición de un usuario (HU-17)
+class UsuarioDetalleView(UpdateModelMixin, GenericAPIView):
+    """/api/v1/usuarios/{id}/ · solo administradores.
+
+    PATCH (HU-17) {"nombre", "apellidos", "correo", "telefono"}: edita los datos de contacto.
+    Cualquier otro campo responde 400. Solo acepta PATCH: los demás métodos responden 405.
+    """
+
+    permission_classes = permisos_por_defecto_mas(EsAdministrador)
+    queryset = Usuario.objects.all()
+    serializer_class = EdicionUsuarioSerializer
+
+    @extend_schema(
+        summary="Editar datos de un usuario (solo admin)",
+        request=EdicionUsuarioSerializer,
+        responses={
+            200: EdicionUsuarioSerializer,
+            400: OpenApiResponse(description="Duplicado o campo no editable"),
+            401: OpenApiResponse(description="Sin token"),
+            403: OpenApiResponse(description="No es administrador"),
+            404: OpenApiResponse(description="Usuario no existe"),
+        },
+        tags=["usuarios"],
+    )
+    def patch(self, request, *args, **kwargs):
+        return self.partial_update(request, *args, **kwargs)
+
+    # t-17/st-150: registra en la bitácora qué campos cambiaron y quién lo hizo
+    def perform_update(self, serializer):
+        usuario = serializer.instance
+        fuentes = {campo: serializer.fields[campo].source for campo in CAMPOS_EDITABLES}
+        antes = {campo: getattr(usuario, fuente) for campo, fuente in fuentes.items()}
+
+        usuario = serializer.save()
+
+        cambiados = [campo for campo, fuente in fuentes.items() if getattr(usuario, fuente) != antes[campo]]
+        if cambiados:
+            # Solo los nombres de los campos: correo y teléfono son datos personales.
+            registrar_evento(
+                "usuario_editado",
+                self.request.user,
+                self.request,
+                editado_id=str(usuario.pk),
+                campos_cambiados=cambiados,
+            )

@@ -122,3 +122,60 @@ class CodigoDosFactoresSerializer(serializers.Serializer):
         r"^\d{6}$",
         error_messages={"invalid": "El código debe tener 6 dígitos."},
     )
+
+
+class CambiarPasswordSerializer(serializers.Serializer):
+    """HU-11 / ST-112: cambio de contraseña con sesión iniciada.
+
+    - Requiere la contraseña actual (se verifica con check_password).
+    - La nueva debe cumplir AUTH_PASSWORD_VALIDATORS y coincidir con la confirmación.
+    - No emite tokens: eso corresponde a ST-113.
+    """
+
+    password_actual = serializers.CharField(
+        write_only=True,
+        trim_whitespace=False,
+        style={"input_type": "password"},
+    )
+    password_nueva = serializers.CharField(
+        write_only=True,
+        trim_whitespace=False,
+        style={"input_type": "password"},
+        help_text=AYUDA_POLITICA_PASSWORD,
+    )
+    password_confirmacion = serializers.CharField(
+        write_only=True,
+        trim_whitespace=False,
+        style={"input_type": "password"},
+    )
+
+    def validate_password_actual(self, valor):
+        usuario = self.context["request"].user
+        if not usuario.check_password(valor):
+            raise serializers.ValidationError("La contraseña actual es incorrecta.")
+        return valor
+
+    def validate(self, datos):
+        if datos["password_nueva"] != datos["password_confirmacion"]:
+            raise serializers.ValidationError(
+                {"password_confirmacion": ["Las contraseñas no coinciden."]}
+            )
+        if datos["password_nueva"] == datos["password_actual"]:
+            raise serializers.ValidationError(
+                {"password_nueva": ["La nueva contraseña debe ser distinta a la actual."]}
+            )
+        usuario = self.context["request"].user
+        try:
+            validate_password(datos["password_nueva"], user=usuario)
+        except DjangoValidationError as error:
+            raise serializers.ValidationError(
+                {"password_nueva": list(error.messages)}
+            ) from error
+        return datos
+
+    def save(self, **kwargs):
+        """Aplica el cambio usando el método del modelo (único lugar que muta la contraseña)."""
+        usuario = self.context["request"].user
+        request = self.context.get("request")
+        usuario.cambiar_password(self.validated_data["password_nueva"], request=request)
+        return usuario
