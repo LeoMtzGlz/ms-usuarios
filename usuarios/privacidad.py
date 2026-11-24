@@ -14,6 +14,13 @@ def version_vigente() -> str:
     return settings.VERSION_AVISO_PRIVACIDAD
 
 
+# t-29/st-201: Función auxiliar para el login, que determina si el usuario debe aceptar el aviso.
+def requiere_aceptar_privacidad(usuario) -> bool:
+    """Devuelve True si la versión del usuario no coincide con la versión vigente."""
+    version_usuario = getattr(usuario, "version_privacidad", None)
+    return version_usuario != version_vigente()
+
+
 def datos_aceptacion_privacidad() -> dict:
     """Campos del usuario que registran la aceptación: fecha actual y versión vigente."""
     return {
