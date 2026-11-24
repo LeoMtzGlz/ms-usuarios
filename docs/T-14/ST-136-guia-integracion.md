@@ -38,9 +38,9 @@ cryptography==50.0.1
 
 Solo se necesita la **pública** (`publica.pem`). La privada **nunca** sale de svc-usuarios.
 
-- **Hoy:** copiar `llaves/publica.pem` de svc-usuarios (se genera como dice `docs/llaves_rs256_sjwt.md`).
-- **Cuando se fusione la ST-135:** se podrá descargar de `GET /api/v1/auth/llave-publica/` (formato JWKS).
-  Mientras tanto, usa el archivo `publica.pem` (ver la nota de `JWK_URL` en el paso 3).
+- Se puede consultar `GET /api/v1/auth/llave-publica/` para obtenerla en formato JWKS.
+- Si el consumidor necesita un archivo PEM, puede copiar `llaves/publica.pem` como explica
+  `docs/llaves_rs256_sjwt.md`.
 
 ## 3. Configurar el otro servicio (solo con `VERIFYING_KEY`)
 
@@ -91,10 +91,11 @@ class JWTDeUsuarios(JWTStatelessUserAuthentication):
 > `JWTAuthentication` busca al usuario en la tabla de usuarios, y el otro servicio no tiene esa tabla.
 > La versión *stateless* confía en la firma y crea un `TokenUser` con los claims del token.
 
-> **`JWK_URL` (descargar la llave del endpoint): pendiente de la ST-135.** SimpleJWT 5.5.1 firma
-> los tokens sin `kid` en el encabezado, y el cliente JWKS busca la llave por `kid`, así que esa
-> opción falla con *"Unable to find a signing key that matches: None"*. Por ahora usa
-> `VERIFYING_KEY` con el archivo `publica.pem`.
+> **`JWK_URL`: todavía no se usa automáticamente.** El endpoint de ST-135 publica una JWKS con
+> `kid`, pero SimpleJWT 5.5.1 sigue firmando los tokens sin ese encabezado. El cliente JWKS busca
+> la llave por el `kid` del token y falla con *"Unable to find a signing key that matches: None"*.
+> Por ahora configura `VERIFYING_KEY` con el archivo `publica.pem` o transforma la llave descargada
+> mediante el procedimiento acordado por el servicio consumidor.
 
 ## 4. Leer el id y el rol en una vista
 
@@ -154,6 +155,5 @@ firmado con otra llave, vencido o sin `rol` responde 401. Las pruebas automátic
 
 ## Pendientes que dependen de otras subtareas
 
-- **ST-135:** endpoint `GET /api/v1/auth/llave-publica/` (JWKS). Para usar `JWK_URL` los tokens
-  tendrían que llevar `kid` en el encabezado.
+- **Integración automática con `JWK_URL`:** los tokens tendrían que llevar `kid` en el encabezado.
 - **HU-05:** que el login agregue el claim `rol` al token.

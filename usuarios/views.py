@@ -1,6 +1,9 @@
 from django.db import transaction
 from django.conf import settings
+from django.utils.cache import patch_cache_control
+from django.utils.decorators import method_decorator
 from django.utils import timezone
+from django.views.decorators.cache import cache_page
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -14,6 +17,7 @@ from usuarios.tokens import CustomTokenObtainPairSerializer
 
 from comun.eventos import registrar_evento
 from usuarios.codigos import generar_codigo
+from usuarios.llaves import jwks_desde_pem
 from usuarios.models import Canal, Proposito
 from usuarios.serializers import RegistroSerializer, CambiarPasswordSerializer
 
@@ -67,6 +71,31 @@ class RegistroView(APIView):
 class CustomTokenObtainPairView(TokenObtainPairView):
     """HU-05 / ST-82: POST /api/v1/auth/login/"""
     serializer_class = CustomTokenObtainPairSerializer
+
+
+@method_decorator(cache_page(60 * 60), name="dispatch")
+class LlavePublicaView(APIView):
+    """T-14/ST-135: publica la llave de verificación RS256 como JWKS."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        try:
+            contenido = jwks_desde_pem(settings.SIMPLE_JWT["VERIFYING_KEY"])
+        except (KeyError, TypeError, ValueError):
+            return Response(
+                {
+                    "codigo": "llave_publica_no_configurada",
+                    "mensaje": "La llave pública no está disponible.",
+                    "campos": {},
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        respuesta = Response(contenido)
+        patch_cache_control(respuesta, public=True, max_age=60 * 60)
+        return respuesta
 
 
 # ==========================================

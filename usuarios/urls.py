@@ -7,6 +7,7 @@ from usuarios.views import (
     PrivacidadInfoView,
     AceptarPrivacidadView,
     CambiarPasswordView,
+    LlavePublicaView,
 )
 from usuarios.views_2fa import Activar2FAView, Confirmar2FAView  # t-30/st-206
 
@@ -15,6 +16,7 @@ app_name = "auth"
 urlpatterns = [
     path("registro/", RegistroView.as_view(), name="registro"),
     path("login/", CustomTokenObtainPairView.as_view(), name="login"),
+    path("llave-publica/", LlavePublicaView.as_view(), name="llave-publica"),
     
     # t-30/st-206
     path("2fa/activar/", Activar2FAView.as_view(), name="2fa-activar"),
