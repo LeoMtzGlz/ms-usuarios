@@ -82,14 +82,15 @@ def test_un_token_firmado_con_otra_llave_se_rechaza(llaves):
         TokenBackend("RS256", verifying_key=publica, issuer="svc-usuarios").decode(falso)
 
 
-def test_un_token_invalido_responde_401_con_el_formato_del_equipo(llaves):
+@pytest.mark.parametrize("ruta", ["/api/schema/", "/api/docs/"])
+def test_documentacion_rechaza_token_invalido_con_formato_del_equipo(llaves, ruta):
     cliente = APIClient()
     cliente.credentials(HTTP_AUTHORIZATION="Bearer esto-no-es-un-token")
 
-    respuesta = cliente.get("/api/schema/", {"format": "json"})
+    respuesta = cliente.get(ruta)
 
     assert respuesta.status_code == 401
-    assert respuesta.json()["codigo"] == "token_invalido"
+    assert respuesta.data["codigo"] == "token_invalido"
     assert respuesta["WWW-Authenticate"].startswith("Bearer")
 
 

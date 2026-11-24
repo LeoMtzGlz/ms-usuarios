@@ -13,4 +13,6 @@ djangorestframework-simplejwt==5.5.1 # t-04/st-21
 cryptography==50.0.1 # t-04/st-21: necesaria para firmar con RS256
 django-axes==9.0.0 # hu-25/st-183
 pyotp==2.10.0 #t-30/st-205
+user-agents==2.2.0 # t-22/st-167: dispositivo legible en el historial de accesos
 qrcode[pil]==8.2 #t-30/st-206
+django-filter==26.2 # t-16/st-145
