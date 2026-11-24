@@ -127,7 +127,7 @@ en una rama o en el backlog. Una ruta pública puede usarse sin token y, por lo 
 | `POST` | `/api/v1/auth/restablecer/` | Planeado (HU-10) | Sí | Sí | Sí | Sí | `AllowAny` |
 | `POST` | `/api/v1/auth/cambiar-password/` | Planeado (ST-112) | No | Sí | Sí | Sí | Propietario autenticado |
 | `GET` | `/api/v1/auth/llave-publica/` | Planeado (ST-135) | Sí | Sí | Sí | Sí | `AllowAny` |
-| `GET`, `PATCH` | `/api/v1/auth/perfil/` | Planeado (ST-163) | No | Sí | Sí | Sí | Propietario autenticado |
+| `GET`, `PATCH` | `/api/v1/auth/perfil/` | Disponible | No | Sí | Sí | Sí | Propietario autenticado |
 | `GET` | `/api/v1/auth/accesos/` | Planeado (ST-168) | No | Sí | Sí | Sí | Propietario autenticado |
 | `POST` | `/api/v1/auth/eliminar-cuenta/` | Planeado (ST-174) | No | Sí | Sí | Sí³ | Propietario autenticado |
 | `GET`, `POST` | `/api/v1/usuarios/` | Planeado (HU-15/HU-16) | No | No | No | Sí | `EsAdministrador` |
