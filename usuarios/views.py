@@ -15,7 +15,7 @@ from usuarios.tokens import CustomTokenObtainPairSerializer
 from comun.eventos import registrar_evento
 from usuarios.codigos import generar_codigo
 from usuarios.models import Proposito
-from usuarios.serializers import RegistroSerializer
+from usuarios.serializers import RegistroSerializer,CambiarPasswordSerializer
 
 
 class RegistroView(APIView):
@@ -89,3 +89,41 @@ class AceptarPrivacidadView(APIView):
             "mensaje": "Aviso de privacidad aceptado correctamente.",
             "version": user.version_privacidad
         })
+# ==========================================
+# HU-11 / ST-112: Cambiar mi contraseña
+# ==========================================
+class CambiarPasswordView(APIView):
+    """POST /api/v1/auth/cambiar-password/
+
+    Usuario autenticado envía contraseña actual + nueva + confirmación.
+    Valida con los validadores de Django, aplica Usuario.cambiar_password()
+    (marca definitiva, incrementa token_version y registra el evento).
+
+    Solo exige IsAuthenticated: debe funcionar también con contraseña temporal
+    (ContrasenaDefinitiva no aplica aquí; ver ST-116).
+
+    La emisión de tokens nuevos corresponde a ST-113.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        request=CambiarPasswordSerializer,
+        responses={
+            200: OpenApiResponse(description="Contraseña actualizada correctamente"),
+            400: OpenApiResponse(description="Datos inválidos o contraseña actual incorrecta"),
+            401: OpenApiResponse(description="No autenticado"),
+        },
+        tags=["auth"],
+        summary="Cambiar la contraseña del usuario autenticado",
+    )
+    def post(self, request):
+        serializer = CambiarPasswordSerializer(
+            data=request.data, context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(
+            {"mensaje": "Contraseña actualizada correctamente."},
+            status=status.HTTP_200_OK,
+        )

@@ -1,5 +1,7 @@
 """HU-13 / ST-129: matriz ejecutable de autorización de los endpoints disponibles."""
 
+import re
+
 import pytest
 from django.urls import URLPattern, URLResolver, get_resolver
 from rest_framework.permissions import AllowAny
@@ -24,8 +26,10 @@ RUTAS_PROTEGIDAS = (
     ("post", "/api/v1/auth/2fa/activar/"),
     ("post", "/api/v1/auth/2fa/confirmar/"),
     ("post", "/api/v1/auth/privacidad/aceptar/"),
+    ("post", "/api/v1/auth/cambiar-password/"),
     ("get", "/api/v1/usuarios/"),
     ("post", "/api/v1/usuarios/"),
+    ("patch", "/api/v1/usuarios/<uuid>/"),
 )
 
 
@@ -49,6 +53,19 @@ def _permisos_declarados(callback):
     return None if vista is None else vista.__dict__.get("permission_classes")
 
 
+def _normalizar_ruta(ruta):
+    """Quita el nombre interno de los parámetros para compararlos con la matriz."""
+    return re.sub(r"<uuid:[^>]+>", "<uuid>", ruta)
+
+
+def _ruta_para_peticion(ruta):
+    """Crea el usuario que necesitan las rutas con un UUID real."""
+    if "<uuid>" not in ruta:
+        return ruta
+    usuario = UsuarioFactory()
+    return ruta.replace("<uuid>", str(usuario.pk))
+
+
 def _autenticar(api_client, usuario):
     acceso = RefreshToken.for_user(usuario).access_token
     acceso["rol"] = usuario.rol
@@ -66,6 +83,21 @@ def test_toda_vista_publica_declara_allow_any_explicito():
         if AllowAny not in (_permisos_declarados(callback) or ())
     ]
     assert faltantes == [], f"Rutas públicas sin AllowAny explícito: {faltantes}"
+
+
+def test_toda_ruta_api_esta_en_la_matriz_de_autorizacion():
+    """Falla cuando se agrega un endpoint y se olvida definir su autorización."""
+    rutas_reales = {
+        _normalizar_ruta(ruta)
+        for ruta, _callback in _rutas()
+        if ruta.startswith("/api/")
+    }
+    rutas_declaradas = RUTAS_PUBLICAS | {ruta for _metodo, ruta in RUTAS_PROTEGIDAS}
+
+    assert rutas_reales == rutas_declaradas, (
+        f"Rutas sin clasificar: {sorted(rutas_reales - rutas_declaradas)}; "
+        f"rutas inexistentes en la matriz: {sorted(rutas_declaradas - rutas_reales)}"
+    )
 
 
 @pytest.mark.parametrize(
@@ -88,7 +120,9 @@ def test_rutas_publicas_no_exigen_token(api_client, metodo, ruta, datos, esperad
 
 @pytest.mark.parametrize(("metodo", "ruta"), RUTAS_PROTEGIDAS)
 def test_rutas_protegidas_rechazan_peticion_sin_token(api_client, llaves, metodo, ruta):
-    respuesta = getattr(api_client, metodo)(ruta, data={}, format="json")
+    respuesta = getattr(api_client, metodo)(
+        _ruta_para_peticion(ruta), data={}, format="json"
+    )
 
     assert respuesta.status_code == 401
     assert respuesta.json()["codigo"] == "no_autenticado"
@@ -110,6 +144,30 @@ def test_administrador_supera_la_autorizacion_de_usuarios(api_client, llaves, me
     _autenticar(api_client, UsuarioFactory(rol=Rol.ADMINISTRADOR))
 
     respuesta = getattr(api_client, metodo)("/api/v1/usuarios/", data={}, format="json")
+
+    assert respuesta.status_code not in (401, 403)
+
+
+@pytest.mark.parametrize("rol", [Rol.CLIENTE, Rol.OPERATIVO])
+def test_usuario_no_administrador_no_edita_usuarios(api_client, llaves, rol):
+    objetivo = UsuarioFactory()
+    _autenticar(api_client, UsuarioFactory(rol=rol))
+
+    respuesta = api_client.patch(
+        f"/api/v1/usuarios/{objetivo.pk}/", {"nombre": "Nombre nuevo"}, format="json"
+    )
+
+    assert respuesta.status_code == 403
+    assert respuesta.json()["codigo"] == "sin_permiso"
+
+
+def test_administrador_supera_la_autorizacion_para_editar(api_client, llaves):
+    objetivo = UsuarioFactory()
+    _autenticar(api_client, UsuarioFactory(rol=Rol.ADMINISTRADOR))
+
+    respuesta = api_client.patch(
+        f"/api/v1/usuarios/{objetivo.pk}/", {"nombre": "Nombre nuevo"}, format="json"
+    )
 
     assert respuesta.status_code not in (401, 403)
 
