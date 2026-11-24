@@ -44,7 +44,10 @@ class DebeCambiarPassword(exceptions.PermissionDenied):
     default_detail = "Debes cambiar tu contraseña temporal antes de continuar."
     default_code = "debe_cambiar_password"
 
-
+class UnicoAdministrador(exceptions.PermissionDenied):
+    default_detail = "Eres el único administrador activo. Nombra a otro antes de eliminar tu cuenta."
+    default_code = "unico_administrador"
+    
 class CodigoInvalido(exceptions.ValidationError):
     default_detail = "El código es incorrecto."
     default_code = "codigo_invalido"

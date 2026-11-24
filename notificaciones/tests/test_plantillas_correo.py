@@ -28,8 +28,8 @@ def test_renderizar_5_plantillas_con_pie_comun(nombre_plantilla, contexto, texto
     assert PIE_OBLIGATORIO in texto_plano
 
 
-def test_total_plantillas_es_cinco():
-    assert len(PLANTILLAS_CORREO) == 5
+def test_total_plantillas_es_seis():  # t-23/st-174 agregó cuenta_eliminada
+    assert len(PLANTILLAS_CORREO) == 6
 
 
 def test_plantilla_desconocida_lanza_error():
