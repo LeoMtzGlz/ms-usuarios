@@ -1,10 +1,8 @@
 from django.db import transaction
 from django.conf import settings
 from django.utils.cache import patch_cache_control
-from django.utils.decorators import method_decorator
 from django.utils import timezone
-from django.views.decorators.cache import cache_page
-from drf_spectacular.utils import extend_schema, OpenApiResponse
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -73,13 +71,40 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
 
-@method_decorator(cache_page(60 * 60), name="dispatch")
+# t-14/st-135
+class LlavePublicaClaveSerializer(serializers.Serializer):
+    kty = serializers.CharField()
+    use = serializers.CharField()
+    alg = serializers.CharField()
+    kid = serializers.CharField()
+    n = serializers.CharField()
+    e = serializers.CharField()
+
+
+class LlavePublicaRespuestaSerializer(serializers.Serializer):
+    keys = LlavePublicaClaveSerializer(many=True)
+
+
+class LlavePublicaErrorSerializer(serializers.Serializer):
+    codigo = serializers.CharField()
+    mensaje = serializers.CharField()
+    campos = serializers.DictField()
+
+
 class LlavePublicaView(APIView):
     """T-14/ST-135: publica la llave de verificación RS256 como JWKS."""
 
     permission_classes = [AllowAny]
     authentication_classes = []
 
+    @extend_schema(
+        tags=["auth"],
+        summary="Descargar la llave pública de verificación",
+        responses={
+            200: LlavePublicaRespuestaSerializer,
+            503: LlavePublicaErrorSerializer,
+        },
+    )
     def get(self, request):
         try:
             contenido = jwks_desde_pem(settings.SIMPLE_JWT["VERIFYING_KEY"])

@@ -5,7 +5,6 @@ import base64
 import pytest
 from cryptography.hazmat.primitives import serialization
 from django.conf import settings
-from django.core.cache import cache
 
 URL = "/api/v1/auth/llave-publica/"
 
@@ -13,19 +12,6 @@ URL = "/api/v1/auth/llave-publica/"
 def _entero_base64url(valor):
     relleno = "=" * (-len(valor) % 4)
     return int.from_bytes(base64.urlsafe_b64decode(valor + relleno), "big")
-
-
-@pytest.fixture(autouse=True)
-def limpiar_cache(settings):
-    settings.CACHES = {
-        "default": {
-            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-            "LOCATION": "st-135",
-        }
-    }
-    cache.clear()
-    yield
-    cache.clear()
 
 
 @pytest.fixture
@@ -77,13 +63,12 @@ def test_se_puede_cachear_publicamente_durante_una_hora(api_client, llave_config
     assert "max-age=3600" in directivas
 
 
-def test_la_respuesta_cacheada_es_estable(api_client, llave_configurada, monkeypatch):
-    primera = api_client.get(URL).json()
-    monkeypatch.setitem(settings.SIMPLE_JWT, "VERIFYING_KEY", "no-es-una-llave")
+def test_no_depende_de_la_tabla_de_cache(api_client, llave_configurada):
+    assert settings.CACHES["default"]["BACKEND"] == "django.core.cache.backends.db.DatabaseCache"
 
-    segunda = api_client.get(URL).json()
+    respuesta = api_client.get(URL)
 
-    assert segunda == primera
+    assert respuesta.status_code == 200
 
 
 @pytest.mark.parametrize("valor", ["", "no-es-una-llave"])
