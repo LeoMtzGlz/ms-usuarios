@@ -90,8 +90,6 @@ class PrivacidadInfoView(APIView):
         })
 
 class AceptarPrivacidadView(APIView):
-    permission_classes = [IsAuthenticated]
-    
     @extend_schema(
         tags=["Privacidad"],
         summary="Aceptar el aviso de privacidad",
@@ -110,6 +108,8 @@ class AceptarPrivacidadView(APIView):
             "mensaje": "Aviso de privacidad aceptado correctamente.",
             "version": user.version_privacidad
         })
+
+
 # ==========================================
 # HU-11 / ST-112: Cambiar mi contraseña
 # ==========================================

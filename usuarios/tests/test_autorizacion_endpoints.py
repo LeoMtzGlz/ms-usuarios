@@ -3,6 +3,7 @@
 import re
 
 import pytest
+from cryptography.fernet import Fernet
 from django.urls import URLPattern, URLResolver, get_resolver
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -66,9 +67,11 @@ def _ruta_para_peticion(ruta):
     return ruta.replace("<uuid>", str(usuario.pk))
 
 
-def _autenticar(api_client, usuario):
+def _autenticar(api_client, usuario, **claims):
     acceso = RefreshToken.for_user(usuario).access_token
     acceso["rol"] = usuario.rol
+    for nombre, valor in claims.items():
+        acceso[nombre] = valor
     api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {acceso}")
 
 
@@ -139,13 +142,21 @@ def test_usuario_no_administrador_no_accede_a_usuarios(api_client, llaves, rol, 
     assert respuesta.json()["codigo"] == "sin_permiso"
 
 
-@pytest.mark.parametrize("metodo", ["get", "post"])
-def test_administrador_supera_la_autorizacion_de_usuarios(api_client, llaves, metodo):
+def test_administrador_puede_listar_usuarios(api_client, llaves):
     _autenticar(api_client, UsuarioFactory(rol=Rol.ADMINISTRADOR))
 
-    respuesta = getattr(api_client, metodo)("/api/v1/usuarios/", data={}, format="json")
+    respuesta = api_client.get("/api/v1/usuarios/")
 
-    assert respuesta.status_code not in (401, 403)
+    assert respuesta.status_code == 200
+
+
+def test_administrador_supera_autorizacion_antes_de_validar_el_alta(api_client, llaves):
+    _autenticar(api_client, UsuarioFactory(rol=Rol.ADMINISTRADOR))
+
+    respuesta = api_client.post("/api/v1/usuarios/", data={}, format="json")
+
+    assert respuesta.status_code == 400
+    assert respuesta.json()["codigo"] == "datos_invalidos"
 
 
 @pytest.mark.parametrize("rol", [Rol.CLIENTE, Rol.OPERATIVO])
@@ -169,7 +180,69 @@ def test_administrador_supera_la_autorizacion_para_editar(api_client, llaves):
         f"/api/v1/usuarios/{objetivo.pk}/", {"nombre": "Nombre nuevo"}, format="json"
     )
 
-    assert respuesta.status_code not in (401, 403)
+    assert respuesta.status_code == 200
+    assert respuesta.json()["nombre"] == "Nombre nuevo"
+    objetivo.refresh_from_db()
+    assert objetivo.first_name == "Nombre nuevo"
+
+
+@pytest.mark.parametrize(
+    ("metodo", "ruta"),
+    [ruta for ruta in RUTAS_PROTEGIDAS if ruta[1] != "/api/v1/auth/cambiar-password/"],
+)
+def test_contrasena_temporal_bloquea_rutas_protegidas(api_client, llaves, metodo, ruta):
+    _autenticar(
+        api_client,
+        UsuarioFactory(rol=Rol.ADMINISTRADOR),
+        debe_cambiar_password=True,
+    )
+
+    respuesta = getattr(api_client, metodo)(
+        _ruta_para_peticion(ruta), data={}, format="json"
+    )
+
+    assert respuesta.status_code == 403
+    assert respuesta.json()["codigo"] == "debe_cambiar_password"
+
+
+@pytest.mark.parametrize("rol", [Rol.CLIENTE, Rol.OPERATIVO, Rol.ADMINISTRADOR])
+def test_cambiar_password_es_accesible_con_contrasena_temporal(api_client, llaves, rol):
+    _autenticar(
+        api_client,
+        UsuarioFactory(rol=rol),
+        debe_cambiar_password=True,
+    )
+
+    respuesta = api_client.post("/api/v1/auth/cambiar-password/", {}, format="json")
+
+    assert respuesta.status_code == 400
+    assert respuesta.json()["codigo"] == "datos_invalidos"
+
+
+@pytest.mark.parametrize("rol", [Rol.CLIENTE, Rol.OPERATIVO, Rol.ADMINISTRADOR])
+@pytest.mark.parametrize(
+    ("ruta", "datos", "esperado", "codigo"),
+    [
+        ("/api/v1/auth/2fa/activar/", {}, 200, None),
+        (
+            "/api/v1/auth/2fa/confirmar/",
+            {"codigo": "000000"},
+            400,
+            "dos_factores_no_iniciado",
+        ),
+    ],
+)
+def test_todos_los_roles_superan_autorizacion_de_2fa(
+    api_client, llaves, settings, rol, ruta, datos, esperado, codigo
+):
+    settings.CLAVE_CIFRADO_2FA = Fernet.generate_key().decode()
+    _autenticar(api_client, UsuarioFactory(rol=rol))
+
+    respuesta = api_client.post(ruta, datos, format="json")
+
+    assert respuesta.status_code == esperado
+    if codigo:
+        assert respuesta.json()["codigo"] == codigo
 
 
 @pytest.mark.parametrize("rol", [Rol.CLIENTE, Rol.OPERATIVO, Rol.ADMINISTRADOR])

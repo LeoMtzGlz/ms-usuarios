@@ -12,8 +12,10 @@ Convertir la matriz endpoint por rol de ST-127 en pruebas automáticas sobre las
 - Las rutas protegidas responden `401 no_autenticado` sin token.
 - Cliente y operativo reciben `403 sin_permiso` en la administración de usuarios.
 - Cliente y operativo reciben `403 sin_permiso` al intentar editar un usuario.
-- Administrador supera la autorización para listar, crear y editar usuarios.
+- Administrador obtiene `200` al listar y editar; un alta vacía llega a validación y responde `400 datos_invalidos`.
 - Los tres roles autenticados pueden aceptar el aviso de privacidad.
+- `ContrasenaDefinitiva` bloquea todas las rutas protegidas salvo el cambio de contraseña.
+- Los tres roles superan la autorización de 2FA y del cambio de contraseña.
 - El rol administrador de la API no concede acceso al administrador de Django.
 - El árbol real de rutas se obtiene mediante `get_resolver()` y toda ruta `/api/` debe aparecer en la matriz.
 
@@ -34,3 +36,8 @@ resolución exigirá que declare `AllowAny` explícitamente.
 
 La comparación con el árbol real también hace fallar la suite si una ruta `/api/` se agrega sin clasificarla como
 pública o protegida. Las rutas con UUID se normalizan para probarlas con un usuario creado por la factory.
+
+## Pendiente
+
+El criterio "un cliente no puede ver datos de otro cliente" se probará cuando existan los endpoints de perfil
+(ST-163) y accesos (ST-168), porque las rutas disponibles todavía no exponen recursos pertenecientes a otro cliente.

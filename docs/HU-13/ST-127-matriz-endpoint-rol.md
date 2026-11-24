@@ -25,9 +25,11 @@ implementada.
 | `GET` | `/api/schema/` | Disponible | Sí | Sí | Sí | Sí | Pública (`drf-spectacular`) | T-05 |
 | `GET` | `/api/docs/` | Disponible | Sí | Sí | Sí | Sí | Pública (`drf-spectacular`) | T-05 |
 | `GET`, `POST` | `/admin/` y sus rutas internas | Disponible | No | No¹ | No¹ | No¹ | `is_staff` de Django | T-02 |
-| `POST` | `/api/v1/auth/login/` | En rama | Sí | Sí | Sí | Sí | `AllowAny` | HU-05 / ST-82 |
-| `GET` | `/api/v1/auth/privacidad/` | En PR #60 | Sí | Sí | Sí | Sí | `AllowAny` | HU-29 / ST-201 |
-| `POST` | `/api/v1/auth/privacidad/aceptar/` | En PR #60 | No | Sí | Sí | Sí | `IsAuthenticated` | HU-29 / ST-201 |
+| `POST` | `/api/v1/auth/login/` | Disponible | Sí | Sí | Sí | Sí | `AllowAny` | HU-05 / ST-82 |
+| `GET` | `/api/v1/auth/privacidad/` | Disponible | Sí | Sí | Sí | Sí | `AllowAny` | HU-29 / ST-201 |
+| `POST` | `/api/v1/auth/privacidad/aceptar/` | Disponible | No | Sí | Sí | Sí | `IsAuthenticated` + `ContrasenaDefinitiva` | HU-29 / ST-201 |
+| `POST` | `/api/v1/auth/2fa/activar/` | Disponible | No | Sí | Sí | Sí | `IsAuthenticated` + `ContrasenaDefinitiva` | HU-30 / ST-206 |
+| `POST` | `/api/v1/auth/2fa/confirmar/` | Disponible | No | Sí | Sí | Sí | `IsAuthenticated` + `ContrasenaDefinitiva` | HU-30 / ST-206 |
 | `POST` | `/api/v1/auth/activar/` | Planeado | Sí | Sí | Sí | Sí | `AllowAny` | HU-03 / ST-72 |
 | `POST` | `/api/v1/auth/reenviar-codigo/` | Planeado | Sí | Sí | Sí | Sí | `AllowAny` | HU-04 / ST-75 |
 | `POST` | `/api/v1/auth/token/renovar/` | Planeado | Sí² | Sí | Sí | Sí | Token de renovación válido | HU-06 |
@@ -35,13 +37,13 @@ implementada.
 | `POST` | `/api/v1/auth/logout-todo/` | Planeado | No | Sí | Sí | Sí | `IsAuthenticated` | HU-09 |
 | `POST` | `/api/v1/auth/recuperar/` | Planeado | Sí | Sí | Sí | Sí | `AllowAny` | HU-10 |
 | `POST` | `/api/v1/auth/restablecer/` | Planeado | Sí | Sí | Sí | Sí | `AllowAny` | HU-10 |
-| `POST` | `/api/v1/auth/cambiar-password/` | Planeado | No | Sí | Sí | Sí | Propietario autenticado | HU-11 / ST-112 |
+| `POST` | `/api/v1/auth/cambiar-password/` | Disponible | No | Sí | Sí | Sí | `IsAuthenticated` (exenta de `ContrasenaDefinitiva`) | HU-11 / ST-112 |
 | `GET` | `/api/v1/auth/llave-publica/` | Planeado | Sí | Sí | Sí | Sí | `AllowAny` | T-14 / ST-135 |
 | `GET`, `PATCH` | `/api/v1/auth/perfil/` | Planeado | No | Sí | Sí | Sí | Propietario autenticado | HU-21 / ST-163 |
 | `GET` | `/api/v1/auth/accesos/` | Planeado | No | Sí | Sí | Sí | Propietario autenticado | HU-22 / ST-168 |
 | `POST` | `/api/v1/auth/eliminar-cuenta/` | Planeado | No | Sí | Sí | Sí³ | Propietario autenticado | HU-23 / ST-174 |
-| `GET`, `POST` | `/api/v1/usuarios/` | Planeado | No | No | No | Sí | `EsAdministrador` | HU-15 / HU-16 |
-| `PATCH` | `/api/v1/usuarios/{id}/` | Planeado | No | No | No | Sí | `EsAdministrador` | HU-17 / ST-149 |
+| `GET`, `POST` | `/api/v1/usuarios/` | Disponible | No | No | No | Sí | `EsAdministrador` | HU-15 / HU-16 |
+| `PATCH` | `/api/v1/usuarios/{id}/` | Disponible | No | No | No | Sí | `EsAdministrador` | HU-17 / ST-149 |
 | `PATCH` | `/api/v1/usuarios/{id}/rol/` | Planeado | No | No | No | Sí | `EsAdministrador` | HU-14 / ST-131 |
 | `GET` | `/api/v1/auditoria/` | Planeado | No | No | No | Sí | `EsAdministrador` | HU-26 / ST-189 |
 

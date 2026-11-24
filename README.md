@@ -115,9 +115,11 @@ en una rama o en el backlog. Una ruta pública puede usarse sin token y, por lo 
 | `GET` | `/api/schema/` | Disponible | Sí | Sí | Sí | Sí | Pública (`drf-spectacular`) |
 | `GET` | `/api/docs/` | Disponible | Sí | Sí | Sí | Sí | Pública (`drf-spectacular`) |
 | `GET`, `POST` | `/admin/` y sus rutas internas | Disponible | No | No¹ | No¹ | No¹ | Autenticación de Django |
-| `POST` | `/api/v1/auth/login/` | En rama ST-82 | Sí | Sí | Sí | Sí | `AllowAny` |
-| `GET` | `/api/v1/auth/privacidad/` | En PR #60 | Sí | Sí | Sí | Sí | `AllowAny` |
-| `POST` | `/api/v1/auth/privacidad/aceptar/` | En PR #60 | No | Sí | Sí | Sí | `IsAuthenticated` |
+| `POST` | `/api/v1/auth/login/` | Disponible | Sí | Sí | Sí | Sí | `AllowAny` |
+| `GET` | `/api/v1/auth/privacidad/` | Disponible | Sí | Sí | Sí | Sí | `AllowAny` |
+| `POST` | `/api/v1/auth/privacidad/aceptar/` | Disponible | No | Sí | Sí | Sí | `IsAuthenticated` + `ContrasenaDefinitiva` |
+| `POST` | `/api/v1/auth/2fa/activar/` | Disponible | No | Sí | Sí | Sí | `IsAuthenticated` + `ContrasenaDefinitiva` |
+| `POST` | `/api/v1/auth/2fa/confirmar/` | Disponible | No | Sí | Sí | Sí | `IsAuthenticated` + `ContrasenaDefinitiva` |
 | `POST` | `/api/v1/auth/activar/` | Planeado (ST-72) | Sí | Sí | Sí | Sí | `AllowAny` |
 | `POST` | `/api/v1/auth/reenviar-codigo/` | Planeado (ST-75) | Sí | Sí | Sí | Sí | `AllowAny` |
 | `POST` | `/api/v1/auth/token/renovar/` | Planeado (HU-06) | Sí² | Sí | Sí | Sí | Token de renovación válido |
@@ -125,13 +127,13 @@ en una rama o en el backlog. Una ruta pública puede usarse sin token y, por lo 
 | `POST` | `/api/v1/auth/logout-todo/` | Planeado (HU-09) | No | Sí | Sí | Sí | `IsAuthenticated` |
 | `POST` | `/api/v1/auth/recuperar/` | Planeado (HU-10) | Sí | Sí | Sí | Sí | `AllowAny` |
 | `POST` | `/api/v1/auth/restablecer/` | Planeado (HU-10) | Sí | Sí | Sí | Sí | `AllowAny` |
-| `POST` | `/api/v1/auth/cambiar-password/` | Planeado (ST-112) | No | Sí | Sí | Sí | Propietario autenticado |
+| `POST` | `/api/v1/auth/cambiar-password/` | Disponible | No | Sí | Sí | Sí | `IsAuthenticated` (exenta de `ContrasenaDefinitiva`) |
 | `GET` | `/api/v1/auth/llave-publica/` | Planeado (ST-135) | Sí | Sí | Sí | Sí | `AllowAny` |
 | `GET`, `PATCH` | `/api/v1/auth/perfil/` | Planeado (ST-163) | No | Sí | Sí | Sí | Propietario autenticado |
 | `GET` | `/api/v1/auth/accesos/` | Planeado (ST-168) | No | Sí | Sí | Sí | Propietario autenticado |
 | `POST` | `/api/v1/auth/eliminar-cuenta/` | Planeado (ST-174) | No | Sí | Sí | Sí³ | Propietario autenticado |
-| `GET`, `POST` | `/api/v1/usuarios/` | Planeado (HU-15/HU-16) | No | No | No | Sí | `EsAdministrador` |
-| `PATCH` | `/api/v1/usuarios/{id}/` | Planeado (ST-149) | No | No | No | Sí | `EsAdministrador` |
+| `GET`, `POST` | `/api/v1/usuarios/` | Disponible | No | No | No | Sí | `EsAdministrador` |
+| `PATCH` | `/api/v1/usuarios/{id}/` | Disponible | No | No | No | Sí | `EsAdministrador` |
 | `PATCH` | `/api/v1/usuarios/{id}/rol/` | Planeado (ST-131) | No | No | No | Sí | `EsAdministrador` |
 | `GET` | `/api/v1/auditoria/` | Planeado (ST-189) | No | No | No | Sí | `EsAdministrador` |
 
@@ -144,6 +146,9 @@ en una rama o en el backlog. Una ruta pública puede usarse sin token y, por lo 
 
 Para los endpoints de DRF, cualquier vista que no declare permisos hereda `IsAuthenticated`. ST-128 aplicará las
 clases de `comun/permisos.py` cuando una ruta necesite restringirse a un rol concreto o al dueño del recurso.
+La prueba `test_toda_ruta_api_esta_en_la_matriz_de_autorizacion` de
+[`usuarios/tests/test_autorizacion_endpoints.py`](usuarios/tests/test_autorizacion_endpoints.py) falla si se agrega
+una ruta `/api/` sin clasificarla en la matriz ejecutable de ST-129.
 Las rutas de historias que todavía no fijan una URL se registran en
 [`docs/HU-13/ST-127-matriz-endpoint-rol.md`](docs/HU-13/ST-127-matriz-endpoint-rol.md) y se agregarán a esta tabla
 cuando el equipo confirme su contrato.
