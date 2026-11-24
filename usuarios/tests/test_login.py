@@ -39,3 +39,28 @@ def test_login_cuenta_inactiva(api_client, db):
     response = api_client.post('/api/v1/auth/login/', {"email": "inactivo@ejemplo.com", "password": "Password123"})
     assert response.status_code == 403
     assert response.data["codigo"] == "cuenta_inactiva"
+
+# ST-194: Respuestas idénticas para cuenta existente e inexistente.
+@pytest.mark.django_db
+def test_login_respuesta_igual_cuenta_existente_o_inexistente(
+    api_client, usuario_activo
+):
+    respuesta_existente = api_client.post(
+        "/api/v1/auth/login/",
+        {
+            "email": "activo@ejemplo.com",
+            "password": "PasswordIncorrecta123",
+        },
+    )
+
+    respuesta_inexistente = api_client.post(
+        "/api/v1/auth/login/",
+        {
+            "email": "noexiste@ejemplo.com",
+            "password": "PasswordIncorrecta123",
+        },
+    )
+
+    assert respuesta_existente.status_code == 401
+    assert respuesta_inexistente.status_code == 401
+    assert respuesta_existente.data == respuesta_inexistente.data

@@ -109,6 +109,11 @@ def test_si_el_canal_falla_queda_fallida_sin_el_codigo(usuario):
 
     noti.refresh_from_db()
     assert resultado.fallidas == 1
+    assert noti.estado == Notificacion.ESTADO_PENDIENTE
+    assert noti.intentos == 1
+    for _ in range(2):
+        worker.procesar_lote(obtener_canal=resolver_con(canal))
+    noti.refresh_from_db()
     assert noti.estado == Notificacion.ESTADO_FALLIDA
     assert "123456" not in noti.error
     assert noti.error.startswith("RuntimeError")
@@ -124,7 +129,8 @@ def test_un_fallo_no_detiene_el_resto_del_lote(usuario):
     mala.refresh_from_db()
     buena.refresh_from_db()
     assert (resultado.enviadas, resultado.fallidas) == (1, 1)
-    assert mala.estado == Notificacion.ESTADO_FALLIDA
+    assert mala.estado == Notificacion.ESTADO_PENDIENTE
+    assert mala.intentos == 1
     assert buena.estado == Notificacion.ESTADO_ENVIADA
 
 
