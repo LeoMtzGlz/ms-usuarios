@@ -2,7 +2,7 @@ from django.db import transaction
 from django.conf import settings
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, OpenApiResponse
-from rest_framework import status
+from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -14,8 +14,15 @@ from usuarios.tokens import CustomTokenObtainPairSerializer
 
 from comun.eventos import registrar_evento
 from usuarios.codigos import generar_codigo
-from usuarios.models import Proposito
-from usuarios.serializers import RegistroSerializer,CambiarPasswordSerializer
+from usuarios.models import Canal, Proposito
+from usuarios.serializers import RegistroSerializer, CambiarPasswordSerializer
+
+
+class RegistroRespuestaSerializer(RegistroSerializer):
+    """Solo documenta el 201 (OpenAPI); la vista arma el cuerpo a mano."""
+
+    canal_codigo = serializers.ChoiceField(choices=Canal.choices, help_text="Canal por el que salió el código")
+    canal_sustituido = serializers.BooleanField(help_text="true si no es el canal preferido")
 
 
 class RegistroView(APIView):
@@ -25,22 +32,36 @@ class RegistroView(APIView):
     Todo ocurre en una sola transacción: si falla el código o la notificación,
     la cuenta tampoco se crea. Responde 201 sin tokens: la sesión se inicia
     hasta que la cuenta se active (HU-03).
+
+    HU-01 / ST-61: además de los datos de la cuenta, informa `canal_codigo`
+    (por dónde salió el código) y `canal_sustituido` (true si no es el canal
+    preferido, p. ej. WhatsApp sin teléfono sale por correo).
     """
 
     permission_classes = [AllowAny]
     authentication_classes = []  # registro público: un token viejo o inválido no debe dar 401
 
-    @extend_schema(request=RegistroSerializer, responses={201: RegistroSerializer}, tags=["auth"])
+    @extend_schema(
+        request=RegistroSerializer,
+        responses={201: RegistroRespuestaSerializer},
+        tags=["auth"],
+    )
     def post(self, request):
         serializer = RegistroSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         with transaction.atomic():
             usuario = serializer.save()  # Usuario.objects.create_user(...)
-            generar_codigo(usuario, Proposito.ACTIVACION)
+            registro = generar_codigo(usuario, Proposito.ACTIVACION)
 
         registrar_evento("registro", usuario, request, canal=usuario.canal_preferido)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        # No replicar este aviso en la recuperación de contraseña (HU-10): revelaría si la cuenta existe.
+        cuerpo = {
+            **serializer.data,
+            "canal_codigo": str(registro.canal),
+            "canal_sustituido": str(registro.canal) != str(usuario.canal_preferido),
+        }
+        return Response(cuerpo, status=status.HTTP_201_CREATED)
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
