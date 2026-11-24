@@ -29,6 +29,11 @@ ISSUER_2FA = "svc-usuarios"
 # de uno de ellos se confía en X-Forwarded-For. Vacío = no hay proxy, se usa REMOTE_ADDR.
 PROXIES_CONFIABLES = env.list("PROXIES_CONFIABLES", default=[])
 
+
+# t-33/st-218 (HU-33): ID de cliente OAuth "Aplicación web" de Google Cloud Console.
+# El backend lo usa como audiencia (aud) al verificar el ID token de Google. Vacío = login con Google desactivado.
+GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID", default="")
+
 # Application definition
 
 INSTALLED_APPS = [
