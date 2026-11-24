@@ -61,7 +61,7 @@ Nunca en `UserDefaults`, `SharedPreferences` sin cifrar, archivos ni bases local
 | Vence el access (401 `token_invalido`) | `POST /api/v1/auth/token/renovar/` con el refresh en el cuerpo → `{access, refresh}` | Endpoint en desarrollo (ST-90); la rotación y la lista negra ya están activas (ST-89) |
 | Cerrar sesión | `POST /api/v1/auth/logout/` con el refresh en el cuerpo | Pendiente (HU-08) |
 
-> Las rutas vienen del backlog. **El login ya está disponible** en `development`; **renovar y cerrar sesión todavía están en desarrollo** (ST-90 y HU-08), así que pueden ajustarse al implementarse.`.
+> Las rutas vienen del backlog. **El login ya está disponible** en `development`; **renovar y cerrar sesión todavía están en desarrollo** (ST-90 y HU-08), así que pueden ajustarse al implementarse.
 
 1. Al iniciar sesión, guardar el access en memoria y el refresh en el lugar seguro (cookie del gateway/BFF o almacenamiento seguro del móvil).
 2. Mandar el access en `Authorization: Bearer <access>`.
