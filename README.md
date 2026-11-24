@@ -282,6 +282,7 @@ Cómo están organizadas las pruebas:
 | Para | Comando |
 | --- | --- |
 | Ver los logs de la API | `docker compose logs -f api` |
+| Levantar, ver y detener el worker de notificaciones | `docker compose up -d worker`, `docker compose logs -f worker`, `docker compose stop worker` (varios: `docker compose up -d --scale worker=2`; si la base es nueva, levanta antes `api` para que migre) |
 | Abrir un shell de Django | `docker compose exec api python manage.py shell` |
 | Crear una migración | `docker compose run --rm api python manage.py makemigrations usuarios` |
 | Aplicar migraciones | `docker compose exec api python manage.py migrate` |
