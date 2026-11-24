@@ -11,6 +11,8 @@ from usuarios.views import (
     RegistroView,
 )
 from usuarios.views_2fa import Activar2FAView, Confirmar2FAView  # t-30/st-206
+from usuarios.views_2fa_desactivar import Desactivar2FAView  # t-32/st-215
+from usuarios.views_accesos import HistorialAccesosView  # t-22/st-168
 
 app_name = "auth"
 
@@ -22,9 +24,13 @@ urlpatterns = [
     # t-30/st-206
     path("2fa/activar/", Activar2FAView.as_view(), name="2fa-activar"),
     path("2fa/confirmar/", Confirmar2FAView.as_view(), name="2fa-confirmar"),
+    # t-32/st-215
+    path("2fa/desactivar/", Desactivar2FAView.as_view(), name="2fa-desactivar"),
     # t-29/st-201
     path("privacidad/", PrivacidadInfoView.as_view(), name="privacidad-info"),
     path("privacidad/aceptar/", AceptarPrivacidadView.as_view(), name="privacidad-aceptar"),
     # HU-11 / ST-112
     path("cambiar-password/", CambiarPasswordView.as_view(), name="cambiar-password"),
+    # t-22/st-168
+    path("accesos/historial/", HistorialAccesosView.as_view(), name="historial-accesos"),
 ]
