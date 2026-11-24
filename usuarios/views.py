@@ -1,3 +1,4 @@
+
 from django.db import transaction
 from django.conf import settings
 from django.utils import timezone
@@ -10,7 +11,6 @@ from rest_framework.views import APIView
 # --- Imports para el Login (ST-82) ---
 from rest_framework_simplejwt.views import TokenObtainPairView
 from usuarios.tokens import CustomTokenObtainPairSerializer
-
 
 from comun.eventos import registrar_evento
 from usuarios.codigos import generar_codigo
@@ -30,7 +30,11 @@ class RegistroView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []  # registro público: un token viejo o inválido no debe dar 401
 
-    @extend_schema(request=RegistroSerializer, responses={201: RegistroSerializer}, tags=["auth"])
+    @extend_schema(
+        request=RegistroSerializer,
+        responses={201: RegistroSerializer},
+        tags=["auth"],
+    )
     def post(self, request):
         serializer = RegistroSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -39,12 +43,18 @@ class RegistroView(APIView):
             usuario = serializer.save()  # Usuario.objects.create_user(...)
             generar_codigo(usuario, Proposito.ACTIVACION)
 
-        registrar_evento("registro", usuario, request, canal=usuario.canal_preferido)
+        registrar_evento(
+            "registro",
+            usuario,
+            request,
+            canal=usuario.canal_preferido,
+        )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     """HU-05 / ST-82: POST /api/v1/auth/login/"""
+
     serializer_class = CustomTokenObtainPairSerializer
 
 
@@ -54,39 +64,59 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 class PrivacidadInfoView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
-    
+
     @extend_schema(
         tags=["Privacidad"],
         summary="Obtener la versión vigente del aviso de privacidad",
-        responses={200: OpenApiResponse(description="Versión y URL del aviso")}
+        responses={
+            200: OpenApiResponse(
+                description="Versión y URL del aviso"
+            )
+        },
     )
     def get(self, request):
         return Response({
             "version": settings.VERSION_AVISO_PRIVACIDAD,
-            "url": settings.URL_AVISO_PRIVACIDAD
+            "url": settings.URL_AVISO_PRIVACIDAD,
         })
+
 
 class AceptarPrivacidadView(APIView):
     permission_classes = [IsAuthenticated]
-    
+
     @extend_schema(
         tags=["Privacidad"],
         summary="Aceptar el aviso de privacidad",
-        responses={200: OpenApiResponse(description="Aviso aceptado correctamente")}
+        responses={
+            200: OpenApiResponse(
+                description="Aviso aceptado correctamente"
+            )
+        },
     )
     def post(self, request):
         user = request.user
         user.version_privacidad = settings.VERSION_AVISO_PRIVACIDAD
         user.acepto_privacidad_en = timezone.now()
-        user.save(update_fields=['version_privacidad', 'acepto_privacidad_en'])
-        
+        user.save(
+            update_fields=[
+                "version_privacidad",
+                "acepto_privacidad_en",
+            ]
+        )
+
         # t-29/st-201: Registro en la bitácora
-        registrar_evento("privacidad_aceptada", user, request, version=user.version_privacidad)
-        
+        registrar_evento(
+            "privacidad_aceptada",
+            user,
+            request,
+            version=user.version_privacidad,
+        )
+
         return Response({
             "mensaje": "Aviso de privacidad aceptado correctamente.",
-            "version": user.version_privacidad
+            "version": user.version_privacidad,
         })
+
 
 # ==========================================
 # HU-11 / ST-112: Cambiar mi contraseña
@@ -109,23 +139,31 @@ class CambiarPasswordView(APIView):
     @extend_schema(
         request=CambiarPasswordSerializer,
         responses={
-                    200: OpenApiResponse(
-                        description="Contraseña actualizada; se devuelven access y refresh nuevos"
-                    ),
-                    400: OpenApiResponse(description="Datos inválidos o contraseña actual incorrecta"),
-                    401: OpenApiResponse(description="No autenticado"),
-                },
+            200: OpenApiResponse(
+                description="Contraseña actualizada; se devuelven access y refresh nuevos"
+            ),
+            400: OpenApiResponse(
+                description="Datos inválidos o contraseña actual incorrecta"
+            ),
+            401: OpenApiResponse(
+                description="No autenticado"
+            ),
+        },
         tags=["auth"],
         summary="Cambiar la contraseña del usuario autenticado",
     )
     def post(self, request):
         serializer = CambiarPasswordSerializer(
-            data=request.data, context={"request": request}
+            data=request.data,
+            context={"request": request},
         )
         serializer.is_valid(raise_exception=True)
         usuario = serializer.save()
-        # ST-113: tokens nuevos con claims actualizados (token_version y debe_cambiar_password)
+
+        # ST-113: tokens nuevos con claims actualizados
+        # (token_version y debe_cambiar_password)
         refresh = CustomTokenObtainPairSerializer.get_token(usuario)
+
         return Response(
             {
                 "mensaje": "Contraseña actualizada correctamente.",
@@ -134,4 +172,3 @@ class CambiarPasswordView(APIView):
             },
             status=status.HTTP_200_OK,
         )
-

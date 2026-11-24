@@ -48,7 +48,8 @@ Los nuevos tokens conservan los siguientes claims personalizados:
 - Se utiliza el serializer personalizado de JWT para conservar los claims del proyecto.
 - Se mantiene la configuración de firma RS256.
 - El usuario puede continuar utilizando el dispositivo actual con los nuevos tokens.
-- Las sesiones anteriores quedan invalidadas mediante el mecanismo de `token_version`.
+- Al cambiar la contraseña, se incrementa el valor de `token_version` del usuario.
+- Actualmente, el sistema no compara el `token_version` incluido en el token con el almacenado en la base de datos para rechazar tokens anteriores. Por lo tanto, la invalidación de sesiones anteriores queda pendiente de implementar en una subtarea posterior.
 
 ### 6. Dependencias
 
