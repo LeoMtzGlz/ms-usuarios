@@ -73,7 +73,11 @@ class PrivacidadInfoView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
 
-    @extend_schema(tags=["Privacidad"], summary="Obtener la versión vigente del aviso de privacidad", responses={200: OpenApiResponse(description="Versión y URL del aviso")})
+    @extend_schema(
+        tags=["Privacidad"],
+        summary="Obtener la versión vigente del aviso de privacidad",
+        responses={200: OpenApiResponse(description="Versión y URL del aviso")},
+    )
     def get(self, request):
         return Response({
             "version": settings.VERSION_AVISO_PRIVACIDAD,
@@ -83,7 +87,11 @@ class PrivacidadInfoView(APIView):
 class AceptarPrivacidadView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @extend_schema(tags=["Privacidad"], summary="Aceptar el aviso de privacidad", responses={200: OpenApiResponse(description="Aviso aceptado correctamente")})
+    @extend_schema(
+        tags=["Privacidad"],
+        summary="Aceptar el aviso de privacidad",
+        responses={200: OpenApiResponse(description="Aviso aceptado correctamente")},
+    )
     def post(self, request):
         user = request.user
         user.version_privacidad = settings.VERSION_AVISO_PRIVACIDAD

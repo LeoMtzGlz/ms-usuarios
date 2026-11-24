@@ -20,8 +20,17 @@ class RegistroSerializer(serializers.Serializer):
     apellidos = serializers.CharField(max_length=150, trim_whitespace=True)
     correo = serializers.EmailField(max_length=254)
     telefono = serializers.CharField(max_length=30)
-    password = serializers.CharField(write_only=True, trim_whitespace=False, style={"input_type": "password"}, help_text=AYUDA_POLITICA_PASSWORD)
-    password_confirmacion = serializers.CharField(write_only=True, trim_whitespace=False, style={"input_type": "password"})
+    password = serializers.CharField(
+        write_only=True,
+        trim_whitespace=False,
+        style={"input_type": "password"},
+        help_text=AYUDA_POLITICA_PASSWORD,
+    )
+    password_confirmacion = serializers.CharField(
+        write_only=True,
+        trim_whitespace=False,
+        style={"input_type": "password"},
+    )
     canal_preferido = serializers.ChoiceField(choices=Canal.choices, default=Canal.CORREO)
     acepto_privacidad = serializers.BooleanField(write_only=True)
 
@@ -95,7 +104,6 @@ class ActivarSerializer(serializers.Serializer):
     def validate(self, datos):
         identificador = datos["identificador"].strip()
         codigo = datos["codigo"].strip()
-
         usuario = Usuario.objects.filter(email__iexact=identificador).first()
         if usuario is None:
             try:
@@ -121,5 +129,13 @@ class ActivarSerializer(serializers.Serializer):
                 raise serializers.ValidationError({"codigo": ["Demasiados intentos. Pide un código nuevo."]})
             raise serializers.ValidationError({"codigo": ["Código incorrecto."]})
 
-        datos["registro_codigo"] = registro
-        return datos
+        datos["registro_codigo"] = registro   
+        return datos                          
+    
+class CodigoDosFactoresSerializer(serializers.Serializer):
+    """T-30 / ST-206: código de 6 dígitos de la app autenticadora."""
+
+    codigo = serializers.RegexField(
+        r"^\d{6}$",
+        error_messages={"invalid": "El código debe tener 6 dígitos."},
+    )

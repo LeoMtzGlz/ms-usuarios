@@ -1,7 +1,13 @@
 """Rutas de autenticación: se montan en /api/v1/auth/ (config/urls.py)."""
 from django.urls import path
 
-from usuarios.views import ActivarCuentaView, RegistroView, CustomTokenObtainPairView, PrivacidadInfoView, AceptarPrivacidadView
+from usuarios.views import (
+    AceptarPrivacidadView,
+    ActivarCuentaView,
+    CustomTokenObtainPairView,
+    PrivacidadInfoView,
+    RegistroView,
+)
 from usuarios.views_2fa import Activar2FAView, Confirmar2FAView  # t-30/st-206
 
 app_name = "auth"
