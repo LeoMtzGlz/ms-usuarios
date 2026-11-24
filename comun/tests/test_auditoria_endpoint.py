@@ -2,24 +2,16 @@
 from datetime import datetime, timezone as tz
 
 import pytest
-from rest_framework_simplejwt.tokens import RefreshToken
 
 from comun.models import EventoAuditoria
 from comun.roles import Rol
 from usuarios.tests.factories import UsuarioFactory
+from usuarios.tests.helpers_admin import api_de
 
 pytestmark = pytest.mark.django_db
 
 URL = "/api/v1/auditoria/"
 CAMPOS = {"id", "usuario", "accion", "resultado", "ip", "user_agent", "detalles", "fecha"}
-
-
-def cliente_como(api_client, usuario):
-    """Autentica con un token que lleva el claim `rol`, como el que emite usuarios/tokens.py."""
-    acceso = RefreshToken.for_user(usuario).access_token
-    acceso["rol"] = usuario.rol
-    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {acceso}")
-    return api_client
 
 
 @pytest.fixture(autouse=True)
@@ -33,8 +25,8 @@ def admin(llaves):
 
 
 @pytest.fixture
-def cliente_admin(api_client, admin):
-    return cliente_como(api_client, admin)
+def cliente_admin(admin):
+    return api_de(admin)
 
 
 def evento(dia=None, **campos):
@@ -129,7 +121,7 @@ def test_sin_token_401(api_client):
 
 @pytest.mark.parametrize("rol", [Rol.CLIENTE, Rol.OPERATIVO])
 def test_cliente_y_operativo_reciben_403(api_client, llaves, rol):
-    r = cliente_como(api_client, UsuarioFactory(rol=rol)).get(URL)
+    r = api_de(UsuarioFactory(rol=rol)).get(URL)
     assert r.status_code == 403 and r.json()["codigo"] == "sin_permiso"
 
 

@@ -3,12 +3,12 @@ import pyotp
 import pytest
 from cryptography.fernet import Fernet
 from django.core.management import call_command
-from rest_framework_simplejwt.tokens import RefreshToken
 
 from comun.models import EventoAuditoria
 from comun.roles import Rol
 from usuarios.models import Estado, Usuario, Zona
 from usuarios.tests.factories import UsuarioFactory
+from usuarios.tests.helpers_admin import api_de
 
 pytestmark = pytest.mark.django_db
 
@@ -22,14 +22,6 @@ CONFIRMAR_2FA = "/api/v1/auth/2fa/confirmar/"
 PASSWORD_REGISTRO = "Registro2026"
 PASSWORD_NUEVA = "Definitiva2026"
 PASSWORD_ADMIN_CMD = "Segura123x"
-
-
-def cliente_como(api_client, usuario):
-    """Autentica con un token que lleva el claim `rol`, como el que emite usuarios/tokens.py."""
-    acceso = RefreshToken.for_user(usuario).access_token
-    acceso["rol"] = usuario.rol
-    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {acceso}")
-    return api_client
 
 
 @pytest.fixture(autouse=True)
@@ -55,7 +47,7 @@ def flujo_alta_usuario(api_client, monkeypatch):
     zona, _ = Zona.objects.get_or_create(nombre="Centro", defaults={"activa": True})
     datos = {"nombre": "Luis", "apellidos": "Ramírez Soto", "correo": "luis.ramirez@ejemplo.com",
              "telefono": "443 123 4567", "zona": zona.pk}
-    r = cliente_como(api_client, admin).post(ALTA, datos, format="json")
+    r = api_de(admin).post(ALTA, datos, format="json")
     assert r.status_code == 201
     return admin
 
@@ -119,7 +111,6 @@ FLUJOS = [
     ("privacidad_aceptada", flujo_privacidad_aceptada),
     ("2fa_activacion_iniciada", flujo_2fa_activacion_iniciada),
     ("2fa_activado", flujo_2fa_activado),
-    # Hoy el código registra la confirmación fallida con el resultado por omisión ("ok").
     ("2fa_confirmacion_fallida", flujo_2fa_confirmacion_fallida),
     ("admin_creado", flujo_admin_creado),
 ]
@@ -131,7 +122,19 @@ def test_cada_flujo_crea_su_evento(api_client, monkeypatch, accion, flujo):
 
     evento = EventoAuditoria.objects.get(accion=accion)
     assert evento.usuario == usuario
-    assert evento.resultado == "ok"
+    if accion != "2fa_confirmacion_fallida":  # su resultado se prueba aparte (xfail)
+        assert evento.resultado == "ok"
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="usuarios/views_2fa.py (l22420416, ST-206) no pasa resultado='error' al registrar "
+    "2fa_confirmacion_fallida, así que queda con 'ok'. Al corregirlo esta prueba pasará y habrá que quitar el xfail.",
+)
+def test_2fa_confirmacion_fallida_se_registra_con_resultado_error(api_client, monkeypatch):
+    flujo_2fa_confirmacion_fallida(api_client, monkeypatch)
+
+    assert EventoAuditoria.objects.get(accion="2fa_confirmacion_fallida").resultado == "error"
 
 
 def test_ningun_evento_guarda_la_contrasena(api_client, monkeypatch):
@@ -139,7 +142,7 @@ def test_ningun_evento_guarda_la_contrasena(api_client, monkeypatch):
     flujo_password_cambiado(api_client, monkeypatch)
     admin = UsuarioFactory(rol=Rol.ADMINISTRADOR)
     zona, _ = Zona.objects.get_or_create(nombre="Centro", defaults={"activa": True})
-    r = cliente_como(api_client, admin).post(
+    r = api_de(admin).post(
         ALTA,
         {"nombre": "Luis", "apellidos": "Ramírez Soto", "correo": "luis.ramirez@ejemplo.com",
          "telefono": "443 765 4321", "zona": zona.pk},
@@ -159,12 +162,11 @@ def test_no_administrador_recibe_403_en_la_bitacora(api_client, rol):
     flujo_privacidad_aceptada(api_client, None)
     api_client.force_authenticate(user=None)
 
-    r = cliente_como(api_client, UsuarioFactory(rol=rol)).get(AUDITORIA)
+    r = api_de(UsuarioFactory(rol=rol)).get(AUDITORIA)
     assert r.status_code == 403
     assert r.json()["codigo"] == "sin_permiso"
 
     # El administrador del mismo escenario sí ve el evento.
-    cliente_como(api_client, UsuarioFactory(rol=Rol.ADMINISTRADOR))
-    r = api_client.get(AUDITORIA, {"accion": "privacidad_aceptada"})
+    r = api_de(UsuarioFactory(rol=Rol.ADMINISTRADOR)).get(AUDITORIA, {"accion": "privacidad_aceptada"})
     assert r.status_code == 200
     assert [f["accion"] for f in r.json()["results"]] == ["privacidad_aceptada"]

@@ -203,7 +203,7 @@ raise CuentaPendiente()   # 403 {"codigo": "cuenta_pendiente", ...}
 
 ### Bitácora de eventos (T-03)
 
-`registrar_evento(accion, usuario=None, request=None, resultado="ok", **detalles)` es la única puerta a la bitácora. Escribe una línea JSON en el log `svc.auditoria` y (HU-26 / ST-188) guarda además el evento en la tabla `EventoAuditoria`, con usuario, IP, user agent y `detalles`. Si el guardado falla, el error queda en el log y el flujo que la llamó sigue. Las claves sensibles (`password`, `codigo`, `token`...) se guardan como `***` a cualquier profundidad. Un administrador consulta la tabla en `GET /api/v1/auditoria/` (ST-189, [documentación](docs/ST-189/ST-189-endpoint-auditoria.md)). Los flujos que aún no registran su evento están en [`docs/ST-190`](docs/ST-190/ST-190-pruebas-bitacora.md).
+`registrar_evento(accion, usuario=None, request=None, resultado="ok", **detalles)` es la única puerta a la bitácora. Escribe una línea JSON en el log `svc.auditoria` y (HU-26 / ST-188) guarda además el evento en la tabla `EventoAuditoria`, con usuario, IP, user agent y `detalles`. Si el guardado falla, el error queda en el log y el flujo que la llamó sigue. Las claves sensibles (`password`, `codigo`, `token`...) se guardan como `***` a cualquier profundidad. Un administrador consulta la tabla en `GET /api/v1/auditoria/` (ST-189, [documentación](docs/HU-26/ST-189-endpoint-auditoria.md)). Los flujos que aún no registran su evento están en [`docs/HU-26`](docs/HU-26/ST-190-pruebas-bitacora.md).
 
 ```python
 from comun.eventos import registrar_evento
