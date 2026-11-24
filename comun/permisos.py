@@ -83,3 +83,22 @@ def permisos_por_defecto_mas(*clases):
     ContrasenaDefinitiva:  @action(..., permission_classes=permisos_por_defecto_mas(EsAdministrador))
     """
     return [*drf_settings.DEFAULT_PERMISSION_CLASSES, *clases]
+
+
+# t-12/st-116 (HU-12): bloquear todo mientras la contraseña sea temporal
+class ContrasenaDefinitiva(BasePermission):
+    """Mientras el token traiga debe_cambiar_password=True, responde 403 debe_cambiar_password.
+
+    Está en DEFAULT_PERMISSION_CLASSES, así que aplica a todos los endpoints. Los que
+    deben seguir funcionando con la contraseña temporal (cambiar-password de HU-11)
+    declaran su propia lista, p. ej. permission_classes = [IsAuthenticated].
+    Las peticiones sin token pasan aquí y las rechaza IsAuthenticated (401).
+    El mensaje y el código son los de DebeCambiarPassword (comun/errores.py); no se
+    importa esa clase para evitar una importación circular con DRF.
+    """
+
+    message = "Debes cambiar tu contraseña temporal antes de continuar."
+    code = "debe_cambiar_password"
+
+    def has_permission(self, request, view):
+        return _claim(request, "debe_cambiar_password") is not True

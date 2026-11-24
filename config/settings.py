@@ -1,4 +1,3 @@
-
 from datetime import timedelta
 from pathlib import Path
 
@@ -22,13 +21,13 @@ SECRET_KEY = env("SECRET_KEY")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 DOMINIO_CORREO_INSTITUCIONAL = env("DOMINIO_CORREO_INSTITUCIONAL", default="@jiquilpan.tecnm.mx")
 
-# hu-02/st-65: versión del aviso de privacidad que acepta quien se registra
-VERSION_AVISO_PRIVACIDAD = env("VERSION_AVISO_PRIVACIDAD", default="1.0")
 #t-30/st-205
 CLAVE_CIFRADO_2FA = env("CLAVE_CIFRADO_2FA", default="")
 ISSUER_2FA = "svc-usuarios"
 
-
+# t-22/st-167: IPs de los proxies propios (nginx, balanceador). Solo si la petición viene
+# de uno de ellos se confía en X-Forwarded-For. Vacío = no hay proxy, se usa REMOTE_ADDR.
+PROXIES_CONFIABLES = env.list("PROXIES_CONFIABLES", default=[])
 
 # Application definition
 
@@ -42,6 +41,8 @@ INSTALLED_APPS = [
 
     "rest_framework",
     "drf_spectacular",
+    "django_filters",  # t-16/st-145
+    "rest_framework_simplejwt.token_blacklist", # t-07/st-89
 
     "comun",
     "usuarios",
@@ -148,15 +149,48 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
        ),
+        # t-13/st-123: todo endpoint exige autenticación salvo que declare AllowAny.
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticated",
+        "comun.permisos.ContrasenaDefinitiva",  # t-12/st-116: 403 mientras la contraseña sea temporal
+        ),
 }
+
+# hu-27/st-193: directorio para los registros de seguridad
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {"simple": {"format": "{asctime} {levelname} {name} {message}", "style": "{"}},
-    "handlers": {"consola": {"class": "logging.StreamHandler", "formatter": "simple"}},
+    "filters": {
+        "datos_sensibles": {
+            "()": "comun.filtros_logging.FiltrosDatosSensibles"
+        },
+        # El archivo además oculta cualquier JWT y código de seis dígitos.
+        "datos_sensibles_estricto": {
+            "()": "comun.filtros_logging.FiltrosDatosSensibles",
+            "estricto": True,
+        },
+    },
+    "handlers": {
+        "consola": {
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+            "filters": ["datos_sensibles"],
+        },
+        "archivo": {
+            "class": "logging.FileHandler",
+            "filename": str(LOG_DIR / "seguridad.log"),
+            "encoding": "utf-8",
+            "formatter": "simple",
+            "filters": ["datos_sensibles_estricto"],
+            "delay": True,
+        },
+    },
     "loggers": {
-        "svc": {"handlers": ["consola"], "level": env("LOG_LEVEL", default="INFO"), "propagate": False},
+        "svc": {"handlers": ["consola", "archivo"], "level": env("LOG_LEVEL", default="INFO"), "propagate": False},
     },
 }
 
@@ -205,6 +239,8 @@ SIMPLE_JWT = {
     "ISSUER": "svc-usuarios",
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True, # t-07/st-89
+    "BLACKLIST_AFTER_ROTATION": True, # t-07/st-89
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "user_id",
     "AUTH_HEADER_TYPES": ("Bearer",),
@@ -213,8 +249,28 @@ SIMPLE_JWT = {
 # t-07/st-36: Canal por defecto para las notificaciones
 CANAL_NOTIFICACIONES = env("CANAL_NOTIFICACIONES", default="consola")
 
+# T-08/ST-41: Configuración del correo electrónico
+
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = env("EMAIL_HOST", default="smtp.gmail.com")
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="")
+
 # hu-25/st-183: configuración de bloqueo por intentos fallidos
 AXES_FAILURE_LIMIT = 5
 AXES_COOLOFF_TIME = timedelta(minutes=15)
 AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
 AXES_RESET_ON_SUCCESS = True
+
+# hu-25/st-184: respuesta de bloqueo con el formato estándar de errores
+AXES_LOCKOUT_CALLABLE = "comun.errores.respuesta_bloqueo_axes"
+
+# t-03/st-71: vigencia de los codigos de verificacion, en minutos
+CODIGO_MINUTOS = env.int("CODIGO_MINUTOS", default=10)
+
+# t-29/st-200: Configuración del aviso de privacidad
+VERSION_AVISO_PRIVACIDAD = env('VERSION_AVISO_PRIVACIDAD', default='2026-10')
+URL_AVISO_PRIVACIDAD = env('URL_AVISO_PRIVACIDAD', default="")
