@@ -15,7 +15,7 @@ from usuarios.tokens import CustomTokenObtainPairSerializer
 from comun.eventos import registrar_evento
 from usuarios.codigos import generar_codigo
 from usuarios.models import Proposito
-from usuarios.serializers import RegistroSerializer,CambiarPasswordSerializer
+from usuarios.serializers import RegistroSerializer, CambiarPasswordSerializer
 
 
 class RegistroView(APIView):
@@ -109,10 +109,12 @@ class CambiarPasswordView(APIView):
     @extend_schema(
         request=CambiarPasswordSerializer,
         responses={
-            200: OpenApiResponse(description="Contraseña actualizada correctamente"),
-            400: OpenApiResponse(description="Datos inválidos o contraseña actual incorrecta"),
-            401: OpenApiResponse(description="No autenticado"),
-        },
+                    200: OpenApiResponse(
+                        description="Contraseña actualizada; se devuelven access y refresh nuevos"
+                    ),
+                    400: OpenApiResponse(description="Datos inválidos o contraseña actual incorrecta"),
+                    401: OpenApiResponse(description="No autenticado"),
+                },
         tags=["auth"],
         summary="Cambiar la contraseña del usuario autenticado",
     )
@@ -121,9 +123,15 @@ class CambiarPasswordView(APIView):
             data=request.data, context={"request": request}
         )
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        usuario = serializer.save()
+        # ST-113: tokens nuevos con claims actualizados (token_version y debe_cambiar_password)
+        refresh = CustomTokenObtainPairSerializer.get_token(usuario)
         return Response(
-            {"mensaje": "Contraseña actualizada correctamente."},
+            {
+                "mensaje": "Contraseña actualizada correctamente.",
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+            },
             status=status.HTTP_200_OK,
         )
 
