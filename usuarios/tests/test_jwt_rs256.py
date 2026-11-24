@@ -11,7 +11,6 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from django.conf import settings
 from rest_framework.test import APIClient
-from rest_framework_simplejwt import state
 from rest_framework_simplejwt.backends import TokenBackend
 from rest_framework_simplejwt.exceptions import TokenBackendError
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -34,15 +33,6 @@ def _generar_par_de_llaves():
         .decode()
     )
     return privada_pem, publica_pem
-
-
-@pytest.fixture
-def llaves(monkeypatch):
-    """Firma y verifica con un par temporal en lugar del de llaves/."""
-    privada, publica = _generar_par_de_llaves()
-    backend = TokenBackend("RS256", signing_key=privada, verifying_key=publica, issuer="svc-usuarios")
-    monkeypatch.setattr(state, "token_backend", backend)
-    return privada, publica
 
 
 def test_configuracion_de_simple_jwt():
@@ -68,8 +58,9 @@ def test_el_acceso_dura_15_minutos_y_la_renovacion_7_dias(llaves):
     renovacion = RefreshToken.for_user(UsuarioFactory())
     acceso = renovacion.access_token
 
-    assert acceso["exp"] - acceso["iat"] == 15 * 60
-    assert renovacion["exp"] - renovacion["iat"] == 7 * 24 * 60 * 60
+    # ±1 s: exp e iat pueden caer en segundos distintos y daba 899 == 900 de vez en cuando
+    assert abs((acceso["exp"] - acceso["iat"]) - 15 * 60) <= 1
+    assert abs((renovacion["exp"] - renovacion["iat"]) - 7 * 24 * 60 * 60) <= 1
 
 
 def test_otro_servicio_valida_el_token_solo_con_la_llave_publica(llaves):
@@ -91,14 +82,15 @@ def test_un_token_firmado_con_otra_llave_se_rechaza(llaves):
         TokenBackend("RS256", verifying_key=publica, issuer="svc-usuarios").decode(falso)
 
 
-def test_un_token_invalido_responde_401_con_el_formato_del_equipo(llaves):
+@pytest.mark.parametrize("ruta", ["/api/schema/", "/api/docs/"])
+def test_documentacion_rechaza_token_invalido_con_formato_del_equipo(llaves, ruta):
     cliente = APIClient()
     cliente.credentials(HTTP_AUTHORIZATION="Bearer esto-no-es-un-token")
 
-    respuesta = cliente.get("/api/schema/", {"format": "json"})
+    respuesta = cliente.get(ruta)
 
     assert respuesta.status_code == 401
-    assert respuesta.json()["codigo"] == "token_invalido"
+    assert respuesta.data["codigo"] == "token_invalido"
     assert respuesta["WWW-Authenticate"].startswith("Bearer")
 
 
