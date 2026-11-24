@@ -1,4 +1,3 @@
-
 from django.db import transaction
 from django.conf import settings
 from django.utils import timezone
@@ -9,6 +8,7 @@ from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 # --- Imports para el Login (ST-82) ---
 from comun.eventos import registrar_evento
@@ -17,6 +17,8 @@ from usuarios.models import Canal, Estado, Proposito
 from usuarios.serializers import (
     ActivarSerializer,
     CambiarPasswordSerializer,
+    CustomTokenObtainPairSerializer,
+    CustomTokenRefreshSerializer,
     RegistroSerializer,
 )
 
