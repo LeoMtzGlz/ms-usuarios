@@ -4,6 +4,7 @@ from django.urls import path
 from usuarios.views import (
     RegistroView,
     CustomTokenObtainPairView,
+    CustomTokenRefreshView, # t-07/st-90
     PrivacidadInfoView,
     AceptarPrivacidadView,
     CambiarPasswordView,
@@ -15,6 +16,9 @@ app_name = "auth"
 urlpatterns = [
     path("registro/", RegistroView.as_view(), name="registro"),
     path("login/", CustomTokenObtainPairView.as_view(), name="login"),
+
+    # t-07/st-90: Renovación del access y refresh tokens.
+    path("token/renovar/", CustomTokenRefreshView.as_view(), name="token-renovar"),
     
     # t-30/st-206
     path("2fa/activar/", Activar2FAView.as_view(), name="2fa-activar"),
