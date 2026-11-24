@@ -12,10 +12,13 @@ from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 from rest_framework_simplejwt.utils import datetime_from_epoch
 from rest_framework_simplejwt.exceptions import TokenError
 
+from user_agents import parse
+
 from comun.errores import CredencialesInvalidas, CuentaPendiente, CuentaInactiva, TokenInvalido
 
-from usuarios.models import Estado
+from usuarios.models import Estado, RegistroAcceso
 from usuarios.accesos import buscar_usuario, registrar_acceso  # t-22/st-167
+from notificaciones.services import notificar
 
 # t-06/st-85 - HU-06: "con recordarme la renovación dura 7 días; sin él, 1 día"
 DURACION_REFRESH_CON_RECORDARME = timedelta(days=7)
@@ -58,6 +61,42 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             registrar_acceso(request, user, exitoso=False)  # t-22/st-167
             raise CuentaInactiva()
 
+        # ==========================================
+        # HU-28 (t-28/st-196 y st-197): Detección de dispositivo nuevo
+        # ==========================================
+        if request:
+            user_agent_string = request.META.get('HTTP_USER_AGENT', '')
+            user_agent = parse(user_agent_string)
+            dispositivo_actual = f"{user_agent.browser.family} en {user_agent.os.family}"
+            
+            hace_90_dias = timezone.now() - timedelta(days=90)
+            
+            # Verificar si ya existen registros de acceso previos
+            tiene_historial = RegistroAcceso.objects.filter(usuario=user).exists()
+            
+            if tiene_historial:
+                # Buscar si este navegador ya se había usado
+                dispositivo_conocido = RegistroAcceso.objects.filter(
+                    usuario=user,
+                    fecha__gte=hace_90_dias,
+                    dispositivo__icontains=user_agent.browser.family
+                ).exists()
+                
+                if not dispositivo_conocido:
+                    # Es un dispositivo nuevo: encolamos el correo de alerta
+                    contexto = {
+                        'fecha': timezone.now().strftime('%Y-%m-%d %H:%M'),
+                        'dispositivo': dispositivo_actual,
+                        'ip': request.META.get('REMOTE_ADDR')
+                    }
+                    notificar(
+                        usuario=user,
+                        plantilla='dispositivo_nuevo',
+                        contexto=contexto,
+                        canal='correo'
+                    )
+
+        # Registramos el acceso actual (ya sea que el dispositivo sea nuevo o no)
         registrar_acceso(request, user, exitoso=True)  # t-22/st-167
 
         # 4. Actualizamos el último acceso
