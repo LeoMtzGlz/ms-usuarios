@@ -27,7 +27,7 @@ Los clientes autenticados se arman con `usuarios.tests.helpers_admin.api_de()` (
 
 Observación: `2fa_confirmacion_fallida` hoy se guarda con `resultado="ok"` porque el llamador (`usuarios/views_2fa.py`, de l22420416 / ST-206) no pasa `resultado`. Lo correcto es `resultado="error"` (los únicos valores válidos de `ResultadoEvento` son `ok` y `error`). Por eso la prueba parametrizada solo comprueba acción y usuario, y `test_2fa_confirmacion_fallida_se_registra_con_resultado_error` espera `"error"` con `xfail(strict=True)`: cuando se corrija `views_2fa.py` esa prueba pasará (XPASS estricto falla) y habrá que quitar el xfail.
 
-Ya registran su evento en `development` y no están pendientes: edición de usuario (`PATCH /api/v1/usuarios/{id}/`, ST-149/ST-150, acción `usuario_editado`, solo si cambió algún campo; la cubren las pruebas de esa subtarea) y el endpoint `POST /api/v1/auth/cambiar-password/` (llama a `Usuario.cambiar_password()`, que registra `password_cambiado`).
+Ya registran su evento en `development` y no están pendientes: edición de usuario (`PATCH /api/v1/usuarios/{id}/`, ST-149/ST-150, acción `usuario_editado`, solo si cambió algún campo; la cubren las pruebas de esa subtarea) el endpoint `POST /api/v1/auth/cambiar-password/` (llama a `Usuario.cambiar_password()`, que registra `password_cambiado`) y la anonimización de una cuenta (`anonimizar_usuario()`, HU-23 / ST-173, acción `cuenta_anonimizada`; la cubre `usuarios/tests/test_anonimizacion.py`). El endpoint `POST /api/v1/auth/eliminar-cuenta/` (ST-174) aún no existe: cuando se agregue, debe llamar a `anonimizar_usuario()` y heredará el evento.
 
 ## Flujos pendientes (de otras historias)
 

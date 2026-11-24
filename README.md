@@ -133,7 +133,7 @@ en una rama o en el backlog. Una ruta pública puede usarse sin token y, por lo 
 | `GET`, `POST` | `/api/v1/usuarios/` | Planeado (HU-15/HU-16) | No | No | No | Sí | `EsAdministrador` |
 | `PATCH` | `/api/v1/usuarios/{id}/` | Planeado (ST-149) | No | No | No | Sí | `EsAdministrador` |
 | `PATCH` | `/api/v1/usuarios/{id}/rol/` | Planeado (ST-131) | No | No | No | Sí | `EsAdministrador` |
-| `GET` | `/api/v1/auditoria/` | En rama HU-26 (ST-189) | No | No | No | Sí | `EsAdministrador` |
+| `GET` | `/api/v1/auditoria/` | Disponible | No | No | No | Sí | `EsAdministrador` |
 
 ¹ El campo `rol` de `Usuario` no concede acceso al administrador de Django. `/admin/` exige una cuenta con
 `is_staff=True`; las cuentas creadas con `createsuperuser` tienen además `is_superuser=True`.

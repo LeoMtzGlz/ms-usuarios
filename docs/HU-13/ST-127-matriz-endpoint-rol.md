@@ -43,7 +43,7 @@ implementada.
 | `GET`, `POST` | `/api/v1/usuarios/` | Planeado | No | No | No | Sí | `EsAdministrador` | HU-15 / HU-16 |
 | `PATCH` | `/api/v1/usuarios/{id}/` | Planeado | No | No | No | Sí | `EsAdministrador` | HU-17 / ST-149 |
 | `PATCH` | `/api/v1/usuarios/{id}/rol/` | Planeado | No | No | No | Sí | `EsAdministrador` | HU-14 / ST-131 |
-| `GET` | `/api/v1/auditoria/` | En rama | No | No | No | Sí | `EsAdministrador` | HU-26 / ST-189 |
+| `GET` | `/api/v1/auditoria/` | Disponible | No | No | No | Sí | `EsAdministrador` | HU-26 / ST-189 |
 
 ¹ El rol de dominio no concede acceso a `/admin/`; Django exige `is_staff=True`.
 
