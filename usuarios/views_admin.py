@@ -11,6 +11,8 @@ from rest_framework.response import Response
 from comun.eventos import registrar_evento
 from comun.paginacion import PaginacionDe20
 from comun.permisos import EsAdministrador, permisos_por_defecto_mas
+from notificaciones.models import CanalNotificacion
+from notificaciones.services import notificar
 from usuarios.bloqueos import con_bloqueada
 from usuarios.contrasenas import generar_contrasena_temporal
 from usuarios.filtros import UsuarioFilter
@@ -21,6 +23,8 @@ from usuarios.serializers_admin import (
     EdicionUsuarioSerializer,
     UsuarioListaSerializer,
 )
+
+PLANTILLA_CUENTA_CREADA = "cuenta_creada"  # notificaciones/plantillas.py
 
 RespuestaAlta = inline_serializer(
     name="AltaUsuarioRespuesta",
@@ -78,7 +82,14 @@ class UsuariosView(ListModelMixin, GenericAPIView):
         contrasena = generar_contrasena_temporal()
         with transaction.atomic():
             usuario = serializer.save(contrasena=contrasena)
-            # ST-142: aquí se encolará el aviso de cuenta creada (sin la contraseña).
+            # ST-142: el aviso se encola en la misma transacción: si falla, tampoco queda la cuenta.
+            # El contexto no lleva la contraseña: la bandeja de salida la guardaría en la base.
+            notificar(
+                usuario,
+                plantilla=PLANTILLA_CUENTA_CREADA,
+                contexto={"nombre": usuario.first_name, "correo": usuario.email},
+                canal=CanalNotificacion.CORREO,
+            )
 
         # La contraseña no va a la bitácora: solo quién creó a quién y con qué rol.
         registrar_evento("alta_usuario", request.user, request, creado_id=str(usuario.id), rol=usuario.rol)
