@@ -18,7 +18,7 @@ urlpatterns = [
     path("registro/", RegistroView.as_view(), name="registro"),
     path("activar/", ActivarCuentaView.as_view(), name="activar"),
     path("login/", CustomTokenObtainPairView.as_view(), name="login"),
-    path("login/refresh/", CustomTokenRefreshView.as_view(), name="token_refresh"),
+    path("token/renovar/", CustomTokenRefreshView.as_view(), name="token_renovar"),
     # t-30/st-206
     path("2fa/activar/", Activar2FAView.as_view(), name="2fa-activar"),
     path("2fa/confirmar/", Confirmar2FAView.as_view(), name="2fa-confirmar"),
