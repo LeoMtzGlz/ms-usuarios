@@ -3,7 +3,7 @@
 ## Objetivo
 
 Que un administrador registre a un trabajador, repartidor o conductor sin que tenga que registrarse él mismo
-(HU-15). Esta subtarea crea el serializer y el endpoint; el aviso por correo es ST-142.
+(HU-15). Esta subtarea crea el serializer y el endpoint; el aviso por correo es ST-142 (ya incluido en `UsuariosView.post`).
 
 ## Endpoint
 
@@ -51,7 +51,7 @@ Respuesta `201`:
 ## Pendiente en otras subtareas
 
 - **ST-141:** `usuarios/contrasenas.py` ya trae un generador con `secrets` para que el endpoint funcione.
-- **ST-142:** el aviso de cuenta creada se encola dentro de la transacción de `UsuariosView.post`.
+- **ST-142:** el aviso de cuenta creada ya se encola dentro de la transacción de `UsuariosView.post` (ver `ST-142-aviso-cuenta-creada.md`).
 - **ST-143:** pruebas generales de HU-15.
 - **HU-16:** el `GET` de listado se agrega en la misma ruta.
 - **Login (ST-82):** `usuarios/tokens.py` ya agrega el claim `rol` al token y `EsAdministrador` lo lee, pero el endpoint de

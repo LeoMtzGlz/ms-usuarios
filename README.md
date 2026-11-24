@@ -133,7 +133,7 @@ en una rama o en el backlog. Una ruta pública puede usarse sin token y, por lo 
 | `GET`, `POST` | `/api/v1/usuarios/` | Planeado (HU-15/HU-16) | No | No | No | Sí | `EsAdministrador` |
 | `PATCH` | `/api/v1/usuarios/{id}/` | Planeado (ST-149) | No | No | No | Sí | `EsAdministrador` |
 | `PATCH` | `/api/v1/usuarios/{id}/rol/` | Planeado (ST-131) | No | No | No | Sí | `EsAdministrador` |
-| `GET` | `/api/v1/auditoria/` | Planeado (ST-189) | No | No | No | Sí | `EsAdministrador` |
+| `GET` | `/api/v1/auditoria/` | Disponible | No | No | No | Sí | `EsAdministrador` |
 
 ¹ El campo `rol` de `Usuario` no concede acceso al administrador de Django. `/admin/` exige una cuenta con
 `is_staff=True`; las cuentas creadas con `createsuperuser` tienen además `is_superuser=True`.
@@ -203,7 +203,7 @@ raise CuentaPendiente()   # 403 {"codigo": "cuenta_pendiente", ...}
 
 ### Bitácora de eventos (T-03)
 
-`registrar_evento(accion, usuario=None, request=None, resultado="ok", **detalles)` es la única puerta a la bitácora. Hoy escribe una línea JSON en el log `svc.auditoria`; en HU-26 guardará también en una tabla, sin que cambie quien la llama. Las claves sensibles (`password`, `codigo`, `token`...) se guardan como `***`.
+`registrar_evento(accion, usuario=None, request=None, resultado="ok", **detalles)` es la única puerta a la bitácora. Escribe una línea JSON en el log `svc.auditoria` y (HU-26 / ST-188) guarda además el evento en la tabla `EventoAuditoria`, con usuario, IP, user agent y `detalles`. Si el guardado falla, el error queda en el log y el flujo que la llamó sigue. Las claves sensibles (`password`, `codigo`, `token`...) se guardan como `***` a cualquier profundidad. Un administrador consulta la tabla en `GET /api/v1/auditoria/` (ST-189, [documentación](docs/HU-26/ST-189-endpoint-auditoria.md)). Los flujos que aún no registran su evento están en [`docs/HU-26`](docs/HU-26/ST-190-pruebas-bitacora.md).
 
 ```python
 from comun.eventos import registrar_evento
@@ -282,6 +282,7 @@ Cómo están organizadas las pruebas:
 | Para | Comando |
 | --- | --- |
 | Ver los logs de la API | `docker compose logs -f api` |
+| Levantar, ver y detener el worker de notificaciones | `docker compose up -d worker`, `docker compose logs -f worker`, `docker compose stop worker` (varios: `docker compose up -d --scale worker=2`; si la base es nueva, levanta antes `api` para que migre) |
 | Abrir un shell de Django | `docker compose exec api python manage.py shell` |
 | Crear una migración | `docker compose run --rm api python manage.py makemigrations usuarios` |
 | Aplicar migraciones | `docker compose exec api python manage.py migrate` |
