@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 
-from .models import Usuario
+from .models import Usuario, Zona
 
 from .models import Dispositivo2FA #t-30/st-205
 
@@ -45,3 +45,9 @@ class UsuarioAdmin(UserAdmin):
 class Dispositivo2FAAdmin(admin.ModelAdmin):
     list_display = ("usuario", "confirmado", "creado_en")
     exclude = ("secreto_cifrado",)
+
+@admin.register(Zona)
+class ZonaAdmin(admin.ModelAdmin):
+    list_display = ("nombre", "activa")
+    list_filter = ("activa",)
+    search_fields = ("nombre",)

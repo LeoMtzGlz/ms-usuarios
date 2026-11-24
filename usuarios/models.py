@@ -50,6 +50,14 @@ class Usuario(AbstractUser):
     token_version = models.PositiveIntegerField(
         default=0, help_text="Al incrementarse invalida todas las sesiones del usuario."
     )
+    #t-35/st-227: zona para usuarios 
+    zona = models.ForeignKey(
+    "Zona",
+    on_delete=models.PROTECT,
+    null=True,
+    blank=True,
+    related_name="usuarios",
+)
     acepto_privacidad_en = models.DateTimeField(null=True, blank=True)
     version_privacidad = models.CharField(max_length=20, blank=True)
 
@@ -103,6 +111,27 @@ class Usuario(AbstractUser):
         anterior = type(self).objects.filter(pk=self.pk).values_list("estado", flat=True).first()
         self.save(update_fields=campos)
         registrar_evento("estado_cambiado", self, anterior=anterior, nuevo=nuevo, por=getattr(por, "pk", None))
+
+    
+    # t-12/st-117 (HU-12): al cambiar la contraseña, la temporal deja de serlo
+    def cambiar_password(self, nueva: str, request=None) -> None:
+        """Único lugar que cambia la contraseña de un usuario ya registrado.
+
+        En un solo guardado:
+        - guarda la contraseña nueva con hash (Argon2),
+        - pone debe_cambiar_password=False: la contraseña ya es definitiva (HU-12),
+        - incrementa token_version para cerrar las sesiones abiertas con la contraseña anterior.
+
+        No valida la política de contraseñas: eso lo hace quien la llama (serializer del
+        endpoint de HU-11 con validate_password) antes de llegar aquí.
+        Después de llamarlo, el endpoint debe emitir tokens nuevos.
+        """
+        era_temporal = self.debe_cambiar_password
+        self.set_password(nueva)
+        self.debe_cambiar_password = False
+        self.token_version += 1
+        self.save(update_fields=["password", "debe_cambiar_password", "token_version"])
+        registrar_evento("password_cambiado", self, request, era_temporal=era_temporal)
 
 class Proposito(models.TextChoices):
     ACTIVACION = "activacion", "Activación de cuenta"
@@ -168,3 +197,55 @@ class Dispositivo2FA(models.Model):
 
     def verificar(self, codigo: str) -> bool:
         return pyotp.TOTP(self.secreto).verify(codigo, valid_window=1)
+
+
+class Zona(models.Model):
+    """Catálogo de zonas para asignar a los usuarios operativos."""
+
+    nombre = models.CharField(max_length=100, unique=True)
+    activa = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "zona"
+        verbose_name_plural = "zonas"
+
+    def __str__(self):
+        return self.nombre
+
+
+# t-30/st-207: códigos de respaldo de 2FA, guardados con hash
+class CodigoRespaldo(models.Model):
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="codigos_respaldo"
+    )
+    codigo_hash = models.CharField(max_length=128)
+    usado_en = models.DateTimeField(null=True, blank=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["usuario", "usado_en"])]
+
+    def __str__(self):
+        return f"Código de respaldo #{self.pk} de {self.usuario_id}"
+
+
+# t-22/st-167 (HU-22): historial de accesos (cada intento de login)
+class RegistroAcceso(models.Model):
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="accesos",
+    )
+    fecha = models.DateTimeField(auto_now_add=True, db_index=True)
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    dispositivo = models.CharField(max_length=120)
+    user_agent = models.CharField(max_length=500, blank=True)
+    exitoso = models.BooleanField()
+
+    class Meta:
+        ordering = ["-fecha"]
+        indexes = [models.Index(fields=["usuario", "-fecha"], name="acceso_usuario_fecha_idx")]
+
+    def __str__(self):
+        resultado = "exitoso" if self.exitoso else "fallido"
+        return f"Acceso {resultado} de {self.usuario_id} el {self.fecha:%Y-%m-%d %H:%M}"
