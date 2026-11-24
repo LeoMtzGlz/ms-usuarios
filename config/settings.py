@@ -154,7 +154,10 @@ REST_FRAMEWORK = {
         "registro": "5/hour",
         "recuperar": "3/hour",
         "reenviar": "3/hour",
+        "cuenta": "3/hour",
     },
+    # t-24/st-179: Evitar que X-Forwarded-For permita evadir el límite por IP
+    "NUM_PROXIES": 0,
     # t-04/st-21: JWT primero, para que una petición sin token responda 401 (no 403)
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",

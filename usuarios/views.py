@@ -69,6 +69,10 @@ class RegistroView(APIView):
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     """HU-05 / ST-82: POST /api/v1/auth/login/"""
+
+    # t-24/st-179: Limitar el login a 10 solicitudes por minuto por IP
+    throttle_scope = "login"
+
     serializer_class = CustomTokenObtainPairSerializer
 
 
