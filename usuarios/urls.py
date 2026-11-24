@@ -6,6 +6,7 @@ from usuarios.views import (
     ActivarCuentaView,
     CambiarPasswordView,
     CustomTokenObtainPairView,
+    CustomTokenRefreshView, # t-07/st-90
     PrivacidadInfoView,
     RegistroView,
 )
