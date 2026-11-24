@@ -158,6 +158,27 @@ cuando el equipo confirme su contrato.
 
 > **Regla:** solo `usuario.cambiar_estado(nuevo)` modifica `estado`, `is_active` y `token_version`. Ninguna vista los asigna directamente. Al desactivar, `token_version` sube y se cierran todas las sesiones.
 
+### Datos al eliminar una cuenta (HU-23 / ST-172)
+
+Al eliminar una cuenta (`POST /api/v1/auth/eliminar-cuenta/`, ST-174) el usuario **no se borra**: se **anonimiza**, para que
+el sistema deje de tener sus datos personales y los registros relacionados sigan siendo consistentes.
+
+| Dato | Acción | Después de eliminar |
+| --- | --- | --- |
+| Nombre y apellidos | Anonimizar | `Usuario` `eliminado` |
+| Correo | Anonimizar | `eliminado-<id>@anonimo.invalid` |
+| Teléfono | Anonimizar | vacío (`NULL`) |
+| Contraseña | Anonimizar | inutilizable (`set_unusable_password()`) |
+| Estado y sesiones | Cambiar | `inactivo`, `token_version + 1` y refresh tokens en lista negra |
+| `id`, `rol`, fechas, aceptación de privacidad | Conservar | igual |
+| Códigos de verificación, 2FA, notificaciones pendientes | Borrar | — |
+| Historial de accesos (HU-22) y bitácora (HU-26) | Conservar | igual |
+| Notificaciones ya enviadas | Conservar | sin el contenido del mensaje (`contexto` vacío) |
+| Intentos de login de django-axes | Borrar | guardan el correo en texto |
+
+El detalle campo por campo, el orden de los pasos y los puntos que se acuerdan con los otros módulos están en
+[`docs/HU-23/st-172-datos-anonimizados.md`](docs/HU-23/st-172-datos-anonimizados.md).
+
 ### Formato de errores (T-03)
 
 Todo error de la API responde con la misma forma:
@@ -261,6 +282,7 @@ Cómo están organizadas las pruebas:
 | Para | Comando |
 | --- | --- |
 | Ver los logs de la API | `docker compose logs -f api` |
+| Levantar, ver y detener el worker de notificaciones | `docker compose up -d worker`, `docker compose logs -f worker`, `docker compose stop worker` (varios: `docker compose up -d --scale worker=2`; si la base es nueva, levanta antes `api` para que migre) |
 | Abrir un shell de Django | `docker compose exec api python manage.py shell` |
 | Crear una migración | `docker compose run --rm api python manage.py makemigrations usuarios` |
 | Aplicar migraciones | `docker compose exec api python manage.py migrate` |
