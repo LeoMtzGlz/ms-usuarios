@@ -2,15 +2,17 @@
 from django.db import transaction
 from django.conf import settings
 from django.utils import timezone
+
 from drf_spectacular.utils import extend_schema, OpenApiResponse
+
 from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 # --- Imports para el Login (ST-82) ---
-from rest_framework_simplejwt.views import TokenObtainPairView
-from usuarios.tokens import CustomTokenObtainPairSerializer
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from usuarios.tokens import CustomTokenObtainPairSerializer, CustomTokenRefreshSerializer
 
 from comun.eventos import registrar_evento
 from usuarios.codigos import generar_codigo
@@ -78,6 +80,12 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     """HU-05 / ST-82: POST /api/v1/auth/login/"""
 
     serializer_class = CustomTokenObtainPairSerializer
+
+# t-07/st-90: Renovación de tokens con validación del usuario y sus claims
+class CustomTokenRefreshView(TokenRefreshView):
+    """HU-07 / ST-90: Renovar access y refresh tokens."""
+
+    serializer_class = CustomTokenRefreshSerializer
 
 
 # ==========================================
