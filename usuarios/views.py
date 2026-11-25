@@ -8,7 +8,6 @@ from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 # --- Imports para el Login (ST-82) ---
@@ -20,6 +19,7 @@ from usuarios.serializers import (
     CambiarPasswordSerializer,
     RegistroSerializer,
 )
+from usuarios.tokens import CustomTokenObtainPairSerializer, CustomTokenRefreshSerializer
 
 class RegistroRespuestaSerializer(RegistroSerializer):
     """Solo documenta el 201 (OpenAPI); la vista arma el cuerpo a mano."""
@@ -109,13 +109,13 @@ class ActivarCuentaView(APIView):
 class CustomTokenObtainPairView(TokenObtainPairView):
     """HU-05 / ST-82: POST /api/v1/auth/login/"""
 
-    serializer_class = TokenObtainPairSerializer
+    serializer_class = CustomTokenObtainPairSerializer
 
 # t-07/st-90: Renovación de tokens con validación del usuario y sus claims
 class CustomTokenRefreshView(TokenRefreshView):
     """HU-07 / ST-90: Renovar access y refresh tokens."""
 
-    serializer_class = TokenRefreshSerializer
+    serializer_class = CustomTokenRefreshSerializer
 
 # ==========================================
 # Vistas para HU-29 (Aviso de Privacidad) - t-29/st-201
@@ -221,7 +221,7 @@ class CambiarPasswordView(APIView):
 
         # ST-113: tokens nuevos con claims actualizados
         # (token_version y debe_cambiar_password)
-        refresh = TokenObtainPairSerializer.get_token(usuario)
+        refresh = CustomTokenObtainPairSerializer.get_token(usuario)
 
         return Response(
             {
