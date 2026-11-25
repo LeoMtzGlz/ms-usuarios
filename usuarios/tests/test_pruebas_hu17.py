@@ -56,11 +56,13 @@ class TestEdicionCorrecta:
         assert login(api_client, "nuevo.acceso@ejemplo.com").status_code == 200
         assert login(api_client, anterior).status_code == 401
 
-    def test_inicia_sesion_con_el_telefono_nuevo(self, api_admin, api_client, operativo):
+    def test_inicia_sesion_con_el_telefono_nuevo_y_no_con_el_anterior(self, api_admin, api_client, operativo):
+        anterior = operativo.telefono
         r = api_admin.patch(URL.format(operativo.pk), {"telefono": "443 999 8877"}, format="json")
 
         assert r.status_code == 200
         assert login(api_client, "+524439998877").status_code == 200
+        assert login(api_client, anterior).status_code == 401
 
     def test_la_respuesta_trae_los_datos_editados(self, api_admin, operativo):
         cambios = {"nombre": "Ana", "apellidos": "Ruiz", "correo": "ana.ruiz@ejemplo.com", "telefono": "4437776655"}
@@ -72,11 +74,25 @@ class TestEdicionCorrecta:
         assert (r.data["correo"], r.data["telefono"]) == ("ana.ruiz@ejemplo.com", "+524437776655")
 
     def test_no_cambia_rol_ni_estado(self, api_admin, operativo):
-        api_admin.patch(URL.format(operativo.pk), {"nombre": "Otro Nombre"}, format="json")
+        """Editar los datos no toca el rol ni el estado."""
+        r = api_admin.patch(URL.format(operativo.pk), {"nombre": "Otro Nombre"}, format="json")
 
+        assert r.status_code == 200
         operativo.refresh_from_db()
         assert operativo.rol == Rol.OPERATIVO
         assert operativo.estado == Estado.ACTIVO
+
+    def test_rechaza_rol_y_estado_y_conserva_los_originales(self, api_admin, operativo):
+        """Si se envían rol o estado, se rechaza todo y no cambia nada (HU-17, criterio 2)."""
+        cambios = {"nombre": "No Se Guarda", "rol": Rol.ADMINISTRADOR, "estado": Estado.INACTIVO}
+        r = api_admin.patch(URL.format(operativo.pk), cambios, format="json")
+
+        assert r.status_code == 400
+        assert {"rol", "estado"} <= set(r.data["campos"])
+        operativo.refresh_from_db()
+        assert operativo.rol == Rol.OPERATIVO
+        assert operativo.estado == Estado.ACTIVO
+        assert operativo.first_name != "No Se Guarda"
 
     def test_puede_reenviar_su_propio_telefono_en_otro_formato(self, api_admin, operativo):
         r = api_admin.patch(URL.format(operativo.pk), {"telefono": local(operativo.telefono)}, format="json")
@@ -135,7 +151,8 @@ class TestDuplicadoRechazado:
 
     def test_el_otro_usuario_no_se_modifica(self, api_admin, operativo, otro):
         correo, telefono = otro.email, otro.telefono
-        api_admin.patch(URL.format(operativo.pk), {"correo": otro.email, "telefono": otro.telefono}, format="json")
+        r = api_admin.patch(URL.format(operativo.pk), {"correo": otro.email, "telefono": otro.telefono}, format="json")
 
+        assert r.status_code == 400
         otro.refresh_from_db()
         assert (otro.email, otro.telefono) == (correo, telefono)
