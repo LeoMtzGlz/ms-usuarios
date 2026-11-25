@@ -18,6 +18,8 @@ from usuarios.models import Estado, RegistroAcceso
 # t-22/st-167 y t-28/st-196: Importamos las funciones necesarias
 from usuarios.accesos import buscar_usuario, registrar_acceso, dispositivo_legible, ip_del_request
 from notificaciones.services import notificar
+from comun.eventos import registrar_evento  # t-31/st-210
+from usuarios.login_2fa import VIGENCIA_SEGUNDOS, emitir_token_temporal, tiene_2fa_activo  # t-31/st-210
 
 # t-06/st-85 - HU-06: "con recordarme la renovación dura 7 días; sin él, 1 día"
 DURACION_REFRESH_CON_RECORDARME = timedelta(days=7)
@@ -95,8 +97,17 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                         contexto=contexto,
                         canal='correo'
                     )
-
+        # t-31/st-210: con 2FA confirmado se entrega un token temporal en lugar de los JWT
+        if tiene_2fa_activo(user):
+            registrar_evento("login_requiere_2fa", user, request)
+            return {
+                "requiere_2fa": True,
+                "token_temporal": emitir_token_temporal(user, attrs.get("recordarme", False)),
+                "expira_en": VIGENCIA_SEGUNDOS,
+            }
+        
         # Registramos el acceso actual (ya sea que el dispositivo sea nuevo o no)
+
         registrar_acceso(request, user, exitoso=True)  # t-22/st-167
 
         # 4. Actualizamos el último acceso
