@@ -1,21 +1,22 @@
-
 from datetime import timedelta
+from unittest.mock import patch
 
 import pytest
 from django.utils import timezone
 
-from usuarios.models import Estado, CodigoVerificacion, Proposito
+from usuarios.codigos import crear_codigo
+from usuarios.models import CodigoVerificacion, Estado, Proposito
 from usuarios.tests.factories import UsuarioFactory
 
 
 URL = "/api/v1/auth/reenviar-codigo/"
+URL_ACTIVAR = "/api/v1/auth/activar/"
 
 
 @pytest.mark.django_db
 def test_reenvio_genera_nuevo_codigo_e_invalida_el_anterior(api_client):
     usuario = UsuarioFactory(estado=Estado.PENDIENTE)
 
-    # Creamos un código viejo.
     codigo_viejo = CodigoVerificacion.objects.create(
         usuario=usuario,
         proposito=Proposito.ACTIVACION,
@@ -40,11 +41,14 @@ def test_reenvio_genera_nuevo_codigo_e_invalida_el_anterior(api_client):
     codigo_viejo.refresh_from_db()
     assert codigo_viejo.usado is True
 
-    assert CodigoVerificacion.objects.filter(
-        usuario=usuario,
-        proposito=Proposito.ACTIVACION,
-        usado=False,
-    ).count() == 1
+    assert (
+        CodigoVerificacion.objects.filter(
+            usuario=usuario,
+            proposito=Proposito.ACTIVACION,
+            usado=False,
+        ).count()
+        == 1
+    )
 
 
 @pytest.mark.django_db
@@ -69,9 +73,7 @@ def test_reenvio_no_hace_nada_si_usuario_esta_activo(api_client):
 
     assert response.status_code == 200
 
-    assert not CodigoVerificacion.objects.filter(
-        usuario=usuario
-    ).exists()
+    assert not CodigoVerificacion.objects.filter(usuario=usuario).exists()
 
 
 @pytest.mark.django_db
@@ -139,18 +141,20 @@ def test_reenvio_permitido_despues_de_60_segundos(api_client):
     codigo_viejo.refresh_from_db()
     assert codigo_viejo.usado is True
 
-    assert CodigoVerificacion.objects.filter(
-        usuario=usuario,
-        proposito=Proposito.ACTIVACION,
-        usado=False,
-    ).count() == 1
+    assert (
+        CodigoVerificacion.objects.filter(
+            usuario=usuario,
+            proposito=Proposito.ACTIVACION,
+            usado=False,
+        ).count()
+        == 1
+    )
 
 
 @pytest.mark.django_db
 def test_reenvio_bloqueado_por_codigo_generado_durante_registro(api_client):
     usuario = UsuarioFactory(estado=Estado.PENDIENTE)
 
-    # Simular el código generado durante el registro.
     codigo_inicial = CodigoVerificacion.objects.create(
         usuario=usuario,
         proposito=Proposito.ACTIVACION,
@@ -160,7 +164,6 @@ def test_reenvio_bloqueado_por_codigo_generado_durante_registro(api_client):
         usado=False,
     )
 
-    # El código fue generado hace solamente 20 segundos.
     CodigoVerificacion.objects.filter(pk=codigo_inicial.pk).update(
         creado_en=timezone.now() - timedelta(seconds=20),
     )
@@ -177,7 +180,144 @@ def test_reenvio_bloqueado_por_codigo_generado_durante_registro(api_client):
     codigo_inicial.refresh_from_db()
     assert codigo_inicial.usado is False
 
-    assert CodigoVerificacion.objects.filter(
-        usuario=usuario,
-        proposito=Proposito.ACTIVACION,
-    ).count() == 1
+    assert (
+        CodigoVerificacion.objects.filter(
+            usuario=usuario,
+            proposito=Proposito.ACTIVACION,
+        ).count()
+        == 1
+    )
+
+
+# ==========================================
+# Pruebas ST-77
+# ==========================================
+
+
+@pytest.mark.django_db
+def test_st77_codigo_viejo_invalido_al_activar_cuenta(api_client):
+    usuario = UsuarioFactory(estado=Estado.PENDIENTE)
+
+    registro_viejo, codigo_viejo_claro = crear_codigo(
+        usuario, Proposito.ACTIVACION, "correo"
+    )
+    CodigoVerificacion.objects.filter(pk=registro_viejo.pk).update(
+        creado_en=timezone.now() - timedelta(seconds=65)
+    )
+
+    codigos_enviados = []
+
+    def capturar_notificacion(usr, plantilla, contexto, canal):
+        codigos_enviados.append(contexto["codigo"])
+
+    with patch(
+        "usuarios.codigos.notificar", side_effect=capturar_notificacion
+    ):
+        resp_reenvio = api_client.post(
+            URL,
+            {"identificador": usuario.email},
+        )
+
+    assert resp_reenvio.status_code == 200
+    assert len(codigos_enviados) == 1
+    codigo_nuevo_claro = codigos_enviados[0]
+
+    # Intentar activar con el código viejo -> debe rechazarlo.
+    resp_activar_viejo = api_client.post(
+        URL_ACTIVAR,
+        {"identificador": usuario.email, "codigo": codigo_viejo_claro},
+    )
+    assert resp_activar_viejo.status_code == 400
+    usuario.refresh_from_db()
+    assert usuario.estado == Estado.PENDIENTE
+
+    # Activar con el código nuevo -> debe funcionar.
+    resp_activar_nuevo = api_client.post(
+        URL_ACTIVAR,
+        {"identificador": usuario.email, "codigo": codigo_nuevo_claro},
+    )
+    assert resp_activar_nuevo.status_code == 200
+    usuario.refresh_from_db()
+    assert usuario.estado == Estado.ACTIVO
+
+
+@pytest.mark.django_db
+def test_st77_cuenta_inexistente_e_inactiva_responden_igual(api_client):
+    usuario_pendiente = UsuarioFactory(estado=Estado.PENDIENTE)
+    usuario_inactivo = UsuarioFactory(estado=Estado.INACTIVO)
+
+    resp_pendiente = api_client.post(
+        URL,
+        {"identificador": usuario_pendiente.email},
+    )
+    resp_inexistente = api_client.post(
+        URL,
+        {"identificador": "noexiste_st77@ejemplo.com"},
+    )
+    resp_inactivo = api_client.post(
+        URL,
+        {"identificador": usuario_inactivo.email},
+    )
+
+    assert resp_inexistente.status_code == resp_pendiente.status_code == 200
+    assert resp_inexistente.data == resp_pendiente.data
+    assert resp_inactivo.status_code == resp_pendiente.status_code == 200
+    assert resp_inactivo.data == resp_pendiente.data
+
+    assert not CodigoVerificacion.objects.filter(
+        usuario=usuario_inactivo
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_st77_cuarto_reenvio_en_una_hora_rechazado(api_client):
+    usuario = UsuarioFactory(estado=Estado.PENDIENTE)
+    base_time = timezone.now()
+
+    with patch("usuarios.codigos.timezone.now", return_value=base_time):
+        registro_inicial, _ = crear_codigo(
+            usuario, Proposito.ACTIVACION, "correo"
+        )
+        CodigoVerificacion.objects.filter(pk=registro_inicial.pk).update(
+            creado_en=base_time
+        )
+
+    for intento in range(1, 4):
+        momento = base_time + timedelta(seconds=61 * intento)
+        with (
+            patch("usuarios.reenvio.timezone.now", return_value=momento),
+            patch("usuarios.codigos.timezone.now", return_value=momento),
+        ):
+            resp = api_client.post(
+                URL,
+                {"identificador": usuario.email},
+            )
+            assert resp.status_code == 200
+            ultimo = (
+                CodigoVerificacion.objects.filter(usuario=usuario)
+                .order_by("-id")
+                .first()
+            )
+            CodigoVerificacion.objects.filter(pk=ultimo.pk).update(
+                creado_en=momento
+            )
+
+    # 4to reenvío dentro de la misma hora -> debe rechazarse con 429.
+    momento_cuarto = base_time + timedelta(seconds=61 * 4)
+    with patch("usuarios.reenvio.timezone.now", return_value=momento_cuarto):
+        resp_cuarto = api_client.post(
+            URL,
+            {"identificador": usuario.email},
+        )
+
+    assert resp_cuarto.status_code == 429
+    assert "Retry-After" in resp_cuarto
+    assert int(resp_cuarto["Retry-After"]) > 0
+
+    assert (
+        CodigoVerificacion.objects.filter(
+            usuario=usuario,
+            proposito=Proposito.ACTIVACION,
+        ).count()
+        == 4
+    )
