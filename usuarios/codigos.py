@@ -7,7 +7,7 @@ import secrets
 from datetime import timedelta
 
 from django.conf import settings
-from django.contrib.auth.hashers import make_password
+from django.contrib.auth.hashers import check_password, make_password
 from django.db import transaction
 from django.utils import timezone
 
@@ -69,4 +69,53 @@ def generar_codigo(usuario, proposito, canal=None) -> CodigoVerificacion:
             contexto={"codigo": codigo, "nombre": usuario.first_name, "minutos": settings.CODIGO_MINUTOS},
             canal=registro.canal,
         )
+    return registro
+
+# ST-72: verificación del código
+
+MAX_INTENTOS = 5
+
+def verificar_codigo(usuario, proposito, codigo_en_claro):
+    """Valida un código de 6 dígitos.
+
+    Devuelve el registro si es válido y lo marca como usado.
+    Si falla, lanza ValueError con uno de estos códigos:
+    codigo_invalido | codigo_expirado | codigo_bloqueado
+    """
+    registro = (
+        CodigoVerificacion.objects.filter(
+            usuario=usuario, proposito=proposito, usado=False
+        )
+        .order_by("-id")
+        .first()
+    )
+
+    if registro is None:
+        raise ValueError("codigo_invalido")
+
+    # 1. ¿Ya venció?
+    if timezone.now() > registro.expira_en:
+        registro.usado = True
+        registro.save(update_fields=["usado"])
+        raise ValueError("codigo_expirado")
+
+    # 2. ¿Ya agotó los intentos?
+    if registro.intentos >= MAX_INTENTOS:
+        registro.usado = True
+        registro.save(update_fields=["usado"])
+        raise ValueError("codigo_bloqueado")
+
+    # 3. ¿El código coincide con el hash?
+    if not check_password(codigo_en_claro, registro.codigo_hash):
+        registro.intentos += 1
+        if registro.intentos >= MAX_INTENTOS:
+            registro.usado = True
+            registro.save(update_fields=["usado", "intentos"])
+            raise ValueError("codigo_bloqueado")
+        registro.save(update_fields=["intentos"])
+        raise ValueError("codigo_invalido")
+
+    # 4. Correcto: se marca como usado, un solo uso
+    registro.usado = True
+    registro.save(update_fields=["usado"])
     return registro
