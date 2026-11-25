@@ -16,9 +16,10 @@ PIE_OBLIGATORIO = "Correo automático, no respondas."
         ("recuperacion_password", {"nombre": "Daniel", "codigo": "456123"}, "456123"),
         ("cambio_password", {"nombre": "Daniel", "fecha": "18/11/2026"}, "18/11/2026"),
         ("bloqueo_cuenta", {"nombre": "Daniel", "tiempo_bloqueo": "30 minutos"}, "30 minutos"),
+        ("cuenta_creada", {"nombre": "Daniel", "correo": "daniel@ejemplo.com"}, "daniel@ejemplo.com"),
     ],
 )
-def test_renderizar_5_plantillas_con_pie_comun(nombre_plantilla, contexto, texto_esperado):
+def test_renderizar_plantillas_con_pie_comun(nombre_plantilla, contexto, texto_esperado):
     asunto, texto_plano, html = renderizar_plantilla_correo(nombre_plantilla, contexto)
 
     assert asunto
@@ -28,8 +29,9 @@ def test_renderizar_5_plantillas_con_pie_comun(nombre_plantilla, contexto, texto
     assert PIE_OBLIGATORIO in texto_plano
 
 
-def test_total_plantillas_es_cinco():
-    assert len(PLANTILLAS_CORREO) == 5
+def test_total_plantillas_es_seis():
+    # 5 de t-08/st-42 + cuenta_creada de t-15/st-142
+    assert len(PLANTILLAS_CORREO) == 6
 
 
 def test_plantilla_desconocida_lanza_error():
