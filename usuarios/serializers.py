@@ -95,6 +95,12 @@ class RegistroSerializer(serializers.Serializer):
             "estado": usuario.estado,
         }
 
+class SolicitudRecuperacionSerializer(serializers.Serializer):
+    """HU-10 / ST-107: correo o teléfono de la cuenta y canal opcional para recibir el código."""
+
+    identificador = serializers.CharField(max_length=254, trim_whitespace=True)
+    canal = serializers.ChoiceField(choices=Canal.choices, required=False)
+
 class ActivarSerializer(serializers.Serializer):
     """HU-03 / ST-72: recibe identificador (correo o teléfono) + código."""
 

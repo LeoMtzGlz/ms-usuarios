@@ -69,5 +69,9 @@ jobs:
       - name: Aplicar migraciones
         run: python manage.py migrate --noinput
 
+      # t-24/st-179: Preparar la caché de PostgreSQL para los throttles
+      - name: Crear tabla de caché
+        run: python manage.py createcachetable
+
       - name: Correr pruebas
         run: pytest

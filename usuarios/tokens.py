@@ -14,8 +14,12 @@ from rest_framework_simplejwt.exceptions import TokenError
 
 from comun.errores import CredencialesInvalidas, CuentaPendiente, CuentaInactiva, TokenInvalido
 
-from usuarios.models import Estado
-from usuarios.accesos import buscar_usuario, registrar_acceso  # t-22/st-167
+from usuarios.models import Estado, RegistroAcceso
+# t-22/st-167 y t-28/st-196: Importamos las funciones necesarias
+from usuarios.accesos import buscar_usuario, registrar_acceso, dispositivo_legible, ip_del_request
+from notificaciones.services import notificar
+from comun.eventos import registrar_evento  # t-31/st-210
+from usuarios.login_2fa import VIGENCIA_SEGUNDOS, emitir_token_temporal, tiene_2fa_activo  # t-31/st-210
 
 # t-06/st-85 - HU-06: "con recordarme la renovación dura 7 días; sin él, 1 día"
 DURACION_REFRESH_CON_RECORDARME = timedelta(days=7)
@@ -57,6 +61,52 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         if user.estado == Estado.INACTIVO:
             registrar_acceso(request, user, exitoso=False)  # t-22/st-167
             raise CuentaInactiva()
+
+        # ==========================================
+        # HU-28 (t-28/st-196 y st-197): Detección de dispositivo nuevo
+        # ==========================================
+        if request:
+            # t-28/st-196: Usar la función oficial para obtener navegador + SO
+            user_agent_string = request.META.get('HTTP_USER_AGENT', '')
+            dispositivo_actual = dispositivo_legible(user_agent_string)
+            
+            hace_90_dias = timezone.now() - timedelta(days=90)
+            
+            # t-28/st-196: Sergio pidió que solo cuenten los accesos EXITOSOS
+            tiene_historial = RegistroAcceso.objects.filter(usuario=user, exitoso=True).exists()
+            
+            if tiene_historial:
+                # Buscar si este dispositivo (navegador + SO) ya se había usado exitosamente
+                dispositivo_conocido = RegistroAcceso.objects.filter(
+                    usuario=user,
+                    exitoso=True,  # Corrección de seguridad
+                    fecha__gte=hace_90_dias,
+                    dispositivo=dispositivo_actual  # Comparación estricta de navegador y SO
+                ).exists()
+                
+                if not dispositivo_conocido:
+                    # Es un dispositivo nuevo: encolamos el correo de alerta
+                    contexto = {
+                        'fecha': timezone.now().strftime('%Y-%m-%d %H:%M'),
+                        'dispositivo': dispositivo_actual,
+                        'ip': ip_del_request(request) # Corrección para proxy
+                    }
+                    notificar(
+                        usuario=user,
+                        plantilla='dispositivo_nuevo',
+                        contexto=contexto,
+                        canal='correo'
+                    )
+        # t-31/st-210: con 2FA confirmado se entrega un token temporal en lugar de los JWT
+        if tiene_2fa_activo(user):
+            registrar_evento("login_requiere_2fa", user, request)
+            return {
+                "requiere_2fa": True,
+                "token_temporal": emitir_token_temporal(user, attrs.get("recordarme", False)),
+                "expira_en": VIGENCIA_SEGUNDOS,
+            }
+        
+        # Registramos el acceso actual (ya sea que el dispositivo sea nuevo o no)
 
         registrar_acceso(request, user, exitoso=True)  # t-22/st-167
 

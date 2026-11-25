@@ -145,6 +145,19 @@ AUTH_USER_MODEL = "usuarios.Usuario"
 REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "comun.errores.manejador_errores",
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    # t-24/st-179: Limitación de solicitudes por endpoint
+    "DEFAULT_THROTTLE_CLASSES": (
+        "rest_framework.throttling.ScopedRateThrottle",
+    ),
+    "DEFAULT_THROTTLE_RATES": {
+        "login": "10/min",
+        "registro": "5/hour",
+        "recuperar": "3/hour",
+        "reenviar": "3/hour",
+        "cuenta": "3/hour",
+    },
+    # t-24/st-179: Evitar que X-Forwarded-For permita evadir el límite por IP
+    "NUM_PROXIES": 0,
     # t-04/st-21: JWT primero, para que una petición sin token responda 401 (no 403)
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
