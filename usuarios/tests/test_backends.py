@@ -2,6 +2,7 @@ import pytest
 from django.contrib.auth import authenticate
 from usuarios.models import Usuario
 from django.test import RequestFactory
+from usuarios.axes import obtener_usuario_axes
 
 @pytest.fixture
 def request_obj():
@@ -44,3 +45,23 @@ def test_login_con_usuario_inexistente(db, request_obj):
     # Cuando no existe, debe tardar un poco (por el set_password) y devolver None
     user = authenticate(request_obj, email="noexiste@ejemplo.com", password="Password123")
     assert user is None
+
+# ST-183: Regresión para verificar la normalización de identificadores en django-axes.
+@pytest.mark.parametrize(
+    ("identificador", "esperado"),
+    [
+        ("Ana@Ejemplo.com", "ana@ejemplo.com"),
+        ("ana@ejemplo.com", "ana@ejemplo.com"),
+        ("443 123 4567", "+524431234567"),
+        ("+52 443 123 4567", "+524431234567"),
+    ],
+)
+def test_obtener_usuario_axes_normaliza_identificadores(
+    request_obj, identificador, esperado
+):
+    resultado = obtener_usuario_axes(
+        request_obj,
+        {"username": identificador},
+    )
+
+    assert resultado == esperado
