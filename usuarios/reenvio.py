@@ -1,4 +1,3 @@
-
 import math
 from datetime import timedelta
 
@@ -12,17 +11,19 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from usuarios.codigos import generar_codigo
-from usuarios.models import Usuario, Estado, Proposito, CodigoVerificacion
+from usuarios.models import CodigoVerificacion, Estado, Proposito, Usuario
 from usuarios.telefono import normalizar_telefono
 
 
 MENSAJE_REENVIO = "Si la cuenta existe y está pendiente, te enviamos un nuevo código."
 
 ESPERA_REENVIO_SEGUNDOS = 60
+MAX_REENVIOS_POR_HORA = 3
+VENTANA_HORA_SEGUNDOS = 3600
 
 
 class ReenviarCodigoView(APIView):
-    """HU-04 / ST-75-ST-76: POST /api/v1/auth/reenviar-codigo/"""
+    """HU-04 / ST-75-ST-77: POST /api/v1/auth/reenviar-codigo/"""
 
     permission_classes = [AllowAny]
     authentication_classes = []
@@ -61,19 +62,22 @@ class ReenviarCodigoView(APIView):
                 )
 
                 if usuario.estado == Estado.PENDIENTE:
-                    # ST-76: Consultar el último código de activación generado.
-                    ultimo_codigo = CodigoVerificacion.objects.filter(
-                        usuario=usuario,
-                        proposito=Proposito.ACTIVACION,
-                    ).order_by("-creado_en").first()
-
-                    # ST-76: Verificar que hayan transcurrido 60 segundos.
                     ahora = timezone.now()
 
+                    # ST-76: Consultar el último código de activación generado.
+                    ultimo_codigo = (
+                        CodigoVerificacion.objects.filter(
+                            usuario=usuario,
+                            proposito=Proposito.ACTIVACION,
+                        )
+                        .order_by("-creado_en", "-id")
+                        .first()
+                    )
+
+                    # ST-76: Verificar que hayan transcurrido 60 segundos.
                     if ultimo_codigo is not None:
-                        tiempo_limite = (
-                            ultimo_codigo.creado_en
-                            + timedelta(seconds=ESPERA_REENVIO_SEGUNDOS)
+                        tiempo_limite = ultimo_codigo.creado_en + timedelta(
+                            seconds=ESPERA_REENVIO_SEGUNDOS
                         )
 
                         if ahora < tiempo_limite:
@@ -93,6 +97,55 @@ class ReenviarCodigoView(APIView):
                                     "Retry-After": str(segundos_restantes)
                                 },
                             )
+
+                    # ST-77: Máximo 3 reenvíos por hora por usuario.
+                    inicio_ventana = ahora - timedelta(
+                        seconds=VENTANA_HORA_SEGUNDOS
+                    )
+                    codigos_ventana = list(
+                        CodigoVerificacion.objects.filter(
+                            usuario=usuario,
+                            proposito=Proposito.ACTIVACION,
+                            creado_en__gte=inicio_ventana,
+                        ).order_by("creado_en", "id")
+                    )
+
+                    primer_codigo_usuario = (
+                        CodigoVerificacion.objects.filter(
+                            usuario=usuario,
+                            proposito=Proposito.ACTIVACION,
+                        )
+                        .order_by("creado_en", "id")
+                        .first()
+                    )
+
+                    reenvios_en_ventana = [
+                        c
+                        for c in codigos_ventana
+                        if primer_codigo_usuario is None
+                        or c.pk != primer_codigo_usuario.pk
+                    ]
+
+                    if len(reenvios_en_ventana) >= MAX_REENVIOS_POR_HORA:
+                        reenvio_mas_antiguo = reenvios_en_ventana[0]
+                        fin_bloqueo = reenvio_mas_antiguo.creado_en + timedelta(
+                            seconds=VENTANA_HORA_SEGUNDOS
+                        )
+                        segundos_restantes = max(
+                            1,
+                            math.ceil((fin_bloqueo - ahora).total_seconds()),
+                        )
+
+                        return Response(
+                            {
+                                "mensaje": (
+                                    "Has alcanzado el límite de reenvíos "
+                                    "por hora. Intenta más tarde."
+                                )
+                            },
+                            status=status.HTTP_429_TOO_MANY_REQUESTS,
+                            headers={"Retry-After": str(segundos_restantes)},
+                        )
 
                     # Invalidar códigos previos de activación.
                     CodigoVerificacion.objects.filter(
