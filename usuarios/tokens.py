@@ -12,12 +12,11 @@ from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 from rest_framework_simplejwt.utils import datetime_from_epoch
 from rest_framework_simplejwt.exceptions import TokenError
 
-from user_agents import parse
-
 from comun.errores import CredencialesInvalidas, CuentaPendiente, CuentaInactiva, TokenInvalido
 
 from usuarios.models import Estado, RegistroAcceso
-from usuarios.accesos import buscar_usuario, registrar_acceso  # t-22/st-167
+# t-22/st-167 y t-28/st-196: Importamos las funciones necesarias
+from usuarios.accesos import buscar_usuario, registrar_acceso, dispositivo_legible, ip_del_request
 from notificaciones.services import notificar
 
 # t-06/st-85 - HU-06: "con recordarme la renovación dura 7 días; sin él, 1 día"
@@ -65,21 +64,22 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # HU-28 (t-28/st-196 y st-197): Detección de dispositivo nuevo
         # ==========================================
         if request:
+            # t-28/st-196: Usar la función oficial para obtener navegador + SO
             user_agent_string = request.META.get('HTTP_USER_AGENT', '')
-            user_agent = parse(user_agent_string)
-            dispositivo_actual = f"{user_agent.browser.family} en {user_agent.os.family}"
+            dispositivo_actual = dispositivo_legible(user_agent_string)
             
             hace_90_dias = timezone.now() - timedelta(days=90)
             
-            # Verificar si ya existen registros de acceso previos
-            tiene_historial = RegistroAcceso.objects.filter(usuario=user).exists()
+            # t-28/st-196: Sergio pidió que solo cuenten los accesos EXITOSOS
+            tiene_historial = RegistroAcceso.objects.filter(usuario=user, exitoso=True).exists()
             
             if tiene_historial:
-                # Buscar si este navegador ya se había usado
+                # Buscar si este dispositivo (navegador + SO) ya se había usado exitosamente
                 dispositivo_conocido = RegistroAcceso.objects.filter(
                     usuario=user,
+                    exitoso=True,  # Corrección de seguridad
                     fecha__gte=hace_90_dias,
-                    dispositivo__icontains=user_agent.browser.family
+                    dispositivo=dispositivo_actual  # Comparación estricta de navegador y SO
                 ).exists()
                 
                 if not dispositivo_conocido:
@@ -87,7 +87,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                     contexto = {
                         'fecha': timezone.now().strftime('%Y-%m-%d %H:%M'),
                         'dispositivo': dispositivo_actual,
-                        'ip': request.META.get('REMOTE_ADDR')
+                        'ip': ip_del_request(request) # Corrección para proxy
                     }
                     notificar(
                         usuario=user,
