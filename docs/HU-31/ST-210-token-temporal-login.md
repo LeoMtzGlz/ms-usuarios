@@ -17,7 +17,7 @@ Depende de st-82 (login), st-85 (recordarme), st-205 (`Dispositivo2FA`) y st-208
 |---|---|
 | `usuarios/login_2fa.py` | Nuevo: `tiene_2fa_activo()`, `emitir_token_temporal()` y `leer_token_temporal()` |
 | `usuarios/tokens.py` | 2 importaciones y un bloque de 8 líneas en `validate()`, marcados con `# t-31/st-210` |
-| `usuarios/tests/test_token_temporal_2fa.py` | Nuevo: 14 pruebas |
+| `usuarios/tests/test_token_temporal_2fa.py` | Nuevo: 15 pruebas |
 
 No se modificó ningún modelo ni se creó ninguna migración.
 
@@ -66,6 +66,7 @@ docker compose run --rm api pytest usuarios/tests/test_token_temporal_2fa.py -v
 | `test_registra_el_evento_sin_el_token` | Evento `login_requiere_2fa`, sin el token en la bitácora |
 | `test_el_token_identifica_al_usuario` | El token devuelve al usuario correcto |
 | `test_el_token_conserva_la_opcion_recordarme_del_login` (2 casos) | Guarda `recordarme` = true o false tal como llegó al login |
+| `test_el_token_sigue_valido_antes_de_los_5_minutos` | A los 295 s todavía sirve |
 | `test_el_token_vence_a_los_5_minutos` | Después de 300 s responde `TokenInvalido` |
 | `test_el_token_alterado_se_rechaza` | Una firma modificada no sirve |
 | `test_un_token_firmado_con_otro_salt_se_rechaza` | Una firma de otro salt no sirve |
@@ -74,7 +75,7 @@ docker compose run --rm api pytest usuarios/tests/test_token_temporal_2fa.py -v
 
 ### 7. Resultado
 
-El login entrega el token temporal cuando el usuario tiene 2FA, con 14 pruebas en verde. Continúa con la st-211 (endpoint de verificación) y la st-212 (pruebas de HU-31).
+El login entrega el token temporal cuando el usuario tiene 2FA, con 15 pruebas en verde. Continúa con la st-211 (endpoint de verificación) y la st-212 (pruebas de HU-31).
 
 **ST-210 finalizada.**
 

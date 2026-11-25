@@ -96,6 +96,15 @@ def test_el_token_conserva_la_opcion_recordarme_del_login(api_client, recordarme
     assert leer_token_temporal(token) == (usuario, recordarme)
 
 
+def test_el_token_sigue_valido_antes_de_los_5_minutos(monkeypatch):
+    usuario = UsuarioFactory()
+    token = emitir_token_temporal(usuario)
+    ahora = time.time()
+    monkeypatch.setattr(signing.time, "time", lambda: ahora + VIGENCIA_SEGUNDOS - 5)
+
+    assert leer_token_temporal(token) == (usuario, False)
+
+
 def test_el_token_vence_a_los_5_minutos(monkeypatch):
     token = emitir_token_temporal(UsuarioFactory())
     ahora = time.time()
@@ -107,8 +116,10 @@ def test_el_token_vence_a_los_5_minutos(monkeypatch):
 
 def test_el_token_alterado_se_rechaza():
     token = emitir_token_temporal(UsuarioFactory())
+    alterado = token[:-1] + ("A" if token[-1] != "A" else "B")  # siempre distinto del original
+
     with pytest.raises(TokenInvalido):
-        leer_token_temporal(token[:-2] + "xx")
+        leer_token_temporal(alterado)
 
 
 def test_un_token_firmado_con_otro_salt_se_rechaza():
