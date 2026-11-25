@@ -319,12 +319,6 @@ def test_un_intento_sin_usuario_no_bloquea_a_nadie(cliente_admin, equipo):
     assert not any(f["bloqueada"] for f in cliente_admin.get(URL).json()["results"])
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Axes guarda username=None en los logins reales: AXES_USERNAME_FORM_FIELD vale 'email' pero "
-    "tokens.py autentica con username=. El bloqueo es por IP, no por cuenta (HU-25). Al corregirlo, "
-    "esta prueba pasará y habrá que quitar el xfail.",
-)
 def test_tras_cinco_logins_fallidos_reales_la_cuenta_aparece_bloqueada(cliente_admin, equipo):
     anonimo = APIClient()
     for _ in range(settings.AXES_FAILURE_LIMIT):

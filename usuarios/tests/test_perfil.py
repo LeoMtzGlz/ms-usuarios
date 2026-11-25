@@ -116,6 +116,9 @@ class TestEdicionPerfil:
         assert respuesta.status_code == 400
         assert respuesta.data["codigo"] == "datos_invalidos"
         assert campo in respuesta.data["campos"]
+        assert respuesta.data["campos"][campo] == [
+            "Este campo no se puede modificar desde el perfil."
+        ]
         usuario.refresh_from_db()
         assert (usuario.email, usuario.telefono, usuario.rol, usuario.estado) == valores_antes
 
@@ -124,6 +127,26 @@ class TestEdicionPerfil:
 
         assert respuesta.status_code == 400
         assert "canal_preferido" in respuesta.data["campos"]
+
+    def test_rechaza_whatsapp_si_la_cuenta_no_tiene_telefono(self, llaves):
+        usuario = UsuarioFactory(
+            telefono=None,
+            canal_preferido=Canal.CORREO,
+        )
+
+        respuesta = api_de(usuario).patch(
+            URL,
+            {"canal_preferido": Canal.WHATSAPP},
+            format="json",
+        )
+
+        assert respuesta.status_code == 400
+        assert respuesta.data["codigo"] == "datos_invalidos"
+        assert respuesta.data["campos"]["canal_preferido"] == [
+            "Registra un teléfono antes de elegir WhatsApp."
+        ]
+        usuario.refresh_from_db()
+        assert usuario.canal_preferido == Canal.CORREO
 
     def test_put_y_delete_no_estan_permitidos(self, usuario):
         cliente = api_de(usuario)

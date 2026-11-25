@@ -2,14 +2,11 @@
 
 from rest_framework import serializers
 
-from usuarios.models import Usuario
+from usuarios.models import Canal, Usuario
 
 
 CAMPOS_EDITABLES_PERFIL = ("nombre", "apellidos", "canal_preferido")
-MENSAJE_CAMPO_NO_EDITABLE = (
-    "Este campo no se puede modificar aquí. El correo y el teléfono requieren "
-    "el proceso de verificación de contacto."
-)
+MENSAJE_CAMPO_NO_EDITABLE = "Este campo no se puede modificar desde el perfil."
 
 
 class PerfilSerializer(serializers.ModelSerializer):
@@ -45,3 +42,11 @@ class PerfilSerializer(serializers.ModelSerializer):
                 {campo: [MENSAJE_CAMPO_NO_EDITABLE] for campo in no_editables}
             )
         return super().to_internal_value(data)
+
+    def validate_canal_preferido(self, valor):
+        """WhatsApp solo puede elegirse si la cuenta ya tiene teléfono."""
+        if valor == Canal.WHATSAPP and not getattr(self.instance, "telefono", None):
+            raise serializers.ValidationError(
+                "Registra un teléfono antes de elegir WhatsApp."
+            )
+        return valor

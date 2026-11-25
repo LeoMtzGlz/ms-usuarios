@@ -1,0 +1,6 @@
+Hola {{ nombre|default:"usuario" }}:
+
+La verificación en dos pasos de tu cuenta se desactivó el {{ fecha }}.
+A partir de ahora solo se pedirá tu contraseña para iniciar sesión.
+
+Si no fuiste tú, cambia tu contraseña de inmediato y vuelve a activar la verificación en dos pasos.
