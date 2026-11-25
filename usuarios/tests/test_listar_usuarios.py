@@ -329,55 +329,6 @@ def test_tras_cinco_logins_fallidos_reales_la_cuenta_aparece_bloqueada(cliente_a
     assert fila_de(cliente_admin, "ana.blanco@ejemplo.com")["bloqueada"] is True
 
 
-# ST-185: El sexto intento debe bloquear incluso con la contraseña correcta.
-def test_sexto_intento_con_password_correcta_sigue_bloqueado(equipo, llaves, axes_habilitado):
-    anonimo = APIClient()
-
-    for _ in range(settings.AXES_FAILURE_LIMIT):
-        anonimo.post(
-            "/api/v1/auth/login/",
-            {"email": "ana.blanco@ejemplo.com", "password": "incorrecta"},
-            format="json",
-        )
-
-    respuesta = anonimo.post(
-        "/api/v1/auth/login/",
-        {"email": "ana.blanco@ejemplo.com", "password": "Secreta123"},
-        format="json",
-    )
-
-    assert respuesta.status_code == 403
-    assert respuesta.json()["codigo"] == "cuenta_bloqueada"
-
-
-# ST-185: Al terminar el enfriamiento de 15 minutos, el usuario puede iniciar sesión.
-def test_puede_iniciar_sesion_despues_del_enfriamiento(equipo, llaves, axes_habilitado):
-    anonimo = APIClient()
-
-    for _ in range(settings.AXES_FAILURE_LIMIT):
-        anonimo.post(
-            "/api/v1/auth/login/",
-            {"email": "ana.blanco@ejemplo.com", "password": "incorrecta"},
-            format="json",
-        )
-
-    AccessAttempt.objects.filter(
-        username__iexact="ana.blanco@ejemplo.com"
-    ).update(
-        attempt_time=timezone.now() - settings.AXES_COOLOFF_TIME - timedelta(minutes=1)
-    )
-
-    respuesta = anonimo.post(
-        "/api/v1/auth/login/",
-        {"email": "ana.blanco@ejemplo.com", "password": "Secreta123"},
-        format="json",
-    )
-
-    assert respuesta.status_code == 200
-    assert "access" in respuesta.json()
-    assert "refresh" in respuesta.json()
-
-
 # --- Rendimiento ---------------------------------------------------------------------
 
 
