@@ -18,7 +18,11 @@ URL_ALTA = "/api/v1/usuarios/"
 URL_DETALLE = "/api/v1/usuarios/{}/"
 URL_LOGIN = "/api/v1/auth/login/"
 URL_CAMBIAR = "/api/v1/auth/cambiar-password/"
-URL_ACCESOS = "/api/v1/auth/accesos/"  # usa los permisos por defecto (incluye ContrasenaDefinitiva)
+URL_ACCESOS = "/api/v1/auth/accesos/"
+URL_ACTIVAR_2FA = "/api/v1/auth/2fa/activar/"
+# Endpoints que usan los permisos por defecto (IsAuthenticated + ContrasenaDefinitiva):
+# representan al resto de la API para una cuenta con contraseña temporal.
+ENDPOINTS_CON_PERMISOS_POR_DEFECTO = [("get", URL_ACCESOS), ("post", URL_ACTIVAR_2FA)]
 CORREO = "luis.ramirez@ejemplo.com"
 NUEVA = "Definitiva2026"
 
@@ -48,6 +52,10 @@ def iniciar_sesion(password):
     return APIClient().post(URL_LOGIN, {"email": CORREO, "password": password}, format="json")
 
 
+def correos_de(respuesta):
+    return [fila["correo"] for fila in respuesta.json()["results"]]
+
+
 def cliente_con(acceso):
     cliente = APIClient()
     cliente.credentials(HTTP_AUTHORIZATION=f"Bearer {acceso}")
@@ -61,6 +69,8 @@ def test_la_contrasena_no_aparece_en_el_listado(cliente_admin):
 
     for respuesta in (cliente_admin.get(URL_ALTA), cliente_admin.get(URL_ALTA, {"search": "Luis"})):
         assert respuesta.status_code == 200
+        # Primero se confirma que la cuenta nueva sí está en la respuesta; si no, la prueba no probaría nada.
+        assert CORREO in correos_de(respuesta)
         assert temporal not in respuesta.content.decode()
 
 
@@ -70,6 +80,7 @@ def test_la_contrasena_no_aparece_al_editar_la_cuenta(cliente_admin):
     r = cliente_admin.patch(URL_DETALLE.format(alta["id"]), {"nombre": "Luis Alberto"}, format="json")
 
     assert r.status_code == 200
+    assert r.data["nombre"] == "Luis Alberto"
     assert alta["contrasena_temporal"] not in r.content.decode()
     assert "contrasena_temporal" not in r.data
 
@@ -87,11 +98,12 @@ def test_el_operativo_entra_con_la_contrasena_temporal(cliente_admin):
     assert acceso["debe_cambiar_password"] is True
 
 
-def test_con_la_contrasena_temporal_no_puede_usar_otros_endpoints(cliente_admin):
+@pytest.mark.parametrize("metodo,url", ENDPOINTS_CON_PERMISOS_POR_DEFECTO)
+def test_con_la_contrasena_temporal_un_endpoint_con_permisos_por_defecto_responde_403(cliente_admin, metodo, url):
     temporal = dar_de_alta(cliente_admin)["contrasena_temporal"]
     operativo = cliente_con(iniciar_sesion(temporal).data["access"])
 
-    r = operativo.get(URL_ACCESOS)
+    r = getattr(operativo, metodo)(url, format="json")
 
     assert r.status_code == 403
     assert r.data["codigo"] == "debe_cambiar_password"
