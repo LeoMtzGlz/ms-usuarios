@@ -1,4 +1,6 @@
+
 from django.db import transaction
+from django.db.models import F
 from django.conf import settings
 from django.utils import timezone
 
@@ -13,7 +15,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 # --- Imports para el Login (ST-82) ---
 from comun.eventos import registrar_evento
 from usuarios.codigos import generar_codigo
-from usuarios.models import Canal, Estado, Proposito
+from usuarios.models import Canal, Estado, Proposito, Usuario
 from usuarios.serializers import (
     ActivarSerializer,
     CambiarPasswordSerializer,
@@ -188,14 +190,11 @@ class AceptarPrivacidadView(APIView):
 
 class CambiarPasswordView(APIView):
     """POST /api/v1/auth/cambiar-password/
-
     Usuario autenticado envía contraseña actual + nueva + confirmación.
     Valida con los validadores de Django, aplica Usuario.cambiar_password()
     (marca definitiva, incrementa token_version y registra el evento).
-
     Solo exige IsAuthenticated: debe funcionar también con contraseña temporal
     (ContrasenaDefinitiva no aplica aquí; ver ST-116).
-
     La emisión de tokens nuevos corresponde a ST-113.
     """
 
@@ -237,12 +236,14 @@ class CambiarPasswordView(APIView):
             },
             status=status.HTTP_200_OK,
         )
-        
+
 class LogoutTodoView(APIView):
     """HU-09 / ST-98: POST /api/v1/auth/logout-todo/
 
     Cierra sesión en todos los dispositivos: incrementa token_version
-    y todos los access/refresh viejos quedan inválidos.
+    y ningún dispositivo puede renovar después (ST-90 compara token_version).
+    Nota: un access ya emitido sigue sirviendo hasta 15 minutos porque
+    JWTAuthentication no revisa token_version. Solo el refresh queda inválido.
     """
 
     permission_classes = [IsAuthenticated]
@@ -257,8 +258,7 @@ class LogoutTodoView(APIView):
     )
     def post(self, request):
         usuario = request.user
-        usuario.token_version += 1
-        usuario.save(update_fields=["token_version"])
+        Usuario.objects.filter(pk=usuario.pk).update(token_version=F("token_version") + 1)
 
         registrar_evento("logout_todo", usuario, request)
 
@@ -266,3 +266,4 @@ class LogoutTodoView(APIView):
             {"mensaje": "Sesión cerrada en todos los dispositivos."},
             status=status.HTTP_200_OK,
         )
+
