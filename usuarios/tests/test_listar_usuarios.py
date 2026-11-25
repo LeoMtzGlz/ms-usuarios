@@ -280,32 +280,32 @@ def fila_de(cliente, correo):
     return next(f for f in cliente.get(URL).json()["results"] if f["correo"] == correo)
 
 
-def test_una_cuenta_con_bloqueo_vigente_aparece_bloqueada(cliente_admin, equipo):
+def test_una_cuenta_con_bloqueo_vigente_aparece_bloqueada(cliente_admin, equipo, axes_habilitado):
     intento_de_acceso("ana.blanco@ejemplo.com", settings.AXES_FAILURE_LIMIT)
 
     assert fila_de(cliente_admin, "ana.blanco@ejemplo.com")["bloqueada"] is True
     assert fila_de(cliente_admin, "beto.campos@ejemplo.com")["bloqueada"] is False
 
 
-def test_el_correo_del_intento_se_compara_sin_importar_mayusculas(cliente_admin, equipo):
+def test_el_correo_del_intento_se_compara_sin_importar_mayusculas(cliente_admin, equipo, axes_habilitado):
     intento_de_acceso("Ana.Blanco@EJEMPLO.com", settings.AXES_FAILURE_LIMIT)
 
     assert fila_de(cliente_admin, "ana.blanco@ejemplo.com")["bloqueada"] is True
 
 
-def test_tambien_cuenta_el_intento_hecho_con_el_telefono(cliente_admin, equipo):
+def test_tambien_cuenta_el_intento_hecho_con_el_telefono(cliente_admin, equipo, axes_habilitado):
     intento_de_acceso("+524432220002", settings.AXES_FAILURE_LIMIT)
 
     assert fila_de(cliente_admin, "beto.campos@ejemplo.com")["bloqueada"] is True
 
 
-def test_con_menos_fallos_que_el_limite_no_esta_bloqueada(cliente_admin, equipo):
+def test_con_menos_fallos_que_el_limite_no_esta_bloqueada(cliente_admin, equipo, axes_habilitado):
     intento_de_acceso("ana.blanco@ejemplo.com", settings.AXES_FAILURE_LIMIT - 1)
 
     assert fila_de(cliente_admin, "ana.blanco@ejemplo.com")["bloqueada"] is False
 
 
-def test_pasado_el_tiempo_de_espera_deja_de_estar_bloqueada(cliente_admin, equipo):
+def test_pasado_el_tiempo_de_espera_deja_de_estar_bloqueada(cliente_admin, equipo, axes_habilitado):
     intento_de_acceso(
         "ana.blanco@ejemplo.com", settings.AXES_FAILURE_LIMIT, hace=settings.AXES_COOLOFF_TIME + timedelta(minutes=1)
     )
@@ -313,13 +313,13 @@ def test_pasado_el_tiempo_de_espera_deja_de_estar_bloqueada(cliente_admin, equip
     assert fila_de(cliente_admin, "ana.blanco@ejemplo.com")["bloqueada"] is False
 
 
-def test_un_intento_sin_usuario_no_bloquea_a_nadie(cliente_admin, equipo):
+def test_un_intento_sin_usuario_no_bloquea_a_nadie(cliente_admin, equipo, axes_habilitado):
     intento_de_acceso(None, settings.AXES_FAILURE_LIMIT)
 
     assert not any(f["bloqueada"] for f in cliente_admin.get(URL).json()["results"])
 
 
-def test_tras_cinco_logins_fallidos_reales_la_cuenta_aparece_bloqueada(cliente_admin, equipo):
+def test_tras_cinco_logins_fallidos_reales_la_cuenta_aparece_bloqueada(cliente_admin, equipo, axes_habilitado):
     anonimo = APIClient()
     for _ in range(settings.AXES_FAILURE_LIMIT):
         anonimo.post(
@@ -327,6 +327,55 @@ def test_tras_cinco_logins_fallidos_reales_la_cuenta_aparece_bloqueada(cliente_a
         )
 
     assert fila_de(cliente_admin, "ana.blanco@ejemplo.com")["bloqueada"] is True
+
+
+# ST-185: El sexto intento debe bloquear incluso con la contraseña correcta.
+def test_sexto_intento_con_password_correcta_sigue_bloqueado(equipo, llaves, axes_habilitado):
+    anonimo = APIClient()
+
+    for _ in range(settings.AXES_FAILURE_LIMIT):
+        anonimo.post(
+            "/api/v1/auth/login/",
+            {"email": "ana.blanco@ejemplo.com", "password": "incorrecta"},
+            format="json",
+        )
+
+    respuesta = anonimo.post(
+        "/api/v1/auth/login/",
+        {"email": "ana.blanco@ejemplo.com", "password": "Secreta123"},
+        format="json",
+    )
+
+    assert respuesta.status_code == 403
+    assert respuesta.json()["codigo"] == "cuenta_bloqueada"
+
+
+# ST-185: Al terminar el enfriamiento de 15 minutos, el usuario puede iniciar sesión.
+def test_puede_iniciar_sesion_despues_del_enfriamiento(equipo, llaves, axes_habilitado):
+    anonimo = APIClient()
+
+    for _ in range(settings.AXES_FAILURE_LIMIT):
+        anonimo.post(
+            "/api/v1/auth/login/",
+            {"email": "ana.blanco@ejemplo.com", "password": "incorrecta"},
+            format="json",
+        )
+
+    AccessAttempt.objects.filter(
+        username__iexact="ana.blanco@ejemplo.com"
+    ).update(
+        attempt_time=timezone.now() - settings.AXES_COOLOFF_TIME - timedelta(minutes=1)
+    )
+
+    respuesta = anonimo.post(
+        "/api/v1/auth/login/",
+        {"email": "ana.blanco@ejemplo.com", "password": "Secreta123"},
+        format="json",
+    )
+
+    assert respuesta.status_code == 200
+    assert "access" in respuesta.json()
+    assert "refresh" in respuesta.json()
 
 
 # --- Rendimiento ---------------------------------------------------------------------
