@@ -1,4 +1,3 @@
-
 from django.db import transaction
 from django.conf import settings
 from django.utils import timezone
@@ -9,16 +8,18 @@ from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 # --- Imports para el Login (ST-82) ---
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from usuarios.tokens import CustomTokenObtainPairSerializer, CustomTokenRefreshSerializer
-
 from comun.eventos import registrar_evento
 from usuarios.codigos import generar_codigo
-from usuarios.models import Canal, Proposito
-from usuarios.serializers import RegistroSerializer, CambiarPasswordSerializer
-
+from usuarios.models import Canal, Estado, Proposito
+from usuarios.serializers import (
+    ActivarSerializer,
+    CambiarPasswordSerializer,
+    RegistroSerializer,
+)
+from usuarios.tokens import CustomTokenObtainPairSerializer, CustomTokenRefreshSerializer
 
 class RegistroRespuestaSerializer(RegistroSerializer):
     """Solo documenta el 201 (OpenAPI); la vista arma el cuerpo a mano."""
@@ -30,7 +31,6 @@ class RegistroRespuestaSerializer(RegistroSerializer):
     canal_sustituido = serializers.BooleanField(
         help_text="true si no es el canal preferido",
     )
-
 
 class RegistroView(APIView):
     """HU-02 / ST-66: POST /api/v1/auth/registro/
@@ -75,6 +75,36 @@ class RegistroView(APIView):
 
         return Response(cuerpo, status=status.HTTP_201_CREATED)
 
+class ActivarCuentaView(APIView):
+    """HU-03 / ST-72: POST /api/v1/auth/activar/"""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    @extend_schema(request=ActivarSerializer, responses={200: ActivarSerializer}, tags=["auth"])
+    def post(self, request):
+        serializer = ActivarSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        usuario = serializer.validated_data["usuario"]
+        registro = serializer.validated_data["registro_codigo"]
+
+        usuario.estado = Estado.ACTIVO
+        if registro.canal == Canal.CORREO:
+            usuario.email_verificado = True
+        elif registro.canal == Canal.WHATSAPP:
+            usuario.telefono_verificado = True
+        usuario.save(update_fields=["estado", "email_verificado", "telefono_verificado"])
+
+        return Response(
+            {
+                "id": str(usuario.id),
+                "correo": usuario.email,
+                "estado": usuario.estado,
+                "mensaje": "Cuenta activada.",
+            },
+            status=status.HTTP_200_OK,
+        )
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     """HU-05 / ST-82: POST /api/v1/auth/login/"""
@@ -86,7 +116,6 @@ class CustomTokenRefreshView(TokenRefreshView):
     """HU-07 / ST-90: Renovar access y refresh tokens."""
 
     serializer_class = CustomTokenRefreshSerializer
-
 
 # ==========================================
 # Vistas para HU-29 (Aviso de Privacidad) - t-29/st-201
@@ -110,7 +139,6 @@ class PrivacidadInfoView(APIView):
             "version": settings.VERSION_AVISO_PRIVACIDAD,
             "url": settings.URL_AVISO_PRIVACIDAD,
         })
-
 
 class AceptarPrivacidadView(APIView):
     permission_classes = [IsAuthenticated]
@@ -147,7 +175,6 @@ class AceptarPrivacidadView(APIView):
             "mensaje": "Aviso de privacidad aceptado correctamente.",
             "version": user.version_privacidad,
         })
-
 
 # ==========================================
 # HU-11 / ST-112: Cambiar mi contraseña
