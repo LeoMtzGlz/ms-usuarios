@@ -17,6 +17,7 @@ from usuarios.bloqueos import con_bloqueada
 from usuarios.contrasenas import generar_contrasena_temporal
 from usuarios.filtros import UsuarioFilter
 from usuarios.models import Usuario
+from usuarios.models import Estado  # t-18/st-153 
 from usuarios.serializers_admin import (
     CAMPOS_EDITABLES,
     AltaUsuarioSerializer,
@@ -146,3 +147,65 @@ class UsuarioDetalleView(UpdateModelMixin, GenericAPIView):
                 editado_id=str(usuario.pk),
                 campos_cambiados=cambiados,
             )
+            
+
+# t-18/st-153: desactivar y reactivar una cuenta (HU-18)
+RespuestaEstado = inline_serializer(
+    name="EstadoUsuarioRespuesta",
+    fields={"id": serializers.UUIDField(), "estado": serializers.CharField()},
+)
+RESPUESTAS_ESTADO = {
+    200: RespuestaEstado,
+    400: OpenApiResponse(description="Acción no permitida para esta cuenta"),
+    401: OpenApiResponse(description="Sin token"),
+    403: OpenApiResponse(description="No es administrador"),
+    404: OpenApiResponse(description="Usuario no existe"),
+}
+
+
+class _CambioDeEstadoView(GenericAPIView):
+    """Base de /desactivar/ y /reactivar/: solo administradores, 404 si el usuario no existe.
+
+    El cambio lo hace Usuario.cambiar_estado(), que también actualiza is_active,
+    incrementa token_version al desactivar (cierra todas las sesiones) y registra
+    el evento estado_cambiado con el administrador que lo hizo. Nunca se borra el registro.
+    """
+
+    permission_classes = permisos_por_defecto_mas(EsAdministrador)
+    queryset = Usuario.objects.all()
+
+    @staticmethod
+    def respuesta(usuario):
+        return Response({"id": str(usuario.pk), "estado": usuario.estado})
+
+
+class DesactivarUsuarioView(_CambioDeEstadoView):
+    """POST /api/v1/usuarios/{id}/desactivar/ · HU-18."""
+
+    @extend_schema(
+        summary="Desactivar una cuenta (solo admin)", request=None, responses=RESPUESTAS_ESTADO, tags=["usuarios"]
+    )
+    def post(self, request, *args, **kwargs):
+        usuario = self.get_object()
+        if usuario.pk == request.user.pk:
+            raise serializers.ValidationError("No puedes desactivar tu propia cuenta.")
+        if usuario.estado != Estado.INACTIVO:  # si ya está inactiva no se repite el cambio
+            usuario.cambiar_estado(Estado.INACTIVO, por=request.user)
+        return self.respuesta(usuario)
+
+
+class ReactivarUsuarioView(_CambioDeEstadoView):
+    """POST /api/v1/usuarios/{id}/reactivar/ · HU-18."""
+
+    @extend_schema(
+        summary="Reactivar una cuenta (solo admin)", request=None, responses=RESPUESTAS_ESTADO, tags=["usuarios"]
+    )
+    def post(self, request, *args, **kwargs):
+        usuario = self.get_object()
+        if usuario.estado == Estado.PENDIENTE:
+            raise serializers.ValidationError(
+                "Una cuenta pendiente se activa con su código de verificación, no se reactiva."
+            )
+        if usuario.estado == Estado.INACTIVO:  # si ya está activa no se repite el cambio
+            usuario.cambiar_estado(Estado.ACTIVO, por=request.user)
+        return self.respuesta(usuario)
