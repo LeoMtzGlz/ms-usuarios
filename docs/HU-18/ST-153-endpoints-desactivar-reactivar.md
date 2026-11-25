@@ -17,7 +17,7 @@ Depende de st-149 y st-150 (ruta `/api/v1/usuarios/{id}/`) y de `Usuario.cambiar
 |---|---|
 | `usuarios/views_admin.py` | Una importación y, al final, `DesactivarUsuarioView` y `ReactivarUsuarioView`, marcadas con `# t-18/st-153` |
 | `usuarios/urls_admin.py` | Una importación y dos rutas, marcadas con `# t-18/st-153` |
-| `usuarios/tests/test_desactivar_reactivar.py` | Nuevo: 19 pruebas |
+| `usuarios/tests/test_desactivar_reactivar.py` | Nuevo: 20 pruebas |
 
 No se modificó ningún modelo ni se creó ninguna migración.
 
@@ -65,7 +65,7 @@ docker compose run --rm api pytest usuarios/tests/test_desactivar_reactivar.py -
 | `test_cierra_sus_sesiones` | CA2 |
 | `test_nunca_borra_el_registro` | CA3 |
 | `test_el_admin_no_puede_desactivarse_a_si_mismo` | CA4 |
-| `test_registra_quien_lo_desactivo` | Bitácora |
+| `test_registra_quien_lo_desactivo`, `test_registra_quien_la_reactivo` | Bitácora: evento `estado_cambiado` con el administrador en `por` |
 | `test_desactivar_dos_veces_no_repite_el_cambio`, `test_reactivar_una_cuenta_activa_no_cambia_nada` | Peticiones repetidas |
 | `test_una_cuenta_pendiente_no_se_reactiva` | Una cuenta pendiente no se salta la verificación |
 | `test_sin_token_responde_401`, `test_un_no_administrador_recibe_403`, `test_usuario_inexistente_responde_404`, `test_solo_acepta_post` | Permisos y rutas |
@@ -74,7 +74,7 @@ Las pruebas de que una cuenta inactiva no inicia sesión, que su refresh no renu
 
 ### 6. Resultado
 
-Los dos endpoints quedaron disponibles, con 19 pruebas en verde.
+Los dos endpoints quedaron disponibles, con 20 pruebas en verde.
 
 **ST-153 finalizada.**
 

@@ -104,6 +104,18 @@ class TestReactivar:
         assert usuario.estado == Estado.ACTIVO
         assert usuario.is_active is True
 
+    def test_registra_quien_la_reactivo(self, api_admin, admin, usuario, caplog):
+        api_admin.post(DESACTIVAR.format(usuario.pk))
+        caplog.clear()  # solo interesa el evento de la reactivación
+        with caplog.at_level(logging.INFO, logger="svc.auditoria"):
+            api_admin.post(REACTIVAR.format(usuario.pk))
+
+        [evento] = eventos_de_estado(caplog)
+        assert evento["usuario_id"] == str(usuario.pk)
+        assert evento["detalles"]["anterior"] == Estado.INACTIVO
+        assert evento["detalles"]["nuevo"] == Estado.ACTIVO
+        assert evento["detalles"]["por"] == str(admin.pk)
+
     def test_una_cuenta_pendiente_no_se_reactiva(self, api_admin):
         pendiente = crear_usuario(Rol.CLIENTE, estado=Estado.PENDIENTE)
         r = api_admin.post(REACTIVAR.format(pendiente.pk))
