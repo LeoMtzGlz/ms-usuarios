@@ -11,16 +11,21 @@ from rest_framework.response import Response
 from comun.eventos import registrar_evento
 from comun.paginacion import PaginacionDe20
 from comun.permisos import EsAdministrador, permisos_por_defecto_mas
+from notificaciones.models import CanalNotificacion
+from notificaciones.services import notificar
 from usuarios.bloqueos import con_bloqueada
 from usuarios.contrasenas import generar_contrasena_temporal
 from usuarios.filtros import UsuarioFilter
 from usuarios.models import Usuario
+from usuarios.models import Estado  # t-18/st-153 
 from usuarios.serializers_admin import (
     CAMPOS_EDITABLES,
     AltaUsuarioSerializer,
     EdicionUsuarioSerializer,
     UsuarioListaSerializer,
 )
+
+PLANTILLA_CUENTA_CREADA = "cuenta_creada"  # notificaciones/plantillas.py
 
 RespuestaAlta = inline_serializer(
     name="AltaUsuarioRespuesta",
@@ -78,7 +83,14 @@ class UsuariosView(ListModelMixin, GenericAPIView):
         contrasena = generar_contrasena_temporal()
         with transaction.atomic():
             usuario = serializer.save(contrasena=contrasena)
-            # ST-142: aquí se encolará el aviso de cuenta creada (sin la contraseña).
+            # ST-142: el aviso se encola en la misma transacción: si falla, tampoco queda la cuenta.
+            # El contexto no lleva la contraseña: la bandeja de salida la guardaría en la base.
+            notificar(
+                usuario,
+                plantilla=PLANTILLA_CUENTA_CREADA,
+                contexto={"nombre": usuario.first_name, "correo": usuario.email},
+                canal=CanalNotificacion.CORREO,
+            )
 
         # La contraseña no va a la bitácora: solo quién creó a quién y con qué rol.
         registrar_evento("alta_usuario", request.user, request, creado_id=str(usuario.id), rol=usuario.rol)
@@ -135,3 +147,65 @@ class UsuarioDetalleView(UpdateModelMixin, GenericAPIView):
                 editado_id=str(usuario.pk),
                 campos_cambiados=cambiados,
             )
+            
+
+# t-18/st-153: desactivar y reactivar una cuenta (HU-18)
+RespuestaEstado = inline_serializer(
+    name="EstadoUsuarioRespuesta",
+    fields={"id": serializers.UUIDField(), "estado": serializers.CharField()},
+)
+RESPUESTAS_ESTADO = {
+    200: RespuestaEstado,
+    400: OpenApiResponse(description="Acción no permitida para esta cuenta"),
+    401: OpenApiResponse(description="Sin token"),
+    403: OpenApiResponse(description="No es administrador"),
+    404: OpenApiResponse(description="Usuario no existe"),
+}
+
+
+class _CambioDeEstadoView(GenericAPIView):
+    """Base de /desactivar/ y /reactivar/: solo administradores, 404 si el usuario no existe.
+
+    El cambio lo hace Usuario.cambiar_estado(), que también actualiza is_active,
+    incrementa token_version al desactivar (cierra todas las sesiones) y registra
+    el evento estado_cambiado con el administrador que lo hizo. Nunca se borra el registro.
+    """
+
+    permission_classes = permisos_por_defecto_mas(EsAdministrador)
+    queryset = Usuario.objects.all()
+
+    @staticmethod
+    def respuesta(usuario):
+        return Response({"id": str(usuario.pk), "estado": usuario.estado})
+
+
+class DesactivarUsuarioView(_CambioDeEstadoView):
+    """POST /api/v1/usuarios/{id}/desactivar/ · HU-18."""
+
+    @extend_schema(
+        summary="Desactivar una cuenta (solo admin)", request=None, responses=RESPUESTAS_ESTADO, tags=["usuarios"]
+    )
+    def post(self, request, *args, **kwargs):
+        usuario = self.get_object()
+        if usuario.pk == request.user.pk:
+            raise serializers.ValidationError("No puedes desactivar tu propia cuenta.")
+        if usuario.estado != Estado.INACTIVO:  # si ya está inactiva no se repite el cambio
+            usuario.cambiar_estado(Estado.INACTIVO, por=request.user)
+        return self.respuesta(usuario)
+
+
+class ReactivarUsuarioView(_CambioDeEstadoView):
+    """POST /api/v1/usuarios/{id}/reactivar/ · HU-18."""
+
+    @extend_schema(
+        summary="Reactivar una cuenta (solo admin)", request=None, responses=RESPUESTAS_ESTADO, tags=["usuarios"]
+    )
+    def post(self, request, *args, **kwargs):
+        usuario = self.get_object()
+        if usuario.estado == Estado.PENDIENTE:
+            raise serializers.ValidationError(
+                "Una cuenta pendiente se activa con su código de verificación, no se reactiva."
+            )
+        if usuario.estado == Estado.INACTIVO:  # si ya está activa no se repite el cambio
+            usuario.cambiar_estado(Estado.ACTIVO, por=request.user)
+        return self.respuesta(usuario)

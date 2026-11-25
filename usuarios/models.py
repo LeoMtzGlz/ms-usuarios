@@ -249,3 +249,15 @@ class RegistroAcceso(models.Model):
     def __str__(self):
         resultado = "exitoso" if self.exitoso else "fallido"
         return f"Acceso {resultado} de {self.usuario_id} el {self.fecha:%Y-%m-%d %H:%M}"
+
+# t-22/st-169 (HU-22): fila de control para que la limpieza corra una vez al día
+class ControlLimpieza(models.Model):
+    """Guarda cuándo corrió por última vez una tarea periódica (p. ej. "limpiar_accesos").
+
+    El worker la bloquea con select_for_update, así dos workers no limpian a la vez.
+    """
+    nombre = models.CharField(max_length=50, unique=True)
+    ultima_ejecucion = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.nombre}: {self.ultima_ejecucion or 'nunca'}"
