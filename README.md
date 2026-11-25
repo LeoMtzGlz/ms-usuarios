@@ -307,9 +307,9 @@ Somos varias personas en un solo repositorio. Estas reglas evitan casi todos los
 4. **Sincroniza cada mañana:** `git pull origin development` dentro de tu rama.
 5. **Commits pequeños, con la clave al inicio en el mismo formato:** `t-07/st-89: Activar la lista negra de SimpleJWT`.
 6. **Cada escuadra trabaja en sus archivos**, y cada quien escribe sus pruebas en su propio archivo (`usuarios/tests/test_registro.py`).
-7. **`config/`, `usuarios/models.py` y las migraciones** los fusiona el profesor; si necesitas cambiarlos, pide el cambio en tu Pull Request.
+7. **Si tu PR toca `config/`, `usuarios/models.py` o migraciones**, pide también la revisión del profesor.
 8. **Las migraciones no se editan a mano.** Si chocan con las de otra rama, borra la tuya, trae `development` y vuelve a correr `makemigrations`.
-9. **Revisa quien continúa tu trabajo** (backlog v3): la siguiente subtarea de la misma historia; si no hay, la primera de la historia que tu subtarea bloquea; si no, la siguiente historia de la épica; al final de la épica, quien te entregó. Nadie revisa su propio trabajo. El revisor se pide en *Reviewers* al abrir el Pull Request, y se fusiona con **Create a merge commit**.
+9. **Revisa quien continúa tu trabajo** (backlog v3): la siguiente subtarea de la misma historia; si no hay, la primera de la historia que tu subtarea bloquea; si no, la siguiente historia de la épica; al final de la épica, quien te entregó. Nadie revisa su propio trabajo. El revisor se pide en *Reviewers* al abrir el Pull Request. **El revisor aprueba o pide cambios; el autor fusiona su propio PR** con **Create a merge commit**. Si ya aprobaste, avísale al autor, no lo fusiones tú.
 
 **Una subtarea está terminada (Definition of Done)** cuando su Pull Request está fusionado en `development`, el CI está en verde, lo aprobó su revisor, tiene pruebas y documentación en `docs/`, y la subtarea está en *Finalizada* en Jira con el enlace al PR.
 
