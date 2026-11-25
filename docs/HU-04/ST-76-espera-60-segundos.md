@@ -20,10 +20,12 @@ Se implementó una restricción de tiempo en el endpoint `POST /api/v1/auth/reen
 
 ### 3. Comportamiento
 
-- Si no han transcurrido 60 segundos, no se genera un nuevo código.
+- Si no han transcurrido 60 segundos desde la generación del último código de activación, el endpoint responde con `429 Too Many Requests`.
+- La respuesta incluye la cabecera `Retry-After`, indicando los segundos restantes para poder solicitar otro código.
 - Si han transcurrido 60 segundos o más, se permite generar un nuevo código.
 - El código anterior se invalida cuando se genera uno nuevo.
-- Se mantiene la respuesta genérica para evitar revelar si una cuenta existe.
+- La validación considera el último código de activación generado, independientemente de si fue creado durante el registro inicial o mediante un reenvío anterior.
+- Se mantiene la respuesta genérica para usuarios inexistentes y cuentas que no están pendientes de activación.
 - Se utiliza un bloqueo de registro del usuario para evitar solicitudes simultáneas de reenvío.
 
 ### 4. Pruebas
@@ -32,10 +34,14 @@ Se verifican los siguientes escenarios:
 
 - Reenvío permitido después de 60 segundos.
 - Reenvío bloqueado antes de cumplir los 60 segundos.
-- Invalidación del código anterior.
+- Respuesta HTTP `429 Too Many Requests` cuando se solicita un reenvío antes del tiempo permitido.
+- Inclusión de la cabecera `Retry-After` con los segundos restantes.
+- Invalidación del código anterior cuando se genera uno nuevo.
 - Respuesta genérica para usuarios inexistentes.
 - Restricción para cuentas que no están pendientes de activación.
+- Bloqueo del primer reenvío cuando todavía no han transcurrido 60 segundos desde la generación del código durante el registro inicial.
 
 ### 5. Resultado
 
 La implementación establece un intervalo mínimo de 60 segundos entre generaciones de códigos de activación y conserva el comportamiento de seguridad implementado en ST-75.
+
