@@ -16,7 +16,9 @@ class SolicitarRecuperacionView(APIView):
     Recibe correo o teléfono (`identificador`) y, opcionalmente, el `canal`. Siempre responde 200
     con el mismo mensaje, exista o no la cuenta. El código vale 10 minutos y 5 intentos.
     """
-
+    # t-24/st-179: limitar a 3 solicitudes por hora por IP
+    throttle_scope = "recuperar"
+    
     permission_classes = [AllowAny]
     authentication_classes = []
 

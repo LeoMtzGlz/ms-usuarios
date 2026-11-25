@@ -4,6 +4,7 @@ from datetime import timedelta
 import pytest
 from django.test import override_settings
 from django.utils import timezone
+from django.urls import reverse
 
 from usuarios.privacidad import datos_aceptacion_privacidad, revisar_version_aviso_privacidad, version_vigente
 from usuarios.serializers import RegistroSerializer
@@ -108,3 +109,41 @@ def test_avisa_si_la_version_esta_vacia(version):
 def test_avisa_si_la_version_no_cabe_en_la_base():
     with override_settings(VERSION_AVISO_PRIVACIDAD="v" * 21):
         assert [e.id for e in revisar_version_aviso_privacidad()] == ["usuarios.E002"]
+
+
+# ==========================================
+# Pruebas de los Endpoints - t-29/st-201
+# ==========================================
+
+@pytest.mark.django_db
+def test_get_privacidad_sin_token(api_client):
+    """t-29/st-201: GET responde 200 con versión y URL."""
+    url = reverse('auth:privacidad-info')
+    response = api_client.get(url)
+    
+    assert response.status_code == 200
+    assert 'version' in response.data
+    assert 'url' in response.data
+
+@pytest.mark.django_db
+def test_post_privacidad_sin_token(api_client):
+    """t-29/st-201: POST sin token responde 401."""
+    url = reverse('auth:privacidad-aceptar')
+    response = api_client.post(url)
+    
+    assert response.status_code == 401
+
+@pytest.mark.django_db
+def test_post_privacidad_con_sesion(api_client, usuario):
+    """t-29/st-201: POST con sesión guarda versión y fecha."""
+    api_client.force_authenticate(user=usuario)
+    url = reverse('auth:privacidad-aceptar')
+    
+    assert usuario.acepto_privacidad_en is None
+    
+    response = api_client.post(url)
+    
+    assert response.status_code == 200
+    usuario.refresh_from_db()
+    assert usuario.version_privacidad is not None
+    assert usuario.acepto_privacidad_en is not None
