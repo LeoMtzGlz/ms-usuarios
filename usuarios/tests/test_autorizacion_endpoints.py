@@ -15,22 +15,30 @@ pytestmark = pytest.mark.django_db
 
 
 RUTAS_PUBLICAS = {
-    "/api/v1/salud/",
-    "/api/v1/auth/registro/",
-    "/api/v1/auth/login/",
-    "/api/v1/auth/privacidad/",
-    "/api/schema/",
-    "/api/docs/",
+    ("get", "/api/v1/salud/"),
+    ("post", "/api/v1/auth/registro/"),
+    ("post", "/api/v1/auth/activar/"),
+    ("post", "/api/v1/auth/login/"),
+    ("post", "/api/v1/auth/token/renovar/"),
+    ("get", "/api/v1/auth/privacidad/"),
+    ("post", "/api/v1/auth/reenviar-codigo/"),
+    ("get", "/api/schema/"),
+    ("get", "/api/docs/"),
 }
 
 RUTAS_PROTEGIDAS = (
     ("post", "/api/v1/auth/2fa/activar/"),
     ("post", "/api/v1/auth/2fa/confirmar/"),
+    ("post", "/api/v1/auth/2fa/desactivar/"),
     ("post", "/api/v1/auth/privacidad/aceptar/"),
     ("post", "/api/v1/auth/cambiar-password/"),
+    ("get", "/api/v1/auth/accesos/"),
+    ("get", "/api/v1/auditoria/"),
     ("get", "/api/v1/usuarios/"),
     ("post", "/api/v1/usuarios/"),
     ("patch", "/api/v1/usuarios/<uuid>/"),
+    ("post", "/api/v1/usuarios/<uuid>/desactivar/"),
+    ("post", "/api/v1/usuarios/<uuid>/reactivar/"),
 )
 
 
@@ -52,6 +60,21 @@ def _permisos_declarados(callback):
         return iniciales["permission_classes"]
     vista = getattr(callback, "cls", None)
     return None if vista is None else vista.__dict__.get("permission_classes")
+
+
+def _metodos_declarados(callback):
+    """Obtiene los métodos que la vista implementa, sin contar OPTIONS ni HEAD implícito."""
+    acciones = getattr(callback, "actions", None)
+    if acciones:
+        return {metodo.lower() for metodo in acciones}
+    vista = getattr(callback, "cls", None)
+    if vista is None:
+        return set()
+    return {
+        metodo.lower()
+        for metodo in getattr(vista, "http_method_names", ())
+        if metodo.lower() not in {"head", "options"} and hasattr(vista, metodo.lower())
+    }
 
 
 def _normalizar_ruta(ruta):
@@ -77,9 +100,10 @@ def _autenticar(api_client, usuario, **claims):
 
 def test_toda_vista_publica_declara_allow_any_explicito():
     """Evita que una ruta pública dependa del permiso predeterminado de DRF."""
-    callbacks = {ruta: callback for ruta, callback in _rutas() if ruta in RUTAS_PUBLICAS}
+    rutas_publicas = {ruta for _metodo, ruta in RUTAS_PUBLICAS}
+    callbacks = {ruta: callback for ruta, callback in _rutas() if ruta in rutas_publicas}
 
-    assert callbacks.keys() == RUTAS_PUBLICAS
+    assert callbacks.keys() == rutas_publicas
     faltantes = [
         ruta
         for ruta, callback in callbacks.items()
@@ -88,18 +112,19 @@ def test_toda_vista_publica_declara_allow_any_explicito():
     assert faltantes == [], f"Rutas públicas sin AllowAny explícito: {faltantes}"
 
 
-def test_toda_ruta_api_esta_en_la_matriz_de_autorizacion():
-    """Falla cuando se agrega un endpoint y se olvida definir su autorización."""
+def test_todo_metodo_api_esta_en_la_matriz_de_autorizacion():
+    """Falla cuando se agrega una ruta o método HTTP y se olvida clasificarlo."""
     rutas_reales = {
-        _normalizar_ruta(ruta)
-        for ruta, _callback in _rutas()
+        (metodo, _normalizar_ruta(ruta))
+        for ruta, callback in _rutas()
         if ruta.startswith("/api/")
+        for metodo in _metodos_declarados(callback)
     }
-    rutas_declaradas = RUTAS_PUBLICAS | {ruta for _metodo, ruta in RUTAS_PROTEGIDAS}
+    rutas_declaradas = RUTAS_PUBLICAS | set(RUTAS_PROTEGIDAS)
 
     assert rutas_reales == rutas_declaradas, (
-        f"Rutas sin clasificar: {sorted(rutas_reales - rutas_declaradas)}; "
-        f"rutas inexistentes en la matriz: {sorted(rutas_declaradas - rutas_reales)}"
+        f"Métodos sin clasificar: {sorted(rutas_reales - rutas_declaradas)}; "
+        f"métodos inexistentes en la matriz: {sorted(rutas_declaradas - rutas_reales)}"
     )
 
 
@@ -108,8 +133,11 @@ def test_toda_ruta_api_esta_en_la_matriz_de_autorizacion():
     [
         ("get", "/api/v1/salud/", None, 200),
         ("post", "/api/v1/auth/registro/", {}, 400),
+        ("post", "/api/v1/auth/activar/", {}, 400),
         ("post", "/api/v1/auth/login/", {}, 400),
+        ("post", "/api/v1/auth/token/renovar/", {}, 400),
         ("get", "/api/v1/auth/privacidad/", None, 200),
+        ("post", "/api/v1/auth/reenviar-codigo/", {}, 200),
         ("get", "/api/schema/", None, 200),
         ("get", "/api/docs/", None, 200),
     ],
