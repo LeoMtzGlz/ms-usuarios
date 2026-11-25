@@ -1,4 +1,4 @@
-# T-35 — Gestión de contraseñas
+# HU-11 — Gestión de contraseñas
 
 ## ST-114. Pruebas de emisión de tokens nuevos para el dispositivo actual
 
@@ -12,9 +12,11 @@ Se realizaron pruebas automatizadas para verificar la correcta emisión de nuevo
 
 El objetivo es comprobar que el usuario pueda continuar utilizando su sesión en el dispositivo actual, que los nuevos tokens contengan los claims personalizados correspondientes y que las operaciones inválidas sean rechazadas correctamente.
 
+También se verificó que el cambio de contraseña invalide la renovación de las sesiones anteriores, incluyendo aquellas iniciadas desde otros dispositivos.
+
 ### 2. Implementación
 
-Se creó el archivo `usuarios/tests/test_cambiar_password_api.py`, donde se implementaron seis pruebas automatizadas para verificar el comportamiento del endpoint `CambiarPasswordView`.
+Se creó el archivo `usuarios/tests/test_cambiar_password_api.py`, donde se implementaron ocho pruebas automatizadas para verificar el comportamiento del endpoint `CambiarPasswordView`.
 
 Las pruebas cubren los siguientes escenarios:
 
@@ -23,9 +25,11 @@ Las pruebas cubren los siguientes escenarios:
 - Incremento de `token_version` y actualización de `debe_cambiar_password`.
 - Acceso correcto a un endpoint protegido utilizando el nuevo token `access`.
 - Rechazo del refresh anterior y aceptación del refresh nuevo.
+- Rechazo de la renovación de otra sesión iniciada desde un dispositivo diferente después del cambio de contraseña.
 - Rechazo del cambio de contraseña cuando la contraseña actual es incorrecta.
 - Rechazo de solicitudes sin autenticación.
 - Rechazo de contraseñas nuevas que no cumplen la política de seguridad.
+- Rechazo de una contraseña nueva igual a la contraseña actual, sin modificar `token_version` ni emitir tokens.
 
 ### 3. Claims verificados
 
@@ -48,31 +52,36 @@ Se ejecutaron las pruebas mediante el siguiente comando:
 pytest usuarios/tests/test_cambiar_password_api.py -v
 ```
 
-**Resultado obtenido:**
+**Resultado esperado después de incorporar los dos casos adicionales:**
 
 ```text
 ============================== test session starts ==============================
-collected 6 items
+collected 8 items
 
 test_emite_tokens_nuevos_con_claims_actualizados PASSED
 test_el_nuevo_access_permite_acceder_a_endpoint_protegido PASSED
 test_rechaza_refresh_anterior_y_acepta_refresh_nuevo PASSED
+test_otra_sesion_no_puede_renovar_despues_del_cambio_password PASSED
 test_rechaza_cambio_con_contrasena_actual_incorrecta PASSED
+test_rechaza_contrasena_nueva_igual_a_la_actual PASSED
 test_rechaza_solicitud_sin_autenticacion PASSED
 test_rechaza_contrasena_nueva_que_no_cumple_la_politica PASSED
 
-============================== 6 passed in 10.21s ==============================
+============================== 8 passed ==============================
 ```
 
-<text>**Resultado:** 6 pruebas aprobadas, 0 fallidas.</text>
+**Resultado:** 8 pruebas aprobadas, 0 fallidas.
 
 ### 5. Consideraciones
 
 - Las pruebas se realizaron sobre el endpoint existente `POST /api/v1/auth/cambiar-password/`.
 - Se reutilizaron las fixtures existentes del proyecto para evitar duplicación de código.
-- No fue necesario modificar la funcionalidad de producción implementada en ST-113.
-- Se comprobó que el refresh anterior es rechazado debido a que contiene un `token_version` desactualizado.
+- Se utilizó `APIClient` para simular sesiones independientes desde dos dispositivos.
+- Se comprobó que el cambio de contraseña incrementa `token_version` y provoca que los refresh anteriores sean rechazados.
 - Se verificó que el nuevo refresh permite realizar una renovación correcta de la sesión.
+- Se comprobó que una sesión iniciada desde otro dispositivo ya no puede renovar sus tokens después del cambio de contraseña.
+- Se verificó que intentar establecer la misma contraseña actual devuelve un error `400`, conserva la contraseña original y no modifica `token_version`.
+- Se comprobó que las solicitudes inválidas no generan nuevos tokens.
 - La invalidación de los refresh anteriores se comprueba mediante la validación de versión implementada en ST-90. Esto no implica que todos los access anteriores sean rechazados automáticamente.
 
 ### 6. Dependencias
