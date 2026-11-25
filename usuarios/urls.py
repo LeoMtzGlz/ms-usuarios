@@ -32,5 +32,6 @@ urlpatterns = [
     # HU-11 / ST-112
     path("cambiar-password/", CambiarPasswordView.as_view(), name="cambiar-password"),
     # t-22/st-168
-    path("accesos/historial/", HistorialAccesosView.as_view(), name="historial-accesos"),
+        # t-22/st-168
+    path("accesos/", HistorialAccesosView.as_view(), name="historial-accesos"),
 ]
