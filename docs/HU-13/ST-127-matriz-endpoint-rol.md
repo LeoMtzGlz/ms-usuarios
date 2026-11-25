@@ -65,7 +65,6 @@ en la matriz: debe confirmarse con quien implemente cada historia.
 | --- | --- | --- |
 | Restablecer la contraseña temporal de un operativo | Solo administrador | HU-19 / ST-156 |
 | Desbloquear una cuenta | Solo administrador | HU-20 / ST-159 |
-| Activar y confirmar 2FA | Propietario autenticado | HU-30 / ST-206 |
 | Verificar el segundo factor durante el login | Token temporal de 2FA | HU-31 / ST-211 |
 
 ## Regla para actualizarla

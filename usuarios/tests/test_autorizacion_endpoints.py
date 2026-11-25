@@ -9,6 +9,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from comun.roles import Rol
+from usuarios.models import Estado
 from usuarios.tests.factories import UsuarioFactory
 
 pytestmark = pytest.mark.django_db
@@ -212,6 +213,87 @@ def test_administrador_supera_la_autorizacion_para_editar(api_client, llaves):
     assert respuesta.json()["nombre"] == "Nombre nuevo"
     objetivo.refresh_from_db()
     assert objetivo.first_name == "Nombre nuevo"
+
+
+@pytest.mark.parametrize("rol", [Rol.CLIENTE, Rol.OPERATIVO])
+def test_usuario_no_administrador_no_consulta_auditoria(api_client, llaves, rol):
+    _autenticar(api_client, UsuarioFactory(rol=rol))
+
+    respuesta = api_client.get("/api/v1/auditoria/")
+
+    assert respuesta.status_code == 403
+    assert respuesta.json()["codigo"] == "sin_permiso"
+
+
+def test_administrador_supera_la_autorizacion_de_auditoria(api_client, llaves):
+    _autenticar(api_client, UsuarioFactory(rol=Rol.ADMINISTRADOR))
+
+    respuesta = api_client.get("/api/v1/auditoria/")
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["results"] == []
+
+
+@pytest.mark.parametrize("rol", [Rol.CLIENTE, Rol.OPERATIVO])
+@pytest.mark.parametrize("operacion", ["desactivar", "reactivar"])
+def test_usuario_no_administrador_no_cambia_estado_de_cuentas(
+    api_client, llaves, rol, operacion
+):
+    objetivo = UsuarioFactory()
+    _autenticar(api_client, UsuarioFactory(rol=rol))
+
+    respuesta = api_client.post(
+        f"/api/v1/usuarios/{objetivo.pk}/{operacion}/", {}, format="json"
+    )
+
+    assert respuesta.status_code == 403
+    assert respuesta.json()["codigo"] == "sin_permiso"
+
+
+@pytest.mark.parametrize(
+    ("operacion", "estado_inicial", "estado_esperado"),
+    [
+        ("desactivar", Estado.ACTIVO, Estado.INACTIVO),
+        ("reactivar", Estado.INACTIVO, Estado.ACTIVO),
+    ],
+)
+def test_administrador_supera_autorizacion_para_cambiar_estado(
+    api_client, llaves, operacion, estado_inicial, estado_esperado
+):
+    objetivo = UsuarioFactory()
+    if estado_inicial == Estado.INACTIVO:
+        objetivo.cambiar_estado(Estado.INACTIVO)
+    _autenticar(api_client, UsuarioFactory(rol=Rol.ADMINISTRADOR))
+
+    respuesta = api_client.post(
+        f"/api/v1/usuarios/{objetivo.pk}/{operacion}/", {}, format="json"
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {"id": str(objetivo.pk), "estado": estado_esperado}
+    objetivo.refresh_from_db()
+    assert objetivo.estado == estado_esperado
+
+
+def test_administrador_no_puede_desactivar_su_2fa(api_client, llaves):
+    _autenticar(api_client, UsuarioFactory(rol=Rol.ADMINISTRADOR))
+
+    respuesta = api_client.post("/api/v1/auth/2fa/desactivar/", {}, format="json")
+
+    assert respuesta.status_code == 403
+    assert respuesta.json()["codigo"] == "admin_requiere_2fa"
+
+
+@pytest.mark.parametrize("rol", [Rol.CLIENTE, Rol.OPERATIVO])
+def test_cliente_y_operativo_superan_autorizacion_para_desactivar_2fa(
+    api_client, llaves, rol
+):
+    _autenticar(api_client, UsuarioFactory(rol=rol))
+
+    respuesta = api_client.post("/api/v1/auth/2fa/desactivar/", {}, format="json")
+
+    assert respuesta.status_code == 400
+    assert respuesta.json()["codigo"] == "datos_invalidos"
 
 
 @pytest.mark.parametrize(

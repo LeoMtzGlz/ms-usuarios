@@ -12,7 +12,11 @@ Convertir la matriz endpoint por rol de ST-127 en pruebas automáticas sobre las
 - Las rutas protegidas responden `401 no_autenticado` sin token.
 - Cliente y operativo reciben `403 sin_permiso` en la administración de usuarios.
 - Cliente y operativo reciben `403 sin_permiso` al intentar editar un usuario.
+- Cliente y operativo reciben `403 sin_permiso` en auditoría y al desactivar o reactivar cuentas.
 - Administrador obtiene `200` al listar y editar; un alta vacía llega a validación y responde `400 datos_invalidos`.
+- Administrador obtiene `200` al consultar auditoría y al desactivar o reactivar cuentas.
+- Administrador recibe `403 admin_requiere_2fa` al intentar desactivar 2FA; cliente y operativo superan esa
+  autorización y llegan a la validación de datos.
 - Los tres roles autenticados pueden aceptar el aviso de privacidad.
 - `ContrasenaDefinitiva` bloquea todas las rutas protegidas salvo el cambio de contraseña.
 - Los tres roles superan la autorización de 2FA y del cambio de contraseña.
