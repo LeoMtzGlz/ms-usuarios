@@ -6,7 +6,8 @@ from usuarios.views import (
     ActivarCuentaView,
     CambiarPasswordView,
     CustomTokenObtainPairView,
-    CustomTokenRefreshView, # t-07/st-90
+    CustomTokenRefreshView,
+    LogoutTodoView,  # HU-09 / ST-98
     PrivacidadInfoView,
     RegistroView,
 )
@@ -34,4 +35,6 @@ urlpatterns = [
     # t-22/st-168
         # t-22/st-168
     path("accesos/", HistorialAccesosView.as_view(), name="historial-accesos"),
+        # HU-09 / ST-98
+    path("logout-todo/", LogoutTodoView.as_view(), name="logout-todo"),
 ]

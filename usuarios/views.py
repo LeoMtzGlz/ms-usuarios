@@ -231,3 +231,32 @@ class CambiarPasswordView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+        
+class LogoutTodoView(APIView):
+    """HU-09 / ST-98: POST /api/v1/auth/logout-todo/
+
+    Cierra sesión en todos los dispositivos: incrementa token_version
+    y todos los access/refresh viejos quedan inválidos.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["auth"],
+        summary="Cerrar sesión en todos los dispositivos",
+        responses={
+            200: OpenApiResponse(description="Sesión cerrada en todos los dispositivos"),
+            401: OpenApiResponse(description="No autenticado"),
+        },
+    )
+    def post(self, request):
+        usuario = request.user
+        usuario.token_version += 1
+        usuario.save(update_fields=["token_version"])
+
+        registrar_evento("logout_todo", usuario, request)
+
+        return Response(
+            {"mensaje": "Sesión cerrada en todos los dispositivos."},
+            status=status.HTTP_200_OK,
+        )
