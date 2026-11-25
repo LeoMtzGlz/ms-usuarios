@@ -263,6 +263,7 @@ DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="")
 AXES_FAILURE_LIMIT = 5
 AXES_COOLOFF_TIME = timedelta(minutes=15)
 AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
+AXES_USERNAME_CALLABLE = "usuarios.axes.obtener_usuario_axes"
 AXES_RESET_ON_SUCCESS = True
 
 # hu-25/st-184: respuesta de bloqueo con el formato estándar de errores

@@ -178,3 +178,14 @@ def marcar_bloqueo_en_request_django(sender, request, **kwargs):
     if original is not None:
         original.axes_locked_out = True
         original.axes_credentials = getattr(request, "axes_credentials", None)
+
+
+# t-32/st-215: desactivar 2FA
+class DosFactoresNoActivo(exceptions.ValidationError):
+    default_detail = "La verificación en dos pasos no está activa en tu cuenta."
+    default_code = "dos_factores_no_activo"
+
+
+class AdminRequiere2FA(exceptions.PermissionDenied):
+    default_detail = "Los administradores no pueden desactivar la verificación en dos pasos."
+    default_code = "admin_requiere_2fa"
