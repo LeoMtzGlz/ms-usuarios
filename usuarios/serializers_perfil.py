@@ -1,5 +1,7 @@
 """Serialización del perfil propio (HU-21 / ST-163)."""
 
+from collections.abc import Mapping
+
 from rest_framework import serializers
 
 from usuarios.models import Canal, Usuario
@@ -36,6 +38,8 @@ class PerfilSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "correo", "telefono", "rol", "estado")
 
     def to_internal_value(self, data):
+        if not isinstance(data, Mapping):
+            return super().to_internal_value(data)
         no_editables = sorted(set(data) - set(CAMPOS_EDITABLES_PERFIL))
         if no_editables:
             raise serializers.ValidationError(

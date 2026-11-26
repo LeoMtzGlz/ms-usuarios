@@ -128,6 +128,13 @@ class TestEdicionPerfil:
         assert respuesta.status_code == 400
         assert "canal_preferido" in respuesta.data["campos"]
 
+    @pytest.mark.parametrize("cuerpo", [[{"a": 1}], 123])
+    def test_rechaza_json_que_no_es_un_objeto(self, usuario, cuerpo):
+        respuesta = api_de(usuario).patch(URL, cuerpo, format="json")
+
+        assert respuesta.status_code == 400
+        assert respuesta.data["codigo"] == "datos_invalidos"
+
     def test_rechaza_whatsapp_si_la_cuenta_no_tiene_telefono(self, llaves):
         usuario = UsuarioFactory(
             telefono=None,

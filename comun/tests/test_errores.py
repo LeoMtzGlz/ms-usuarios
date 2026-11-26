@@ -65,7 +65,7 @@ def test_bloqueo_axes_usa_formato_estandar():
     }
 
 # hu-25/st-184: el bloqueo por DRF responde con el formato estándar
-def test_bloqueo_por_drf_responde_403_estandar(client):
+def test_bloqueo_por_drf_responde_403_estandar(client, axes_habilitado):
     from usuarios.tests.factories import PASSWORD_PRUEBA, UsuarioFactory
 
     usuario = UsuarioFactory()

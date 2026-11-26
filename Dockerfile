@@ -9,5 +9,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 EXPOSE 8000
-CMD ["sh", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]
+# t-24/st-179: Crear la tabla de caché antes de iniciar la API
+CMD ["sh", "-c", "python manage.py migrate && python manage.py createcachetable && python manage.py runserver 0.0.0.0:8000"]
 # CMD ["sh", "-c", "python manage.py migrate && gunicorn mi_proyecto.wsgi:application --bind 0.0.0.0:8000"]
