@@ -1,0 +1,11 @@
+{% extends "notificaciones/correo/base.html" %}
+{% block title %}Cuenta bloqueada temporalmente{% endblock %}
+{% block header_title %}Alerta de Bloqueo de Cuenta{% endblock %}
+{% block content %}
+<p>Hola <strong>{{ nombre|default:"usuario" }}</strong>,</p>
+<p>Tu cuenta ha sido bloqueada temporalmente debido a {{ motivo|default:"múltiples intentos fallidos de inicio de sesión" }}.</p>
+{% if tiempo_bloqueo %}
+<p>Podrás volver a intentarlo en <strong>{{ tiempo_bloqueo }}</strong>.</p>
+{% endif %}
+<p>Si no fuiste tú quien intentó acceder, te recomendamos cambiar tu contraseña una vez restablecido el acceso.</p>
+{% endblock %}

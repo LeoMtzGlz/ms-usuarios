@@ -1,4 +1,3 @@
-
 from datetime import timedelta
 from pathlib import Path
 
@@ -22,13 +21,18 @@ SECRET_KEY = env("SECRET_KEY")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 DOMINIO_CORREO_INSTITUCIONAL = env("DOMINIO_CORREO_INSTITUCIONAL", default="@jiquilpan.tecnm.mx")
 
-# hu-02/st-65: versión del aviso de privacidad que acepta quien se registra
-VERSION_AVISO_PRIVACIDAD = env("VERSION_AVISO_PRIVACIDAD", default="1.0")
 #t-30/st-205
 CLAVE_CIFRADO_2FA = env("CLAVE_CIFRADO_2FA", default="")
 ISSUER_2FA = "svc-usuarios"
 
+# t-22/st-167: IPs de los proxies propios (nginx, balanceador). Solo si la petición viene
+# de uno de ellos se confía en X-Forwarded-For. Vacío = no hay proxy, se usa REMOTE_ADDR.
+PROXIES_CONFIABLES = env.list("PROXIES_CONFIABLES", default=[])
 
+
+# t-33/st-218 (HU-33): ID de cliente OAuth "Aplicación web" de Google Cloud Console.
+# El backend lo usa como audiencia (aud) al verificar el ID token de Google. Vacío = login con Google desactivado.
+GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID", default="")
 
 # Application definition
 
@@ -42,6 +46,7 @@ INSTALLED_APPS = [
 
     "rest_framework",
     "drf_spectacular",
+    "django_filters",  # t-16/st-145
     "rest_framework_simplejwt.token_blacklist", # t-07/st-89
 
     "comun",
@@ -145,6 +150,19 @@ AUTH_USER_MODEL = "usuarios.Usuario"
 REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "comun.errores.manejador_errores",
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    # t-24/st-179: Limitación de solicitudes por endpoint
+    "DEFAULT_THROTTLE_CLASSES": (
+        "rest_framework.throttling.ScopedRateThrottle",
+    ),
+    "DEFAULT_THROTTLE_RATES": {
+        "login": "10/min",
+        "registro": "5/hour",
+        "recuperar": "3/hour",
+        "reenviar": "3/hour",
+        "cuenta": "3/hour",
+    },
+    # t-24/st-179: Evitar que X-Forwarded-For permita evadir el límite por IP
+    "NUM_PROXIES": 0,
     # t-04/st-21: JWT primero, para que una petición sin token responda 401 (no 403)
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -152,6 +170,7 @@ REST_FRAMEWORK = {
         # t-13/st-123: todo endpoint exige autenticación salvo que declare AllowAny.
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
+        "comun.permisos.ContrasenaDefinitiva",  # t-12/st-116: 403 mientras la contraseña sea temporal
         ),
 }
 
@@ -262,7 +281,15 @@ DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="")
 AXES_FAILURE_LIMIT = 5
 AXES_COOLOFF_TIME = timedelta(minutes=15)
 AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
+AXES_USERNAME_CALLABLE = "usuarios.axes.obtener_usuario_axes"
 AXES_RESET_ON_SUCCESS = True
+
+# hu-25/st-184: respuesta de bloqueo con el formato estándar de errores
+AXES_LOCKOUT_CALLABLE = "comun.errores.respuesta_bloqueo_axes"
 
 # t-03/st-71: vigencia de los codigos de verificacion, en minutos
 CODIGO_MINUTOS = env.int("CODIGO_MINUTOS", default=10)
+
+# t-29/st-200: Configuración del aviso de privacidad
+VERSION_AVISO_PRIVACIDAD = env('VERSION_AVISO_PRIVACIDAD', default='2026-10')
+URL_AVISO_PRIVACIDAD = env('URL_AVISO_PRIVACIDAD', default="")

@@ -54,6 +54,16 @@ class CodigoExpirado(exceptions.ValidationError):
     default_detail = "El código ya venció o ya se usó. Pide uno nuevo."
     default_code = "codigo_expirado"
 
+#t-30/st-206
+class DosFactoresYaActivo(exceptions.ValidationError):
+    default_detail = "La verificación en dos pasos ya está activa en tu cuenta."
+    default_code = "dos_factores_ya_activo"
+
+
+class DosFactoresNoIniciado(exceptions.ValidationError):
+    default_detail = "Primero solicita la activación de la verificación en dos pasos."
+    default_code = "dos_factores_no_iniciado"
+
 # Códigos genéricos por tipo de excepción de DRF
 CODIGOS_POR_TIPO = [
     (exceptions.ValidationError, "datos_invalidos"),
@@ -144,3 +154,35 @@ def _primer_mensaje(detalle):
     if isinstance(detalle, dict) and detalle:
         return _primer_mensaje(next(iter(detalle.values())))
     return str(detalle)
+
+
+# hu-25/st-184: handler propio para el bloqueo de django-axes
+def respuesta_bloqueo_axes(request, response, credentials, *args, **kwargs):
+    """Devuelve el bloqueo de django-axes con el formato estándar de la API."""
+    exc = CuentaBloqueada()
+    return JsonResponse(
+        {
+            "codigo": exc.default_code,
+            "mensaje": str(exc.detail),
+            "campos": {},
+        },
+        status=status.HTTP_403_FORBIDDEN,
+    )
+
+def marcar_bloqueo_en_request_django(sender, request, **kwargs):
+    """Copia la marca de bloqueo de DRF al HttpRequest original."""
+    original = getattr(request, "_request", None)
+    if original is not None:
+        original.axes_locked_out = True
+        original.axes_credentials = getattr(request, "axes_credentials", None)
+
+
+# t-32/st-215: desactivar 2FA
+class DosFactoresNoActivo(exceptions.ValidationError):
+    default_detail = "La verificación en dos pasos no está activa en tu cuenta."
+    default_code = "dos_factores_no_activo"
+
+
+class AdminRequiere2FA(exceptions.PermissionDenied):
+    default_detail = "Los administradores no pueden desactivar la verificación en dos pasos."
+    default_code = "admin_requiere_2fa"
