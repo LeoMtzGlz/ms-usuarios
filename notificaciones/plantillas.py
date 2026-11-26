@@ -37,6 +37,7 @@ PLANTILLAS_CORREO = {
 # Alias de compatibilidad con llamadas existentes en el proyecto (ej. test_services.py)
 ALIAS_PLANTILLAS = {
     "codigo_activacion": "activacion",
+    "codigo_recuperacion": "recuperacion_password",
 }
 
 
