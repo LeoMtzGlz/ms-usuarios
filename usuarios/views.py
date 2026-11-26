@@ -112,6 +112,7 @@ class ActivarCuentaView(APIView):
 class CustomTokenObtainPairView(TokenObtainPairView):
     """HU-05 / ST-82: POST /api/v1/auth/login/"""
 
+    permission_classes = [AllowAny]
     # t-24/st-179: Limitar el login a 10 solicitudes por minuto por IP
     throttle_scope = "login"
 
@@ -121,6 +122,8 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 class CustomTokenRefreshView(TokenRefreshView):
     """HU-07 / ST-90: Renovar access y refresh tokens."""
 
+    permission_classes = [AllowAny]
+    authentication_classes = []
     serializer_class = CustomTokenRefreshSerializer
 
 # ==========================================
@@ -147,8 +150,6 @@ class PrivacidadInfoView(APIView):
         })
 
 class AceptarPrivacidadView(APIView):
-    permission_classes = [IsAuthenticated]
-
     @extend_schema(
         tags=["Privacidad"],
         summary="Aceptar el aviso de privacidad",
@@ -181,6 +182,7 @@ class AceptarPrivacidadView(APIView):
             "mensaje": "Aviso de privacidad aceptado correctamente.",
             "version": user.version_privacidad,
         })
+
 
 # ==========================================
 # HU-11 / ST-112: Cambiar mi contraseña
