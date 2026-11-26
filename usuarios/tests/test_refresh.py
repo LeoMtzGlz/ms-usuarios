@@ -5,7 +5,7 @@ from datetime import timedelta
 
 import pytest
 from django.utils import timezone
-from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
+from rest_framework_simplejwt.tokens import AccessToken
 from usuarios.tokens import CustomTokenObtainPairSerializer
 
 
