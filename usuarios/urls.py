@@ -1,4 +1,4 @@
-﻿"""Rutas de autenticaciÃ³n: se montan en /api/v1/auth/ (config/urls.py)."""
+﻿"""Rutas de autenticación: se montan en /api/v1/auth/ (config/urls.py)."""
 from django.urls import path
 
 from usuarios.views import (
