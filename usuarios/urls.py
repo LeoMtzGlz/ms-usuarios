@@ -11,10 +11,12 @@ from usuarios.views import (
     PrivacidadInfoView,
     RegistroView,
 )
+from usuarios.reenvio import ReenviarCodigoView  # t-04/st-75
+from usuarios.restablecer import RestablecerPasswordView  # t-10/st-108
 from usuarios.views_2fa import Activar2FAView, Confirmar2FAView  # t-30/st-206
 from usuarios.views_2fa_desactivar import Desactivar2FAView  # t-32/st-215
 from usuarios.views_accesos import HistorialAccesosView  # t-22/st-168
-from usuarios.reenvio import ReenviarCodigoView  # t-04/st-75
+from usuarios.views_recuperacion import SolicitarRecuperacionView  # t-10/st-107
 
 app_name = "auth"
 
@@ -38,4 +40,8 @@ urlpatterns = [
     path("accesos/", HistorialAccesosView.as_view(), name="historial-accesos"),
     # t-04/st-75
     path("reenviar-codigo/", ReenviarCodigoView.as_view(), name="reenviar-codigo"),
+    # t-10/st-107
+    path("recuperar/", SolicitarRecuperacionView.as_view(), name="recuperar"),
+    # t-10/st-108
+    path("restablecer/", RestablecerPasswordView.as_view(), name="restablecer-password"),
 ]
