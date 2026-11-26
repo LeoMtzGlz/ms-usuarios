@@ -7,6 +7,7 @@ from usuarios.views import (
     CambiarPasswordView,
     CustomTokenObtainPairView,
     CustomTokenRefreshView, # t-07/st-90
+    LogoutView, # t-08/st-94
     PrivacidadInfoView,
     RegistroView,
 )
@@ -44,4 +45,6 @@ urlpatterns = [
     path("recuperar/", SolicitarRecuperacionView.as_view(), name="recuperar"),
     # t-10/st-108
     path("restablecer/", RestablecerPasswordView.as_view(), name="restablecer-password"),
+    # t-08/st-94: Cerrar sesión e invalidar el refresh token.
+    path("logout/", LogoutView.as_view(), name="logout"),
 ]

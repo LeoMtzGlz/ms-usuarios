@@ -19,7 +19,11 @@ from usuarios.serializers import (
     CambiarPasswordSerializer,
     RegistroSerializer,
 )
-from usuarios.tokens import CustomTokenObtainPairSerializer, CustomTokenRefreshSerializer
+from usuarios.tokens import (
+    CustomTokenObtainPairSerializer, 
+    CustomTokenRefreshSerializer,
+    LogoutSerializer
+)
 
 class RegistroRespuestaSerializer(RegistroSerializer):
     """Solo documenta el 201 (OpenAPI); la vista arma el cuerpo a mano."""
@@ -125,6 +129,37 @@ class CustomTokenRefreshView(TokenRefreshView):
     permission_classes = [AllowAny]
     authentication_classes = []
     serializer_class = CustomTokenRefreshSerializer
+
+# t-08/st-94: Cierre de sesión mediante revocación del refresh token.
+class LogoutView(APIView):
+    """HU-08 / ST-94: POST /api/v1/auth/logout"""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get_authenticate_header(self, request):
+        """Conservar HTTP 401 para errores de autenticación del refresh."""
+        return 'Bearer realm="api"'
+
+    @extend_schema(
+        request=LogoutSerializer,
+        responses={
+            200: OpenApiResponse(description="Sesión cerrada correctamente"),
+            400: OpenApiResponse(description="Falta el refresh token"),
+            401: OpenApiResponse(description="Refresh token inválido o revocado"),
+        },
+        tags=["auth"],
+        summary="Cerrar sesión e invalidar el refresh token",
+    )
+    def post(self, request):
+        serializer = LogoutSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(
+            {"mensaje": "Sesión cerrada correctamente."},
+            status=status.HTTP_200_OK,
+        )
 
 # ==========================================
 # Vistas para HU-29 (Aviso de Privacidad) - t-29/st-201

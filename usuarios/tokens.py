@@ -11,6 +11,7 @@ from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 from rest_framework_simplejwt.utils import datetime_from_epoch
 from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from comun.errores import CredencialesInvalidas, CuentaPendiente, CuentaInactiva, TokenInvalido
 
@@ -222,3 +223,25 @@ class CustomTokenRefreshSerializer(TokenRefreshSerializer):
             "access": access,
             "refresh": str(refresh),
         }
+
+# t-08/st-94: Serializer para cerrar sesión e invalidar el refresh token.
+class LogoutSerializer(serializers.Serializer):
+    """Valida el refresh token utilizado para cerrar la sesión."""
+
+    refresh = serializers.CharField(write_only=True)
+
+    def validate_refresh(self, value):
+        try:
+            RefreshToken(value)
+        except TokenError as exc:
+            raise TokenInvalido() from exc
+
+        return value
+
+    def save(self, **kwargs):
+        """Agrega el refresh token a la lista negra de SimpleJWT."""
+        try:
+            refresh = RefreshToken(self.validated_data["refresh"])
+            refresh.blacklist()
+        except TokenError as exc:
+            raise TokenInvalido() from exc
