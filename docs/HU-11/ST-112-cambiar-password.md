@@ -1,4 +1,4 @@
-# T-35 — Gestión de contraseñas
+# HU-11 — Gestión de contraseñas
 
 ## ST-112. Crear endpoint para cambiar contraseña
 

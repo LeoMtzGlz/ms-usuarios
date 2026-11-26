@@ -8,6 +8,7 @@
 import logging
 from datetime import timedelta
 
+from django.core.management import call_command
 from django.db import transaction
 from django.utils import timezone
 
@@ -70,3 +71,32 @@ def limpiar_si_toca(ahora=None):
         control.ultima_ejecucion = ahora
         control.save(update_fields=["ultima_ejecucion"])
     return borrados
+
+
+# t-07/st-91 (HU-07): tokens JWT vencidos, una vez al día desde el worker
+NOMBRE_TAREA_TOKENS = "limpiar_tokens"
+
+
+def limpiar_tokens_si_toca(ahora=None):
+    """Corre ``flushexpiredtokens`` si pasaron 24 h desde la última vez.
+
+    Devuelve True si limpió y False si no tocaba. Usa la misma tabla ControlLimpieza
+    que la ST-169 (otra fila), así que no necesita migración.
+    """
+    ahora = ahora or timezone.now()
+    ControlLimpieza.objects.get_or_create(nombre=NOMBRE_TAREA_TOKENS)
+    with transaction.atomic():
+        control = (
+            ControlLimpieza.objects.select_for_update(skip_locked=True)
+            .filter(nombre=NOMBRE_TAREA_TOKENS)
+            .first()
+        )
+        if control is None:  # otro worker la está corriendo ahora mismo
+            return False
+        if control.ultima_ejecucion and ahora - control.ultima_ejecucion < CADA_CUANTO:
+            return False
+        call_command("flushexpiredtokens")
+        control.ultima_ejecucion = ahora
+        control.save(update_fields=["ultima_ejecucion"])
+    logger.info("Limpieza de tokens vencidos completada")
+    return True
