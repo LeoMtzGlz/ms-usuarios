@@ -8,7 +8,7 @@ from rest_framework.test import APIClient
 
 from comun.models import EventoAuditoria
 
-from .factories import PASSWORD_PRUEBA
+from .factories import PASSWORD_PRUEBA, UsuarioFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -111,3 +111,31 @@ def test_logout_todo_dos_veces_no_falla_y_sube_token_version_en_dos(usuario, lla
 
     usuario.refresh_from_db()
     assert usuario.token_version == version_inicial + 2
+
+
+def test_logout_todo_solo_afecta_al_usuario_que_cierra_sesion(usuario, llaves):
+    """El logout-todo de un usuario no toca las sesiones de otro."""
+    otro = UsuarioFactory(password=PASSWORD_PRUEBA)
+    version_del_otro = otro.token_version
+    dispositivo_a, _ = _iniciar_sesion(usuario)
+    _, refresh_del_otro = _iniciar_sesion(otro)
+
+    assert _logout_todo(dispositivo_a).status_code == 200
+
+    otro.refresh_from_db()
+    assert otro.token_version == version_del_otro
+    respuesta = _renovar(refresh_del_otro)
+    assert respuesta.status_code == 200, respuesta.data
+
+
+def test_logout_todo_solo_acepta_post(usuario, llaves):
+    """GET no está permitido: responde 405 con el formato del equipo y no cierra sesiones."""
+    version_inicial = usuario.token_version
+    dispositivo_a, _ = _iniciar_sesion(usuario)
+
+    respuesta = dispositivo_a.get(URL_LOGOUT_TODO)
+
+    assert respuesta.status_code == 405
+    assert respuesta.json()["codigo"] == "metodo_no_permitido"
+    usuario.refresh_from_db()
+    assert usuario.token_version == version_inicial
