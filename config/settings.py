@@ -29,6 +29,11 @@ ISSUER_2FA = "svc-usuarios"
 # de uno de ellos se confía en X-Forwarded-For. Vacío = no hay proxy, se usa REMOTE_ADDR.
 PROXIES_CONFIABLES = env.list("PROXIES_CONFIABLES", default=[])
 
+
+# t-33/st-218 (HU-33): ID de cliente OAuth "Aplicación web" de Google Cloud Console.
+# El backend lo usa como audiencia (aud) al verificar el ID token de Google. Vacío = login con Google desactivado.
+GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID", default="")
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -145,6 +150,19 @@ AUTH_USER_MODEL = "usuarios.Usuario"
 REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "comun.errores.manejador_errores",
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    # t-24/st-179: Limitación de solicitudes por endpoint
+    "DEFAULT_THROTTLE_CLASSES": (
+        "rest_framework.throttling.ScopedRateThrottle",
+    ),
+    "DEFAULT_THROTTLE_RATES": {
+        "login": "10/min",
+        "registro": "5/hour",
+        "recuperar": "3/hour",
+        "reenviar": "3/hour",
+        "cuenta": "3/hour",
+    },
+    # t-24/st-179: Evitar que X-Forwarded-For permita evadir el límite por IP
+    "NUM_PROXIES": 0,
     # t-04/st-21: JWT primero, para que una petición sin token responda 401 (no 403)
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",

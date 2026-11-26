@@ -126,8 +126,8 @@ en una rama o en el backlog. Una ruta pública puede usarse sin token y, por lo 
 | `POST` | `/api/v1/auth/token/renovar/` | Disponible | Sí² | Sí | Sí | Sí | `AllowAny` + token de renovación válido |
 | `POST` | `/api/v1/auth/logout/` | Planeado (HU-08) | No | Sí | Sí | Sí | `IsAuthenticated` |
 | `POST` | `/api/v1/auth/logout-todo/` | Planeado (HU-09) | No | Sí | Sí | Sí | `IsAuthenticated` |
-| `POST` | `/api/v1/auth/recuperar/` | Planeado (HU-10) | Sí | Sí | Sí | Sí | `AllowAny` |
-| `POST` | `/api/v1/auth/restablecer/` | Planeado (HU-10) | Sí | Sí | Sí | Sí | `AllowAny` |
+| `POST` | `/api/v1/auth/recuperar/` | Disponible | Sí | Sí | Sí | Sí | `AllowAny` |
+| `POST` | `/api/v1/auth/restablecer/` | Disponible | Sí | Sí | Sí | Sí | `AllowAny` |
 | `POST` | `/api/v1/auth/cambiar-password/` | Disponible | No | Sí | Sí | Sí | `IsAuthenticated` (exenta de `ContrasenaDefinitiva`) |
 | `GET` | `/api/v1/auth/llave-publica/` | Planeado (ST-135) | Sí | Sí | Sí | Sí | `AllowAny` |
 | `GET`, `PATCH` | `/api/v1/auth/perfil/` | Planeado (ST-163) | No | Sí | Sí | Sí | Propietario autenticado |

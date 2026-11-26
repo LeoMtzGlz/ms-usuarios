@@ -23,6 +23,8 @@ RUTAS_PUBLICAS = {
     ("post", "/api/v1/auth/token/renovar/"),
     ("get", "/api/v1/auth/privacidad/"),
     ("post", "/api/v1/auth/reenviar-codigo/"),
+    ("post", "/api/v1/auth/recuperar/"),
+    ("post", "/api/v1/auth/restablecer/"),
     ("get", "/api/schema/"),
     ("get", "/api/docs/"),
 }
@@ -139,6 +141,8 @@ def test_todo_metodo_api_esta_en_la_matriz_de_autorizacion():
         ("post", "/api/v1/auth/token/renovar/", {}, 400),
         ("get", "/api/v1/auth/privacidad/", None, 200),
         ("post", "/api/v1/auth/reenviar-codigo/", {}, 200),
+        ("post", "/api/v1/auth/recuperar/", {}, 400),
+        ("post", "/api/v1/auth/restablecer/", {}, 400),
         ("get", "/api/schema/", None, 200),
         ("get", "/api/docs/", None, 200),
     ],

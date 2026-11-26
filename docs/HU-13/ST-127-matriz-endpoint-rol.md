@@ -36,8 +36,8 @@ implementada.
 | `POST` | `/api/v1/auth/token/renovar/` | Disponible | Sí² | Sí | Sí | Sí | `AllowAny` + token de renovación válido | HU-07 / ST-90 |
 | `POST` | `/api/v1/auth/logout/` | Planeado | No | Sí | Sí | Sí | `IsAuthenticated` | HU-08 |
 | `POST` | `/api/v1/auth/logout-todo/` | Planeado | No | Sí | Sí | Sí | `IsAuthenticated` | HU-09 |
-| `POST` | `/api/v1/auth/recuperar/` | Planeado | Sí | Sí | Sí | Sí | `AllowAny` | HU-10 |
-| `POST` | `/api/v1/auth/restablecer/` | Planeado | Sí | Sí | Sí | Sí | `AllowAny` | HU-10 |
+| `POST` | `/api/v1/auth/recuperar/` | Disponible | Sí | Sí | Sí | Sí | `AllowAny` | HU-10 / ST-107 |
+| `POST` | `/api/v1/auth/restablecer/` | Disponible | Sí | Sí | Sí | Sí | `AllowAny` | HU-10 / ST-108 |
 | `POST` | `/api/v1/auth/cambiar-password/` | Disponible | No | Sí | Sí | Sí | `IsAuthenticated` (exenta de `ContrasenaDefinitiva`) | HU-11 / ST-112 |
 | `GET` | `/api/v1/auth/llave-publica/` | Planeado | Sí | Sí | Sí | Sí | `AllowAny` | T-14 / ST-135 |
 | `GET`, `PATCH` | `/api/v1/auth/perfil/` | Planeado | No | Sí | Sí | Sí | Propietario autenticado | HU-21 / ST-163 |

@@ -45,6 +45,9 @@ class RegistroView(APIView):
     preferido, p. ej. WhatsApp sin teléfono sale por correo).
     """
 
+    # t-24/st-179: Limitar el registro a 5 solicitudes por hora por IP
+    throttle_scope = "registro"
+
     permission_classes = [AllowAny]
     authentication_classes = []
 
@@ -110,6 +113,9 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     """HU-05 / ST-82: POST /api/v1/auth/login/"""
 
     permission_classes = [AllowAny]
+    # t-24/st-179: Limitar el login a 10 solicitudes por minuto por IP
+    throttle_scope = "login"
+
     serializer_class = CustomTokenObtainPairSerializer
 
 # t-07/st-90: Renovación de tokens con validación del usuario y sus claims
