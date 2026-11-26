@@ -44,7 +44,18 @@ class DebeCambiarPassword(exceptions.PermissionDenied):
     default_detail = "Debes cambiar tu contraseña temporal antes de continuar."
     default_code = "debe_cambiar_password"
 
+# t-33/st-219: login con Google
+class TokenGoogleInvalido(exceptions.AuthenticationFailed):
+    default_detail = "No se pudo verificar tu cuenta de Google. Intenta de nuevo."
+    default_code = "token_google_invalido"
 
+
+class GoogleNoConfigurado(exceptions.APIException):
+    status_code = 503
+    default_detail = "El inicio de sesión con Google no está disponible."
+    default_code = "google_no_configurado"
+
+    
 class CodigoInvalido(exceptions.ValidationError):
     default_detail = "El código es incorrecto."
     default_code = "codigo_invalido"

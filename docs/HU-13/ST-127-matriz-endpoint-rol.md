@@ -26,6 +26,7 @@ implementada.
 | `GET` | `/api/docs/` | Disponible | Sí | Sí | Sí | Sí | Pública (`drf-spectacular`) | T-05 |
 | `GET`, `POST` | `/admin/` y sus rutas internas | Disponible | No | No¹ | No¹ | No¹ | `is_staff` de Django | T-02 |
 | `POST` | `/api/v1/auth/login/` | En rama | Sí | Sí | Sí | Sí | `AllowAny` | HU-05 / ST-82 |
+| `POST` | `/api/v1/auth/google/` | En PR | Sí | Sí | Sí | Sí | `AllowAny` | HU-33 / ST-219 |
 | `GET` | `/api/v1/auth/privacidad/` | En PR #60 | Sí | Sí | Sí | Sí | `AllowAny` | HU-29 / ST-201 |
 | `POST` | `/api/v1/auth/privacidad/aceptar/` | En PR #60 | No | Sí | Sí | Sí | `IsAuthenticated` | HU-29 / ST-201 |
 | `POST` | `/api/v1/auth/activar/` | Planeado | Sí | Sí | Sí | Sí | `AllowAny` | HU-03 / ST-72 |

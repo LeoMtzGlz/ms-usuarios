@@ -116,6 +116,7 @@ en una rama o en el backlog. Una ruta pública puede usarse sin token y, por lo 
 | `GET` | `/api/docs/` | Disponible | Sí | Sí | Sí | Sí | Pública (`drf-spectacular`) |
 | `GET`, `POST` | `/admin/` y sus rutas internas | Disponible | No | No¹ | No¹ | No¹ | Autenticación de Django |
 | `POST` | `/api/v1/auth/login/` | En rama ST-82 | Sí | Sí | Sí | Sí | `AllowAny` |
+| `POST` | `/api/v1/auth/google/` | En PR (ST-219) | Sí | Sí | Sí | Sí | `AllowAny` |
 | `GET` | `/api/v1/auth/privacidad/` | En PR #60 | Sí | Sí | Sí | Sí | `AllowAny` |
 | `POST` | `/api/v1/auth/privacidad/aceptar/` | En PR #60 | No | Sí | Sí | Sí | `IsAuthenticated` |
 | `POST` | `/api/v1/auth/activar/` | Planeado (ST-72) | Sí | Sí | Sí | Sí | `AllowAny` |

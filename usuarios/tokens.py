@@ -61,87 +61,96 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         if user.estado == Estado.INACTIVO:
             registrar_acceso(request, user, exitoso=False)  # t-22/st-167
             raise CuentaInactiva()
-
-        # ==========================================
-        # HU-28 (t-28/st-196 y st-197): Detección de dispositivo nuevo
-        # ==========================================
-        if request:
-            # t-28/st-196: Usar la función oficial para obtener navegador + SO
-            user_agent_string = request.META.get('HTTP_USER_AGENT', '')
-            dispositivo_actual = dispositivo_legible(user_agent_string)
-            
-            hace_90_dias = timezone.now() - timedelta(days=90)
-            
-            # t-28/st-196: Sergio pidió que solo cuenten los accesos EXITOSOS
-            tiene_historial = RegistroAcceso.objects.filter(usuario=user, exitoso=True).exists()
-            
-            if tiene_historial:
-                # Buscar si este dispositivo (navegador + SO) ya se había usado exitosamente
-                dispositivo_conocido = RegistroAcceso.objects.filter(
-                    usuario=user,
-                    exitoso=True,  # Corrección de seguridad
-                    fecha__gte=hace_90_dias,
-                    dispositivo=dispositivo_actual  # Comparación estricta de navegador y SO
-                ).exists()
-                
-                if not dispositivo_conocido:
-                    # Es un dispositivo nuevo: encolamos el correo de alerta
-                    contexto = {
-                        'fecha': timezone.now().strftime('%Y-%m-%d %H:%M'),
-                        'dispositivo': dispositivo_actual,
-                        'ip': ip_del_request(request) # Corrección para proxy
-                    }
-                    notificar(
-                        usuario=user,
-                        plantilla='dispositivo_nuevo',
-                        contexto=contexto,
-                        canal='correo'
-                    )
-        # t-31/st-210: con 2FA confirmado se entrega un token temporal en lugar de los JWT
-        if tiene_2fa_activo(user):
-            registrar_evento("login_requiere_2fa", user, request)
-            return {
-                "requiere_2fa": True,
-                "token_temporal": emitir_token_temporal(user, attrs.get("recordarme", False)),
-                "expira_en": VIGENCIA_SEGUNDOS,
-            }
         
-        # Registramos el acceso actual (ya sea que el dispositivo sea nuevo o no)
+        # t-33/st-219: el resto del login se comparte con POST /api/v1/auth/google/
+        return completar_login(user, request, attrs.get("recordarme", False))
 
-        registrar_acceso(request, user, exitoso=True)  # t-22/st-167
+    
+def completar_login(user, request, recordarme=False):
+    """Lo que pasa después de identificar al usuario, igual para contraseña y para Google (t-33/st-219).
 
-        # 4. Actualizamos el último acceso
-        user.last_login = timezone.now()
-        user.save(update_fields=['last_login'])
+    Avisa si el dispositivo es nuevo (HU-28), pide 2FA si está activo (HU-31), registra el
+    acceso (HU-22) y emite los mismos JWT con la duración de "recordarme" (HU-06).
+    """
+    # ==========================================
+    # HU-28 (t-28/st-196 y st-197): Detección de dispositivo nuevo
+    # ==========================================
+    if request:
+        # t-28/st-196: Usar la función oficial para obtener navegador + SO
+        user_agent_string = request.META.get('HTTP_USER_AGENT', '')
+        dispositivo_actual = dispositivo_legible(user_agent_string)
 
-        # 5. Generamos el token usando el get_token que modificamos arriba
-        refresh = self.get_token(user)
+        hace_90_dias = timezone.now() - timedelta(days=90)
 
-        # t-06/st-85: la vida del refresh depende de "recordarme"; el access sigue en 15 min
-        recordarme = attrs.get('recordarme', False)
-        refresh.set_exp(
-            lifetime=DURACION_REFRESH_CON_RECORDARME if recordarme else DURACION_REFRESH_SIN_RECORDARME
-        )
-        # El serializer de renovación de ST-90 debe leer este claim para conservar la
-        # duración al rotar; si no, el refresh rotado tomaría REFRESH_TOKEN_LIFETIME (7 días)
-        refresh['recordarme'] = recordarme
-        # for_user() ya registró el OutstandingToken con el exp de 7 días (token_blacklist, ST-89);
-        # se alinea con el exp nuevo para que la limpieza de vencidos (ST-91) sea correcta
-        OutstandingToken.objects.filter(jti=refresh[api_settings.JTI_CLAIM]).update(
-            expires_at=datetime_from_epoch(refresh['exp'])
-        )
+        # t-28/st-196: Sergio pidió que solo cuenten los accesos EXITOSOS
+        tiene_historial = RegistroAcceso.objects.filter(usuario=user, exitoso=True).exists()
 
-        data = {
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'usuario': {
-                'id': str(user.id),
-                'nombre': user.first_name,
-                'email': user.email,
-                'rol': user.rol,
-            }
+        if tiene_historial:
+            # Buscar si este dispositivo (navegador + SO) ya se había usado exitosamente
+            dispositivo_conocido = RegistroAcceso.objects.filter(
+                usuario=user,
+                exitoso=True,  # Corrección de seguridad
+                fecha__gte=hace_90_dias,
+                dispositivo=dispositivo_actual  # Comparación estricta de navegador y SO
+            ).exists()
+
+            if not dispositivo_conocido:
+                # Es un dispositivo nuevo: encolamos el correo de alerta
+                contexto = {
+                    'fecha': timezone.now().strftime('%Y-%m-%d %H:%M'),
+                    'dispositivo': dispositivo_actual,
+                    'ip': ip_del_request(request) # Corrección para proxy
+                }
+                notificar(
+                    usuario=user,
+                    plantilla='dispositivo_nuevo',
+                    contexto=contexto,
+                    canal='correo'
+                )
+    # t-31/st-210: con 2FA confirmado se entrega un token temporal en lugar de los JWT
+    if tiene_2fa_activo(user):
+        registrar_evento("login_requiere_2fa", user, request)
+        return {
+            "requiere_2fa": True,
+            "token_temporal": emitir_token_temporal(user, recordarme),
+            "expira_en": VIGENCIA_SEGUNDOS,
         }
-        return data
+
+    # Registramos el acceso actual (ya sea que el dispositivo sea nuevo o no)
+
+    registrar_acceso(request, user, exitoso=True)  # t-22/st-167
+
+    # 4. Actualizamos el último acceso
+    user.last_login = timezone.now()
+    user.save(update_fields=['last_login'])
+
+    # 5. Generamos el token usando el get_token que modificamos arriba
+    refresh = CustomTokenObtainPairSerializer.get_token(user)
+
+    # t-06/st-85: la vida del refresh depende de "recordarme"; el access sigue en 15 min
+    refresh.set_exp(
+        lifetime=DURACION_REFRESH_CON_RECORDARME if recordarme else DURACION_REFRESH_SIN_RECORDARME
+    )
+    # El serializer de renovación de ST-90 debe leer este claim para conservar la
+    # duración al rotar; si no, el refresh rotado tomaría REFRESH_TOKEN_LIFETIME (7 días)
+    refresh['recordarme'] = recordarme
+    # for_user() ya registró el OutstandingToken con el exp de 7 días (token_blacklist, ST-89);
+    # se alinea con el exp nuevo para que la limpieza de vencidos (ST-91) sea correcta
+    OutstandingToken.objects.filter(jti=refresh[api_settings.JTI_CLAIM]).update(
+        expires_at=datetime_from_epoch(refresh['exp'])
+    )
+
+    data = {
+        'access': str(refresh.access_token),
+        'refresh': str(refresh),
+        'usuario': {
+            'id': str(user.id),
+            'nombre': user.first_name,
+            'email': user.email,
+            'rol': user.rol,
+        }
+    }
+    return data
 
 # t-07/st-90: Serializer propio para la renovación de tokens JWT
 class CustomTokenRefreshSerializer(TokenRefreshSerializer):
