@@ -250,8 +250,7 @@ class LogoutTodoView(APIView):
     JWTAuthentication no revisa token_version. Solo el refresh queda inválido.
     """
 
-    permission_classes = [IsAuthenticated]
-
+    
     @extend_schema(
         tags=["auth"],
         summary="Cerrar sesión en todos los dispositivos",
