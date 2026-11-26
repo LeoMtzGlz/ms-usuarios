@@ -28,6 +28,8 @@ No se modificó código de la aplicación: solo se agregan pruebas.
 | `test_sin_autenticacion_responde_401_y_no_cambia_token_version` | Sin token responde 401 `no_autenticado` (formato de `comun/errores.py`), no cambia `token_version` y no registra el evento |
 | `test_un_login_nuevo_despues_de_logout_todo_si_renueva` | Un login nuevo después de logout-todo funciona y su refresh sí renueva |
 | `test_logout_todo_dos_veces_no_falla_y_sube_token_version_en_dos` | Llamar logout-todo dos veces seguidas con el mismo access responde 200 las dos veces y `token_version` sube en 2 |
+| `test_logout_todo_solo_afecta_al_usuario_que_cierra_sesion` | Con sesión de dos usuarios distintos, logout-todo del primero no cambia el `token_version` del segundo y su refresh sigue renovando (200) |
+| `test_logout_todo_solo_acepta_post` | `GET` a logout-todo con un usuario autenticado responde 405 `metodo_no_permitido` y no cambia `token_version` |
 
 **Detalles:**
 
@@ -45,7 +47,7 @@ No se modificó código de la aplicación: solo se agregan pruebas.
 | Ningún dispositivo puede renovar después | `test_el_refresh_de_otro_dispositivo_deja_de_renovar`, `test_el_refresh_del_propio_dispositivo_tampoco_renueva` |
 | Se registra en la bitácora | `test_logout_todo_se_registra_en_la_bitacora` |
 
-Además protegen que el endpoint exige autenticación y que una sesión nueva, iniciada después, no queda afectada.
+Además protegen que el endpoint exige autenticación, que solo acepta `POST`, que no afecta las sesiones de otros usuarios y que una sesión nueva, iniciada después, no queda afectada.
 
 ### 5. Nota: el access ya emitido sigue sirviendo hasta 15 minutos
 
