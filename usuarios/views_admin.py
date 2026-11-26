@@ -23,6 +23,7 @@ from usuarios.serializers_admin import (
     AltaUsuarioSerializer,
     EdicionUsuarioSerializer,
     UsuarioListaSerializer,
+    CambioRolSerializer,
 )
 
 PLANTILLA_CUENTA_CREADA = "cuenta_creada"  # notificaciones/plantillas.py
@@ -209,3 +210,51 @@ class ReactivarUsuarioView(_CambioDeEstadoView):
         if usuario.estado == Estado.INACTIVO:  # si ya está activa no se repite el cambio
             usuario.cambiar_estado(Estado.ACTIVO, por=request.user)
         return self.respuesta(usuario)
+
+# t-14/st-131: cambio de rol de un usuario (HU-14)
+RespuestaRol = inline_serializer(
+    name="RolUsuarioRespuesta",
+    fields={"id": serializers.UUIDField(), "rol": serializers.CharField()},
+)
+
+
+class CambiarRolView(GenericAPIView):
+    """PATCH /api/v1/usuarios/{id}/rol/ · solo administradores (HU-14 / ST-131).
+
+    Asigna un rol válido al usuario objetivo. Un administrador no puede
+    cambiarse ni quitarse su propio rol.
+    """
+
+    permission_classes = permisos_por_defecto_mas(EsAdministrador)
+    queryset = Usuario.objects.all()
+    serializer_class = CambioRolSerializer
+
+    @extend_schema(
+        summary="Cambiar el rol de un usuario (solo admin)",
+        request=CambioRolSerializer,
+        responses={
+            200: RespuestaRol,
+            400: OpenApiResponse(description="Rol inválido o intento de cambiar el propio rol"),
+            401: OpenApiResponse(description="Sin token"),
+            403: OpenApiResponse(description="No es administrador"),
+            404: OpenApiResponse(description="Usuario no existe"),
+        },
+        tags=["usuarios"],
+    )
+    def patch(self, request, *args, **kwargs):
+        usuario = self.get_object()
+        if usuario.pk == request.user.pk:
+            raise serializers.ValidationError("No puedes cambiar tu propio rol.")
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        nuevo_rol = serializer.validated_data["rol"]
+        if usuario.rol != nuevo_rol:
+            usuario.rol = nuevo_rol
+            usuario.save(update_fields=["rol"])
+
+        return Response(
+            {"id": str(usuario.pk), "rol": usuario.rol},
+            status=status.HTTP_200_OK,
+        )
