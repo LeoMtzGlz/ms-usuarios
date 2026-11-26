@@ -1,7 +1,6 @@
 """HU-23 / ST-174: vista para eliminar la propia cuenta."""
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -18,8 +17,6 @@ class EliminarCuentaView(APIView):
     anonimiza la cuenta (queda inactiva) y cierra todas las sesiones. Es irreversible.
     El único administrador activo no puede eliminarse (403 unico_administrador).
     """
-
-    permission_classes = [IsAuthenticated]
 
     @extend_schema(request=EliminarCuentaSerializer, tags=["auth"])
     def post(self, request):
