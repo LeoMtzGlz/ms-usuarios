@@ -43,3 +43,15 @@ def llaves(monkeypatch):
     backend = TokenBackend("RS256", signing_key=privada_pem, verifying_key=publica_pem, issuer="svc-usuarios")
     monkeypatch.setattr(state, "token_backend", backend)
     return privada_pem, publica_pem
+
+
+# ST-185: Desactivar Axes por defecto para aislar las pruebas no relacionadas.
+@pytest.fixture(autouse=True)
+def axes_desactivado_por_defecto(settings):
+    settings.AXES_ENABLED = False
+
+
+# ST-185: Habilitar Axes explícitamente en las pruebas de bloqueo.
+@pytest.fixture
+def axes_habilitado(axes_desactivado_por_defecto, settings):
+    settings.AXES_ENABLED = True

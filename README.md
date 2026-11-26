@@ -115,23 +115,28 @@ en una rama o en el backlog. Una ruta pública puede usarse sin token y, por lo 
 | `GET` | `/api/schema/` | Disponible | Sí | Sí | Sí | Sí | Pública (`drf-spectacular`) |
 | `GET` | `/api/docs/` | Disponible | Sí | Sí | Sí | Sí | Pública (`drf-spectacular`) |
 | `GET`, `POST` | `/admin/` y sus rutas internas | Disponible | No | No¹ | No¹ | No¹ | Autenticación de Django |
-| `POST` | `/api/v1/auth/login/` | En rama ST-82 | Sí | Sí | Sí | Sí | `AllowAny` |
-| `GET` | `/api/v1/auth/privacidad/` | En PR #60 | Sí | Sí | Sí | Sí | `AllowAny` |
-| `POST` | `/api/v1/auth/privacidad/aceptar/` | En PR #60 | No | Sí | Sí | Sí | `IsAuthenticated` |
-| `POST` | `/api/v1/auth/activar/` | Planeado (ST-72) | Sí | Sí | Sí | Sí | `AllowAny` |
-| `POST` | `/api/v1/auth/reenviar-codigo/` | Planeado (ST-75) | Sí | Sí | Sí | Sí | `AllowAny` |
-| `POST` | `/api/v1/auth/token/renovar/` | Planeado (HU-06) | Sí² | Sí | Sí | Sí | Token de renovación válido |
+| `POST` | `/api/v1/auth/login/` | Disponible | Sí | Sí | Sí | Sí | `AllowAny` |
+| `GET` | `/api/v1/auth/privacidad/` | Disponible | Sí | Sí | Sí | Sí | `AllowAny` |
+| `POST` | `/api/v1/auth/privacidad/aceptar/` | Disponible | No | Sí | Sí | Sí | `IsAuthenticated` + `ContrasenaDefinitiva` |
+| `POST` | `/api/v1/auth/2fa/activar/` | Disponible | No | Sí | Sí | Sí | `IsAuthenticated` + `ContrasenaDefinitiva` |
+| `POST` | `/api/v1/auth/2fa/confirmar/` | Disponible | No | Sí | Sí | Sí | `IsAuthenticated` + `ContrasenaDefinitiva` |
+| `POST` | `/api/v1/auth/2fa/desactivar/` | Disponible | No | Sí | Sí | No | `IsAuthenticated` + `ContrasenaDefinitiva` |
+| `POST` | `/api/v1/auth/activar/` | Disponible | Sí | Sí | Sí | Sí | `AllowAny` |
+| `POST` | `/api/v1/auth/reenviar-codigo/` | Disponible | Sí | Sí | Sí | Sí | `AllowAny` |
+| `POST` | `/api/v1/auth/token/renovar/` | Disponible | Sí² | Sí | Sí | Sí | `AllowAny` + token de renovación válido |
 | `POST` | `/api/v1/auth/logout/` | Planeado (HU-08) | No | Sí | Sí | Sí | `IsAuthenticated` |
-| `POST` | `/api/v1/auth/logout-todo/` | Planeado (HU-09) | No | Sí | Sí | Sí | `IsAuthenticated` |
-| `POST` | `/api/v1/auth/recuperar/` | Planeado (HU-10) | Sí | Sí | Sí | Sí | `AllowAny` |
-| `POST` | `/api/v1/auth/restablecer/` | Planeado (HU-10) | Sí | Sí | Sí | Sí | `AllowAny` |
-| `POST` | `/api/v1/auth/cambiar-password/` | Planeado (ST-112) | No | Sí | Sí | Sí | Propietario autenticado |
+| `POST` | `/api/v1/auth/logout-todo/` | Disponible | No | Sí | Sí | Sí | `IsAuthenticated` |
+| `POST` | `/api/v1/auth/recuperar/` | Disponible | Sí | Sí | Sí | Sí | `AllowAny` |
+| `POST` | `/api/v1/auth/restablecer/` | Disponible | Sí | Sí | Sí | Sí | `AllowAny` |
+| `POST` | `/api/v1/auth/cambiar-password/` | Disponible | No | Sí | Sí | Sí | `IsAuthenticated` (exenta de `ContrasenaDefinitiva`) |
 | `GET` | `/api/v1/auth/llave-publica/` | Planeado (ST-135) | Sí | Sí | Sí | Sí | `AllowAny` |
-| `GET`, `PATCH` | `/api/v1/auth/perfil/` | Planeado (ST-163) | No | Sí | Sí | Sí | Propietario autenticado |
-| `GET` | `/api/v1/auth/accesos/` | Planeado (ST-168) | No | Sí | Sí | Sí | Propietario autenticado |
+| `GET`, `PATCH` | `/api/v1/auth/perfil/` | Disponible | No | Sí | Sí | Sí | Propietario autenticado |
+| `GET` | `/api/v1/auth/accesos/` | Disponible | No | Sí | Sí | Sí | Propietario autenticado |
 | `POST` | `/api/v1/auth/eliminar-cuenta/` | Planeado (ST-174) | No | Sí | Sí | Sí³ | Propietario autenticado |
-| `GET`, `POST` | `/api/v1/usuarios/` | Planeado (HU-15/HU-16) | No | No | No | Sí | `EsAdministrador` |
-| `PATCH` | `/api/v1/usuarios/{id}/` | Planeado (ST-149) | No | No | No | Sí | `EsAdministrador` |
+| `GET`, `POST` | `/api/v1/usuarios/` | Disponible | No | No | No | Sí | `EsAdministrador` |
+| `PATCH` | `/api/v1/usuarios/{id}/` | Disponible | No | No | No | Sí | `EsAdministrador` |
+| `POST` | `/api/v1/usuarios/{id}/desactivar/` | Disponible | No | No | No | Sí | `EsAdministrador` |
+| `POST` | `/api/v1/usuarios/{id}/reactivar/` | Disponible | No | No | No | Sí | `EsAdministrador` |
 | `PATCH` | `/api/v1/usuarios/{id}/rol/` | Planeado (ST-131) | No | No | No | Sí | `EsAdministrador` |
 | `GET` | `/api/v1/auditoria/` | Disponible | No | No | No | Sí | `EsAdministrador` |
 
@@ -144,6 +149,9 @@ en una rama o en el backlog. Una ruta pública puede usarse sin token y, por lo 
 
 Para los endpoints de DRF, cualquier vista que no declare permisos hereda `IsAuthenticated`. ST-128 aplicará las
 clases de `comun/permisos.py` cuando una ruta necesite restringirse a un rol concreto o al dueño del recurso.
+La prueba `test_todo_metodo_api_esta_en_la_matriz_de_autorizacion` de
+[`usuarios/tests/test_autorizacion_endpoints.py`](usuarios/tests/test_autorizacion_endpoints.py) falla si se agrega
+una combinación de ruta y método HTTP bajo `/api/` sin clasificarla en la matriz ejecutable de ST-129.
 Las rutas de historias que todavía no fijan una URL se registran en
 [`docs/HU-13/ST-127-matriz-endpoint-rol.md`](docs/HU-13/ST-127-matriz-endpoint-rol.md) y se agregarán a esta tabla
 cuando el equipo confirme su contrato.
@@ -258,21 +266,25 @@ Los mensajes de error están en español y siguen el formato de `comun/errores.p
 docker compose run --rm api pytest              # ejecuta todas las pruebas contra PostgreSQL
 docker compose run --rm api pytest usuarios -v  # solo una app, con detalle
 docker compose run --rm api ruff check .        # estilo
+docker compose run --rm api python manage.py makemigrations --check --dry-run  # que no falten migraciones
 ```
 
-Sin Docker, con un PostgreSQL local y las variables de `.env` exportadas:
+Sin Docker, con **Python 3.12**, un PostgreSQL local y las variables de `.env` exportadas:
 
 ```bash
-pip install -r requirements-dev.txt
+pip install -r requirements.txt
 pytest
 ```
 
-**GitHub Actions** corre en cada push y cada Pull Request: estilo con ruff, revisión de que no falten migraciones (`makemigrations --check`) y pruebas contra PostgreSQL 16. Un Pull Request con el CI en rojo no se fusiona.
+El paso a paso sin Docker está en [`docs/T-06/ST-31-documentar-pruebas.md`](docs/T-06/ST-31-documentar-pruebas.md).
+
+**GitHub Actions** corre en cada push y en cada Pull Request hacia `development` y `main`: estilo con ruff, revisión de que no falten migraciones (`makemigrations --check --dry-run`) y pruebas contra PostgreSQL 16. El check obligatorio se llama **`pruebas`**; además del CI en verde, un Pull Request necesita **1 aprobación** para fusionarse. Detalle en [`docs/T-06/ST-29-workflow-github-actions.md`](docs/T-06/ST-29-workflow-github-actions.md) y [`docs/T-06/ST-30-proteger-rama-principal.md`](docs/T-06/ST-30-proteger-rama-principal.md).
 
 Cómo están organizadas las pruebas:
 
 - Cada app tiene su carpeta `tests/`, con un archivo por tema: `test_modelo.py`, `test_errores.py`...
 - `usuarios/tests/factories.py` fabrica usuarios válidos: `UsuarioFactory(rol=Rol.ADMINISTRADOR)`. Su contraseña es `PASSWORD_PRUEBA` (`Secreta123`).
+- `conftest.py`, en la raíz, tiene fixtures que cualquier prueba puede pedir como parámetro: `api_client` (cliente de DRF), `usuario` (usuario activo con `PASSWORD_PRUEBA`) y `llaves` (par de llaves RS256 temporal para firmar tokens sin `llaves/*.pem`).
 - pytest-django corre las pruebas con `DEBUG=False`, como en producción.
 
 ---
@@ -286,8 +298,8 @@ Cómo están organizadas las pruebas:
 | Abrir un shell de Django | `docker compose exec api python manage.py shell` |
 | Crear una migración | `docker compose run --rm api python manage.py makemigrations usuarios` |
 | Aplicar migraciones | `docker compose exec api python manage.py migrate` |
-| Entrar a PostgreSQL | `docker compose exec db psql -U svc -d svc_usuarios` |
-| Ver la tabla de usuarios | `docker compose exec db psql -U svc -d svc_usuarios -c "\d usuarios_usuario"` |
+| Entrar a PostgreSQL | `docker compose exec db psql -U ms_user -d ms_usuarios` |
+| Ver la tabla de usuarios | `docker compose exec db psql -U ms_user -d ms_usuarios -c "\d usuarios_usuario"` |
 | Reconstruir tras cambiar dependencias | `docker compose build` |
 | Borrar la base y empezar de cero | `docker compose down -v` |
 
@@ -298,15 +310,16 @@ Cómo están organizadas las pruebas:
 Somos varias personas en un solo repositorio. Estas reglas evitan casi todos los conflictos.
 
 1. **Nadie crea carpetas personales.** El código se acomoda por funcionalidad, no por persona. Quién hizo qué ya lo registran Jira y GitHub.
-2. **`main` está protegida.** Todo entra por Pull Request, con el CI en verde y al menos una aprobación.
-3. **Una rama por subtarea, con su clave de Jira:** `git switch -c SVC-23-registro`. Que dure uno o dos días.
-4. **Sincroniza cada mañana:** `git pull origin main` dentro de tu rama.
-5. **Commits pequeños, con la clave al inicio:** `SVC-23: Validar el correo del registro`.
+2. **`development` y `main` están protegidas** (ruleset `proteccion-ramas`). Todo entra por Pull Request hacia `development`, con el check `pruebas` en verde y 1 aprobación. `development` pasa a `main` con un Pull Request al cierre de cada sprint.
+3. **Una rama por subtarea, con el formato `t-XX/st-YY`:** `XX` es el número de la tarea o historia (T-04 → `t-04`, HU-28 → `t-28`) y `YY` el ID de la subtarea. Ejemplo: `git switch -c t-07/st-89`. Que dure uno o dos días.
+4. **Sincroniza cada mañana:** `git pull origin development` dentro de tu rama.
+5. **Commits pequeños, con la clave al inicio en el mismo formato:** `t-07/st-89: Activar la lista negra de SimpleJWT`.
 6. **Cada escuadra trabaja en sus archivos**, y cada quien escribe sus pruebas en su propio archivo (`usuarios/tests/test_registro.py`).
-7. **`config/`, `usuarios/models.py` y las migraciones** los fusiona el profesor; si necesitas cambiarlos, pide el cambio en tu Pull Request.
-8. **Las migraciones no se editan a mano.** Si chocan con las de otra rama, borra la tuya, trae `main` y vuelve a correr `makemigrations`.
+7. **Si tu PR toca `config/`, `usuarios/models.py` o migraciones**, pide también la revisión del profesor.
+8. **Las migraciones no se editan a mano.** Si chocan con las de otra rama, borra la tuya, trae `development` y vuelve a correr `makemigrations`.
+9. **Revisa quien continúa tu trabajo** (backlog v3): la siguiente subtarea de la misma historia; si no hay, la primera de la historia que tu subtarea bloquea; si no, la siguiente historia de la épica; al final de la épica, quien te entregó. Nadie revisa su propio trabajo. El revisor se pide en *Reviewers* al abrir el Pull Request. **El revisor aprueba o pide cambios; el autor fusiona su propio PR** con **Create a merge commit**. Si ya aprobaste, avísale al autor, no lo fusiones tú.
 
-**Una subtarea está terminada (Definition of Done)** cuando su Pull Request está fusionado en `main`, el CI está en verde, tiene pruebas y la subtarea está en *Finalizada* en Jira con el enlace al PR.
+**Una subtarea está terminada (Definition of Done)** cuando su Pull Request está fusionado en `development`, el CI está en verde, lo aprobó su revisor, tiene pruebas y documentación en `docs/`, y la subtarea está en *Finalizada* en Jira con el enlace al PR.
 
 ## Convenciones de código
 

@@ -1,4 +1,3 @@
-
 from django.db import transaction
 from django.db.models import F
 from django.conf import settings
@@ -114,6 +113,7 @@ class ActivarCuentaView(APIView):
 class CustomTokenObtainPairView(TokenObtainPairView):
     """HU-05 / ST-82: POST /api/v1/auth/login/"""
 
+    permission_classes = [AllowAny]
     # t-24/st-179: Limitar el login a 10 solicitudes por minuto por IP
     throttle_scope = "login"
 
@@ -123,6 +123,8 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 class CustomTokenRefreshView(TokenRefreshView):
     """HU-07 / ST-90: Renovar access y refresh tokens."""
 
+    permission_classes = [AllowAny]
+    authentication_classes = []
     serializer_class = CustomTokenRefreshSerializer
 
 # ==========================================
@@ -149,8 +151,6 @@ class PrivacidadInfoView(APIView):
         })
 
 class AceptarPrivacidadView(APIView):
-    permission_classes = [IsAuthenticated]
-
     @extend_schema(
         tags=["Privacidad"],
         summary="Aceptar el aviso de privacidad",
@@ -184,17 +184,21 @@ class AceptarPrivacidadView(APIView):
             "version": user.version_privacidad,
         })
 
+
 # ==========================================
 # HU-11 / ST-112: Cambiar mi contraseña
 # ==========================================
 
 class CambiarPasswordView(APIView):
     """POST /api/v1/auth/cambiar-password/
+
     Usuario autenticado envía contraseña actual + nueva + confirmación.
     Valida con los validadores de Django, aplica Usuario.cambiar_password()
     (marca definitiva, incrementa token_version y registra el evento).
+
     Solo exige IsAuthenticated: debe funcionar también con contraseña temporal
     (ContrasenaDefinitiva no aplica aquí; ver ST-116).
+
     La emisión de tokens nuevos corresponde a ST-113.
     """
 
@@ -246,8 +250,7 @@ class LogoutTodoView(APIView):
     JWTAuthentication no revisa token_version. Solo el refresh queda inválido.
     """
 
-    permission_classes = [IsAuthenticated]
-
+    
     @extend_schema(
         tags=["auth"],
         summary="Cerrar sesión en todos los dispositivos",
@@ -266,4 +269,3 @@ class LogoutTodoView(APIView):
             {"mensaje": "Sesión cerrada en todos los dispositivos."},
             status=status.HTTP_200_OK,
         )
-
