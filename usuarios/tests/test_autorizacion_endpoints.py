@@ -35,6 +35,8 @@ RUTAS_PROTEGIDAS = (
     ("post", "/api/v1/auth/2fa/desactivar/"),
     ("post", "/api/v1/auth/privacidad/aceptar/"),
     ("post", "/api/v1/auth/cambiar-password/"),
+    ("get", "/api/v1/auth/perfil/"),
+    ("patch", "/api/v1/auth/perfil/"),
     ("get", "/api/v1/auth/accesos/"),
     ("get", "/api/v1/auditoria/"),
     ("get", "/api/v1/usuarios/"),
