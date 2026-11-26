@@ -43,36 +43,38 @@ def test_el_correo_queda_libre_para_registrarse_de_nuevo(api_client):
     assert not Usuario.objects.filter(email="ana@ejemplo.com").exists()
     UsuarioFactory(email="ana@ejemplo.com")
 
-
-def test_envia_el_correo_de_confirmacion_al_correo_original(api_client):
+def test_envia_el_correo_de_confirmacion_al_correo_original(api_client, django_capture_on_commit_callbacks):
     usuario = UsuarioFactory(email="ana@ejemplo.com")
-    eliminar(api_client, usuario)
+    with django_capture_on_commit_callbacks(execute=True):
+        eliminar(api_client, usuario)
 
     assert len(mail.outbox) == 1
     assert mail.outbox[0].to == ["ana@ejemplo.com"]
     assert "eliminada" in mail.outbox[0].subject.lower()
 
-
-def test_el_correo_sale_antes_de_anonimizar(api_client):
+def test_el_correo_sale_solo_si_la_eliminacion_se_completa(api_client, django_capture_on_commit_callbacks):
     usuario = UsuarioFactory(email="ana@ejemplo.com")
-    orden = []
-    with mock.patch("usuarios.eliminacion.CanalCorreo.enviar", side_effect=lambda *a, **k: orden.append("correo")), \
-         mock.patch("usuarios.eliminacion.anonimizar_usuario", side_effect=lambda *a, **k: orden.append("anonimizar")):
-        eliminar(api_client, usuario)
+    with mock.patch("usuarios.eliminacion.CanalCorreo.enviar") as enviar, \
+         mock.patch("usuarios.eliminacion.anonimizar_usuario", side_effect=RuntimeError("falla")), \
+         django_capture_on_commit_callbacks(execute=True):
+        api_client.raise_request_exception = False
+        respuesta = eliminar(api_client, usuario)
 
-    assert orden == ["correo", "anonimizar"]
+    assert respuesta.status_code == 500
+    enviar.assert_not_called()
+    usuario.refresh_from_db()
+    assert usuario.email == "ana@ejemplo.com"
 
-
-def test_si_falla_el_correo_la_cuenta_se_elimina_igual(api_client):
+def test_si_falla_el_correo_la_cuenta_se_elimina_igual(api_client, django_capture_on_commit_callbacks):
     usuario = UsuarioFactory()
-    with mock.patch("usuarios.eliminacion.CanalCorreo.enviar", side_effect=RuntimeError("smtp caído")):
+    with mock.patch("usuarios.eliminacion.CanalCorreo.enviar", side_effect=RuntimeError("smtp caído")), \
+         django_capture_on_commit_callbacks(execute=True):
         respuesta = eliminar(api_client, usuario)
 
     assert respuesta.status_code == 200
     usuario.refresh_from_db()
     assert esta_anonimizado(usuario)
-
-
+    
 def test_cierra_todas_las_sesiones(api_client, llaves):
     UsuarioFactory(email="ana@ejemplo.com")
     login = api_client.post("/api/v1/auth/login/", {"email": "ana@ejemplo.com", "password": PASSWORD_PRUEBA})

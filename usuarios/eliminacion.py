@@ -28,11 +28,11 @@ def verificar_no_es_unico_administrador(usuario):
 
 
 def enviar_confirmacion(correo_original, nombre):
-    """Avisa por correo al correo ORIGINAL, antes de anonimizar.
+    """Avisa por correo al correo ORIGINAL, ya confirmada la eliminación.
 
     Se envía directo (sin bandeja) porque el worker lee `usuario.email` al enviar y, tras
     anonimizar, esa dirección ya no existe (ST-172 §4.1, opción B). Si el envío falla se
-    registra en el log y la eliminación sigue (HU-27: un aviso no debe bloquear la acción).
+    registra en el log y no afecta a la eliminación (HU-27: un aviso no debe bloquear la acción).
     """
     try:
         asunto, texto, html = renderizar_plantilla_correo("cuenta_eliminada", {"nombre": nombre})
@@ -42,10 +42,13 @@ def enviar_confirmacion(correo_original, nombre):
 
 
 def eliminar_cuenta(usuario, request=None):
-    """Orden de ST-172 §3: regla del administrador, correo de confirmación y anonimización."""
+    """Regla del administrador y anonimización en una transacción; el correo sale al confirmarse."""
+    # El correo y el nombre se guardan antes de anonimizar: después ya no existen en la cuenta.
+    correo_original = usuario.email
+    nombre = usuario.first_name
     with transaction.atomic():
         verificar_no_es_unico_administrador(usuario)
-        correo_original = usuario.email
-        nombre = usuario.first_name
-        enviar_confirmacion(correo_original, nombre)
         anonimizar_usuario(usuario, request=request)
+        # Solo se ejecuta si la transacción se confirma: nunca avisa en falso y no retiene
+        # la transacción (ni el bloqueo de administradores) mientras espera al servidor de correo.
+        transaction.on_commit(lambda: enviar_confirmacion(correo_original, nombre))
