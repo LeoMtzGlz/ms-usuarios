@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.utils import timezone
 from .models import Notificacion, CanalNotificacion
 from .canales import Canal, CanalConsola, CanalCorreo
 from .plantillas import ALIAS_PLANTILLAS, PLANTILLAS_CORREO, renderizar_plantilla_correo
@@ -57,3 +58,13 @@ def notificar(usuario, plantilla: str, contexto: dict, canal: str = None) -> Not
         estado=Notificacion.ESTADO_PENDIENTE,
     )
     return notificacion
+
+
+# t-11/st-56: Contar las notificaciones enviadas hoy por canal
+def contar_envios_hoy(canal: str) -> int:
+    """Devuelve la cantidad de notificaciones enviadas hoy por el canal indicado."""
+    return Notificacion.objects.filter(
+        canal=canal,
+        estado=Notificacion.ESTADO_ENVIADA,
+        actualizado_en__date=timezone.localdate(),
+    ).count()
