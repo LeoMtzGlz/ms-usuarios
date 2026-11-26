@@ -38,5 +38,32 @@ services:
     restart: unless-stopped
     stop_grace_period: 60s
 
+  # ST-91: Limpieza periódica de tokens JWT vencidos
+  token_cleanup:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL_DOCKER:?DATABASE_URL_DOCKER no configurada}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          echo "[ST-91] Iniciando limpieza de tokens vencidos"
+
+          if python manage.py flushexpiredtokens; then
+            echo "[ST-91] Limpieza completada correctamente"
+          else
+            echo "[ST-91] ERROR: No se pudo completar la limpieza" >&2
+          fi
+
+          sleep 86400
+        done
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   datos_pg:
