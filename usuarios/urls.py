@@ -8,6 +8,7 @@ from usuarios.views import (
     CustomTokenObtainPairView,
     CustomTokenRefreshView,  # t-07/st-90
     PrivacidadInfoView,
+    LogoutTodoView,  # HU-09 / ST-98
     RegistroView,
 )
 from usuarios.reenvio import ReenviarCodigoView  # t-04/st-75
@@ -39,6 +40,8 @@ urlpatterns = [
     path("perfil/", PerfilView.as_view(), name="perfil"),
     # t-22/st-168
     path("accesos/", HistorialAccesosView.as_view(), name="historial-accesos"),
+    # HU-09 / ST-98
+    path("logout-todo/", LogoutTodoView.as_view(), name="logout-todo"),
     # t-04/st-75
     path("reenviar-codigo/", ReenviarCodigoView.as_view(), name="reenviar-codigo"),
     # t-10/st-107
