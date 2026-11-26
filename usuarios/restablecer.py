@@ -10,6 +10,9 @@ from usuarios.models import Usuario, Proposito
 from usuarios.codigos import verificar_codigo
 from usuarios.telefono import normalizar_telefono
 
+from django.utils import timezone
+from notificaciones.services import notificar
+
 
 class RestablecerSerializer(serializers.Serializer):
     identificador = serializers.CharField(max_length=254, trim_whitespace=True)
@@ -75,7 +78,16 @@ class RestablecerPasswordView(APIView):
         # Cambiar contraseña (esto ya incrementa token_version internamente en el modelo)
         usuario.cambiar_password(nueva_password, request=request)
 
-        # TODO: ST-109 - Encolar aviso de contraseña cambiada aquí.
+        # ST-109: Encolar aviso de contraseña cambiada
+        notificar(
+            usuario=usuario,
+            plantilla="password_cambiada",
+            contexto={
+                "nombre": usuario.first_name or "Usuario",
+                "fecha": timezone.now().strftime("%Y-%m-%d %H:%M"),
+            },
+            canal="correo"
+        )
 
         return Response(
             {"mensaje": "Contraseña actualizada correctamente."},
