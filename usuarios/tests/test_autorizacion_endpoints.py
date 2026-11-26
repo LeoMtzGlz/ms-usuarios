@@ -1,4 +1,4 @@
-﻿"""HU-13 / ST-129: matriz ejecutable de autorizaciÃ³n de los endpoints disponibles."""
+"""HU-13 / ST-129: matriz ejecutable de autorización de los endpoints disponibles."""
 
 import re
 
@@ -49,7 +49,7 @@ RUTAS_PROTEGIDAS = (
 
 
 def _rutas(patterns=None, prefijo=""):
-    """Recorre el Ã¡rbol real de URLconf y devuelve ruta y callback de cada vista."""
+    """Recorre el árbol real de URLconf y devuelve ruta y callback de cada vista."""
     patterns = get_resolver().url_patterns if patterns is None else patterns
     for pattern in patterns:
         ruta = f"{prefijo}{pattern.pattern}"
@@ -69,7 +69,7 @@ def _permisos_declarados(callback):
 
 
 def _metodos_declarados(callback):
-    """Obtiene los mÃ©todos que la vista implementa, sin contar OPTIONS ni HEAD implÃ­cito."""
+    """Obtiene los métodos que la vista implementa, sin contar OPTIONS ni HEAD implícito."""
     acciones = getattr(callback, "actions", None)
     if acciones:
         return {metodo.lower() for metodo in acciones}
@@ -84,7 +84,7 @@ def _metodos_declarados(callback):
 
 
 def _normalizar_ruta(ruta):
-    """Quita el nombre interno de los parÃ¡metros para compararlos con la matriz."""
+    """Quita el nombre interno de los parámetros para compararlos con la matriz."""
     return re.sub(r"<uuid:[^>]+>", "<uuid>", ruta)
 
 
@@ -105,7 +105,7 @@ def _autenticar(api_client, usuario, **claims):
 
 
 def test_toda_vista_publica_declara_allow_any_explicito():
-    """Evita que una ruta pÃºblica dependa del permiso predeterminado de DRF."""
+    """Evita que una ruta pública dependa del permiso predeterminado de DRF."""
     rutas_publicas = {ruta for _metodo, ruta in RUTAS_PUBLICAS}
     callbacks = {ruta: callback for ruta, callback in _rutas() if ruta in rutas_publicas}
 
@@ -115,11 +115,11 @@ def test_toda_vista_publica_declara_allow_any_explicito():
         for ruta, callback in callbacks.items()
         if AllowAny not in (_permisos_declarados(callback) or ())
     ]
-    assert faltantes == [], f"Rutas pÃºblicas sin AllowAny explÃ­cito: {faltantes}"
+    assert faltantes == [], f"Rutas públicas sin AllowAny explícito: {faltantes}"
 
 
 def test_todo_metodo_api_esta_en_la_matriz_de_autorizacion():
-    """Falla cuando se agrega una ruta o mÃ©todo HTTP y se olvida clasificarlo."""
+    """Falla cuando se agrega una ruta o método HTTP y se olvida clasificarlo."""
     rutas_reales = {
         (metodo, _normalizar_ruta(ruta))
         for ruta, callback in _rutas()
@@ -129,8 +129,8 @@ def test_todo_metodo_api_esta_en_la_matriz_de_autorizacion():
     rutas_declaradas = RUTAS_PUBLICAS | set(RUTAS_PROTEGIDAS)
 
     assert rutas_reales == rutas_declaradas, (
-        f"MÃ©todos sin clasificar: {sorted(rutas_reales - rutas_declaradas)}; "
-        f"mÃ©todos inexistentes en la matriz: {sorted(rutas_declaradas - rutas_reales)}"
+        f"Métodos sin clasificar: {sorted(rutas_reales - rutas_declaradas)}; "
+        f"métodos inexistentes en la matriz: {sorted(rutas_declaradas - rutas_reales)}"
     )
 
 

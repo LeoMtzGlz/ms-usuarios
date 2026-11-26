@@ -1,4 +1,4 @@
-﻿"""Rutas de autenticación: se montan en /api/v1/auth/ (config/urls.py)."""
+"""Rutas de autenticación: se montan en /api/v1/auth/ (config/urls.py)."""
 from django.urls import path
 
 from usuarios.views import (
@@ -18,6 +18,7 @@ from usuarios.views_2fa_desactivar import Desactivar2FAView  # t-32/st-215
 from usuarios.views_accesos import HistorialAccesosView  # t-22/st-168
 from usuarios.views_perfil import PerfilView  # t-21/st-163
 from usuarios.views_recuperacion import SolicitarRecuperacionView  # t-10/st-107
+
 app_name = "auth"
 
 urlpatterns = [
