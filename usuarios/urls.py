@@ -16,7 +16,8 @@ from usuarios.views_2fa_desactivar import Desactivar2FAView  # t-32/st-215
 from usuarios.views_accesos import HistorialAccesosView  # t-22/st-168
 from usuarios.reenvio import ReenviarCodigoView  # t-04/st-75
 
-from usuarios.views_recuperacion import SolicitarRecuperacionView  # t-10/st-107
+from usuarios.views_recuperacion import SolicitarRecuperacionView # t-10/st-107
+from usuarios.restablecer import RestablecerPasswordView # t-10/st-108
 
 app_name = "auth"
 
@@ -43,4 +44,6 @@ urlpatterns = [
     path("reenviar-codigo/", ReenviarCodigoView.as_view(), name="reenviar-codigo"),
     # t-10/st-107
     path("recuperar/", SolicitarRecuperacionView.as_view(), name="recuperar"),
+    # t-10/st-108
+    path("restablecer/", RestablecerPasswordView.as_view(), name="restablecer-password"),
 ]
