@@ -252,7 +252,8 @@ class CambiarRolView(GenericAPIView):
         nuevo_rol = serializer.validated_data["rol"]
         if usuario.rol != nuevo_rol:
             usuario.rol = nuevo_rol
-            usuario.save(update_fields=["rol"])
+            usuario.token_version += 1
+            usuario.save(update_fields=["rol", "token_version"])
 
         return Response(
             {"id": str(usuario.pk), "rol": usuario.rol},
