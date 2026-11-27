@@ -20,9 +20,9 @@ from usuarios.serializers import (
     RegistroSerializer,
 )
 from usuarios.tokens import (
-    CustomTokenObtainPairSerializer, 
+    CustomTokenObtainPairSerializer,
     CustomTokenRefreshSerializer,
-    LogoutSerializer
+    LogoutSerializer,
 )
 
 class RegistroRespuestaSerializer(RegistroSerializer):
@@ -132,27 +132,27 @@ class CustomTokenRefreshView(TokenRefreshView):
 
 # t-08/st-94: Cierre de sesión mediante revocación del refresh token.
 class LogoutView(APIView):
-    """HU-08 / ST-94: POST /api/v1/auth/logout"""
+    """HU-08 / ST-94: POST /api/v1/auth/logout/
 
-    permission_classes = [AllowAny]
-    authentication_classes = []
+    Requiere un access válido y revoca el refresh del mismo usuario.
+    Solo exige IsAuthenticated: debe funcionar también con contraseña temporal.
+    """
 
-    def get_authenticate_header(self, request):
-        """Conservar HTTP 401 para errores de autenticación del refresh."""
-        return 'Bearer realm="api"'
+    permission_classes = [IsAuthenticated]
 
     @extend_schema(
         request=LogoutSerializer,
         responses={
-            200: OpenApiResponse(description="Sesión cerrada correctamente"),
+            200: OpenApiResponse(description="Sesión cerrada (también si ya estaba cerrada)"),
             400: OpenApiResponse(description="Falta el refresh token"),
-            401: OpenApiResponse(description="Refresh token inválido o revocado"),
+            401: OpenApiResponse(description="Sin access válido, o refresh inválido o vencido"),
+            403: OpenApiResponse(description="El refresh pertenece a otro usuario"),
         },
         tags=["auth"],
         summary="Cerrar sesión e invalidar el refresh token",
     )
     def post(self, request):
-        serializer = LogoutSerializer(data=request.data)
+        serializer = LogoutSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
