@@ -65,6 +65,9 @@ def tomar_pendientes(tamano: int = TAMANO_LOTE) -> list[Notificacion]:
 
 
 def destino_de(notificacion: Notificacion) -> str:
+    destino_verificacion = (notificacion.contexto or {}).get("destino_verificacion")
+    if destino_verificacion:
+        return str(destino_verificacion)
     usuario = notificacion.destinatario
     if notificacion.canal == CanalNotificacion.WHATSAPP:
         return usuario.telefono or ""
@@ -149,7 +152,11 @@ def manejar_fallo(notificacion: Notificacion, exc: Exception) -> None:
     contexto = notificacion.contexto
     try:
         with transaction.atomic():  # savepoint: copia y marca fallida son todo o nada
-            if notificacion.canal == CanalNotificacion.WHATSAPP and not codigo_vencido(notificacion):
+            if (
+                notificacion.canal == CanalNotificacion.WHATSAPP
+                and not codigo_vencido(notificacion)
+                and not (notificacion.contexto or {}).get("destino_verificacion")
+            ):
                 crear_respaldo_por_correo(notificacion)
             marcar_fallida(notificacion, error)
     except Exception as exc_respaldo:

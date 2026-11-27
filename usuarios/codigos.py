@@ -71,11 +71,61 @@ def generar_codigo(usuario, proposito, canal=None) -> CodigoVerificacion:
         )
     return registro
 
+
+def _material_codigo(codigo: str, vinculacion: str | None = None) -> str:
+    """Liga opcionalmente un código a un dato concreto sin guardarlo en claro."""
+    if vinculacion is None:
+        return codigo
+    return f"{codigo}\x1f{vinculacion}"
+
+
+def generar_codigo_contacto(usuario, tipo: str, destino: str) -> CodigoVerificacion:
+    """Crea un código de cambio de contacto y lo envía al dato nuevo.
+
+    El hash incluye el tipo y el destino normalizado. Por eso un código enviado,
+    por ejemplo, a un correo no puede reutilizarse para confirmar otro correo ni
+    un teléfono. El destino solo permanece en el contexto de la notificación
+    pendiente; el worker lo elimina después de procesarla.
+    """
+    canales = {"correo": Canal.CORREO, "telefono": Canal.WHATSAPP}
+    if tipo not in canales:
+        raise ValueError(f"Tipo de contacto desconocido: {tipo}")
+
+    canal = canales[tipo]
+    vinculacion = f"{tipo}:{destino}"
+    with transaction.atomic():
+        codigo = sortear_codigo()
+        CodigoVerificacion.objects.filter(
+            usuario=usuario,
+            proposito=Proposito.CAMBIO_CONTACTO,
+            usado=False,
+        ).update(usado=True)
+        registro = CodigoVerificacion.objects.create(
+            usuario=usuario,
+            proposito=Proposito.CAMBIO_CONTACTO,
+            canal=canal,
+            codigo_hash=make_password(_material_codigo(codigo, vinculacion)),
+            expira_en=timezone.now() + timedelta(minutes=settings.CODIGO_MINUTOS),
+        )
+        notificar(
+            usuario,
+            plantilla=PLANTILLAS[Proposito.CAMBIO_CONTACTO],
+            contexto={
+                "codigo": codigo,
+                "nombre": usuario.first_name,
+                "minutos": settings.CODIGO_MINUTOS,
+                "tipo": tipo,
+                "destino_verificacion": destino,
+            },
+            canal=canal,
+        )
+    return registro
+
 # ST-72: verificación del código
 
 MAX_INTENTOS = 5
 
-def verificar_codigo(usuario, proposito, codigo_en_claro):
+def verificar_codigo(usuario, proposito, codigo_en_claro, vinculacion=None):
     """Valida un código de 6 dígitos.
 
     Devuelve el registro si es válido y lo marca como usado.
@@ -106,7 +156,8 @@ def verificar_codigo(usuario, proposito, codigo_en_claro):
         raise ValueError("codigo_bloqueado")
 
     # 3. ¿El código coincide con el hash?
-    if not check_password(codigo_en_claro, registro.codigo_hash):
+    material = _material_codigo(codigo_en_claro, vinculacion)
+    if not check_password(material, registro.codigo_hash):
         registro.intentos += 1
         if registro.intentos >= MAX_INTENTOS:
             registro.usado = True

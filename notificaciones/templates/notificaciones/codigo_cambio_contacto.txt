@@ -1,0 +1,6 @@
+Hola {{ nombre|default:"" }}.
+
+Tu código para confirmar el cambio de {{ tipo }} es {{ codigo }}.
+Vence en {{ minutos }} minutos.
+
+Si no solicitaste este cambio, ignora el mensaje y conserva tus datos actuales.
