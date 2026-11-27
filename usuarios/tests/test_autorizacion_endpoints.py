@@ -39,6 +39,7 @@ RUTAS_PROTEGIDAS = (
     ("get", "/api/v1/auth/perfil/"),
     ("patch", "/api/v1/auth/perfil/"),
     ("get", "/api/v1/auth/accesos/"),
+    ("post", "/api/v1/auth/eliminar-cuenta/"),  # t-23/st-174)
     ("get", "/api/v1/auditoria/"),
     ("get", "/api/v1/usuarios/"),
     ("post", "/api/v1/usuarios/"),
