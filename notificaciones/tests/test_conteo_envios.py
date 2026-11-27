@@ -1,7 +1,6 @@
-
 """Pruebas de T-11/ST-56: conteo diario de notificaciones enviadas."""
 
-from datetime import timedelta, datetime, time
+from datetime import datetime, time, timedelta
 
 import pytest
 from django.utils import timezone
@@ -125,3 +124,24 @@ def test_contar_envios_hoy_respeta_zona_horaria():
         )
 
         assert contar_envios_hoy(CanalNotificacion.CORREO) == 1
+
+
+def test_contar_envios_hoy_excluye_desde_medianoche_siguiente():
+    """El límite superior del rango es exclusivo: la medianoche de mañana ya no es hoy."""
+    usuario = UsuarioFactory()
+    zona = timezone.get_current_timezone()
+    hoy = timezone.localdate()
+
+    ultimo_instante_de_hoy = timezone.make_aware(datetime.combine(hoy, time.max), zona)
+    medianoche_de_manana = timezone.make_aware(
+        datetime.combine(hoy + timedelta(days=1), time.min), zona
+    )
+
+    crear_notificacion(
+        usuario, CanalNotificacion.CORREO, Notificacion.ESTADO_ENVIADA, ultimo_instante_de_hoy
+    )
+    crear_notificacion(
+        usuario, CanalNotificacion.CORREO, Notificacion.ESTADO_ENVIADA, medianoche_de_manana
+    )
+
+    assert contar_envios_hoy(CanalNotificacion.CORREO) == 1

@@ -1,3 +1,5 @@
+from datetime import datetime, time, timedelta
+
 from django.conf import settings
 from django.utils import timezone
 from .models import Notificacion, CanalNotificacion
@@ -62,9 +64,15 @@ def notificar(usuario, plantilla: str, contexto: dict, canal: str = None) -> Not
 
 # t-11/st-56: Contar las notificaciones enviadas hoy por canal
 def contar_envios_hoy(canal: str) -> int:
-    """Devuelve la cantidad de notificaciones enviadas hoy por el canal indicado."""
+    """Devuelve la cantidad de notificaciones enviadas hoy por el canal indicado.
+
+    "Hoy" es el día local (TIME_ZONE). Se filtra por rango [inicio del día, inicio del día siguiente)
+    en lugar de ``__date`` para que PostgreSQL no convierta la fecha de cada fila.
+    """
+    inicio = timezone.make_aware(datetime.combine(timezone.localdate(), time.min))
     return Notificacion.objects.filter(
         canal=canal,
         estado=Notificacion.ESTADO_ENVIADA,
-        actualizado_en__date=timezone.localdate(),
+        actualizado_en__gte=inicio,
+        actualizado_en__lt=inicio + timedelta(days=1),
     ).count()
