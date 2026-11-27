@@ -16,14 +16,13 @@ from notificaciones.services import notificar
 from usuarios.bloqueos import con_bloqueada
 from usuarios.contrasenas import generar_contrasena_temporal
 from usuarios.filtros import UsuarioFilter
-from usuarios.models import Usuario
-from usuarios.models import Estado  # t-18/st-153 
+from usuarios.models import Estado, Usuario  # t-18/st-153
 from usuarios.serializers_admin import (
     CAMPOS_EDITABLES,
     AltaUsuarioSerializer,
+    CambioRolSerializer,  # t-14/st-131
     EdicionUsuarioSerializer,
     UsuarioListaSerializer,
-    CambioRolSerializer,
 )
 
 PLANTILLA_CUENTA_CREADA = "cuenta_creada"  # notificaciones/plantillas.py
@@ -148,7 +147,7 @@ class UsuarioDetalleView(UpdateModelMixin, GenericAPIView):
                 editado_id=str(usuario.pk),
                 campos_cambiados=cambiados,
             )
-            
+
 
 # t-18/st-153: desactivar y reactivar una cuenta (HU-18)
 RespuestaEstado = inline_serializer(
@@ -211,6 +210,7 @@ class ReactivarUsuarioView(_CambioDeEstadoView):
             usuario.cambiar_estado(Estado.ACTIVO, por=request.user)
         return self.respuesta(usuario)
 
+
 # t-14/st-131: cambio de rol de un usuario (HU-14)
 RespuestaRol = inline_serializer(
     name="RolUsuarioRespuesta",
@@ -221,8 +221,9 @@ RespuestaRol = inline_serializer(
 class CambiarRolView(GenericAPIView):
     """PATCH /api/v1/usuarios/{id}/rol/ · solo administradores (HU-14 / ST-131).
 
-    Asigna un rol válido al usuario objetivo. Un administrador no puede
-    cambiarse ni quitarse su propio rol.
+    Asigna un rol válido al usuario objetivo e incrementa token_version para
+    revocar de inmediato la sesión vigente. Un administrador no puede cambiarse
+    ni quitarse su propio rol.
     """
 
     permission_classes = permisos_por_defecto_mas(EsAdministrador)
