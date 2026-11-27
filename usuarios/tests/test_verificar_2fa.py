@@ -167,7 +167,20 @@ def test_despues_de_5_intentos_se_bloquea_aunque_el_codigo_sea_correcto(api_clie
 
     assert r.status_code == 429
     assert r.data["codigo"] == "demasiados_intentos"
+    assert 0 < int(r["Retry-After"]) <= 300
     assert "access" not in r.data
+
+
+def test_el_bloqueo_queda_en_la_bitacora(api_client, usuario, secreto, caplog):
+    token = token_temporal(api_client, usuario)
+    for _ in range(5):
+        verificar(api_client, token, codigo_incorrecto(secreto))
+    caplog.clear()
+
+    verificar(api_client, token, codigo_actual(secreto))
+
+    eventos = [json.loads(r.message) for r in caplog.records if r.name == "svc.auditoria"]
+    assert [(e["accion"], e["resultado"]) for e in eventos] == [("login_2fa_bloqueado", "error")]
 
 
 def test_un_login_nuevo_no_reinicia_los_intentos(api_client, usuario, secreto):

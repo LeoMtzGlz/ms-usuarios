@@ -10,7 +10,7 @@ se actualiza last_login y se entregan los JWT con la duración de "recordarme" (
 - El mismo código de la app no sirve dos veces: se guarda el último intervalo usado
   en Dispositivo2FA.ultimo_intervalo y solo se aceptan intervalos posteriores.
 - Máximo 5 intentos: después del quinto código incorrecto se responde
-  429 demasiados_intentos durante 5 minutos, aunque el código sea correcto.
+  429 demasiados_intentos con Retry-After durante 5 minutos, aunque el código sea correcto.
 - El token temporal es de un solo uso: después de un inicio de sesión correcto ya no sirve.
 """
 
@@ -82,7 +82,11 @@ def _verificar_codigo_de_app(dispositivo, codigo):
 
 
 def _emitir_jwt(usuario, recordarme):
-    """Los mismos tokens que entrega el login (st-82 y st-85)."""
+    """Los mismos tokens que entrega el login (st-82 y st-85).
+
+    Se repiten estos pasos porque en tokens.py están dentro de validate() del login;
+    sacarlos a una función obligaría a modificar código de otra subtarea.
+    """
     refresh = CustomTokenObtainPairSerializer.get_token(usuario)
     refresh.set_exp(lifetime=DURACION_REFRESH_CON_RECORDARME if recordarme else DURACION_REFRESH_SIN_RECORDARME)
     refresh["recordarme"] = recordarme
@@ -126,7 +130,8 @@ class VerificarDosFactoresView(APIView):
             if dispositivo is None or cache.get(_clave_token_usado(token)):
                 raise TokenInvalido()
 
-            intentos = cache.get(_clave_intentos(usuario), 0)
+            # Se guarda (intentos, cuándo vence el bloqueo) para responder Retry-After como en HU-24.
+            intentos, vence = cache.get(_clave_intentos(usuario), (0, 0))
             bloqueado = intentos >= MAXIMO_INTENTOS
             valido = False
             if not bloqueado:
@@ -143,11 +148,13 @@ class VerificarDosFactoresView(APIView):
                     usuario.save(update_fields=["last_login"])
                 else:
                     intentos += 1
-                    cache.set(_clave_intentos(usuario), intentos, VIGENCIA_SEGUNDOS)
+                    vence = time.time() + VIGENCIA_SEGUNDOS
+                    cache.set(_clave_intentos(usuario), (intentos, vence), VIGENCIA_SEGUNDOS)
                     registrar_acceso(request, usuario, exitoso=False)  # t-22/st-167
 
         if bloqueado:
-            raise Throttled()
+            registrar_evento("login_2fa_bloqueado", usuario, request, resultado="error")
+            raise Throttled(wait=max(1, int(vence - time.time())))
         if not valido:
             registrar_evento("login_2fa_fallido", usuario, request, resultado="error", metodo=metodo, intentos=intentos)
             raise CodigoInvalido()
