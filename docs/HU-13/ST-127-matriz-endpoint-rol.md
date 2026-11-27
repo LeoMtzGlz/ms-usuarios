@@ -41,7 +41,7 @@ implementada.
 | `POST` | `/api/v1/auth/restablecer/` | Disponible | Sí | Sí | Sí | Sí | `AllowAny` | HU-10 / ST-108 |
 | `POST` | `/api/v1/auth/cambiar-password/` | Disponible | No | Sí | Sí | Sí | `IsAuthenticated` (exenta de `ContrasenaDefinitiva`) | HU-11 / ST-112 |
 | `GET` | `/api/v1/auth/llave-publica/` | Planeado | Sí | Sí | Sí | Sí | `AllowAny` | T-14 / ST-135 |
-| `GET`, `PATCH` | `/api/v1/auth/perfil/` | Planeado | No | Sí | Sí | Sí | Propietario autenticado | HU-21 / ST-163 |
+| `GET`, `PATCH` | `/api/v1/auth/perfil/` | Disponible | No | Sí | Sí | Sí | Propietario autenticado | HU-21 / ST-163 |
 | `GET` | `/api/v1/auth/accesos/` | Disponible | No | Sí | Sí | Sí | Propietario autenticado | HU-22 / ST-168 |
 | `POST` | `/api/v1/auth/eliminar-cuenta/` | Planeado | No | Sí | Sí | Sí³ | Propietario autenticado | HU-23 / ST-174 |
 | `GET`, `POST` | `/api/v1/usuarios/` | Disponible | No | No | No | Sí | `EsAdministrador` | HU-15 / HU-16 |

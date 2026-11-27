@@ -38,5 +38,6 @@ services:
     restart: unless-stopped
     stop_grace_period: 60s
 
+
 volumes:
   datos_pg:

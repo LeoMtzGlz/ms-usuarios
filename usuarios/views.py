@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.db.models import F
 from django.conf import settings
 from django.utils import timezone
 
@@ -13,7 +14,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 # --- Imports para el Login (ST-82) ---
 from comun.eventos import registrar_evento
 from usuarios.codigos import generar_codigo
-from usuarios.models import Canal, Estado, Proposito
+from usuarios.models import Canal, Estado, Proposito, Usuario
 from usuarios.serializers import (
     ActivarSerializer,
     CambiarPasswordSerializer,
@@ -237,5 +238,34 @@ class CambiarPasswordView(APIView):
                 "access": str(refresh.access_token),
                 "refresh": str(refresh),
             },
+            status=status.HTTP_200_OK,
+        )
+
+class LogoutTodoView(APIView):
+    """HU-09 / ST-98: POST /api/v1/auth/logout-todo/
+
+    Cierra sesión en todos los dispositivos: incrementa token_version
+    y ningún dispositivo puede renovar después (ST-90 compara token_version).
+    Nota: un access ya emitido sigue sirviendo hasta 15 minutos porque
+    JWTAuthentication no revisa token_version. Solo el refresh queda inválido.
+    """
+
+    
+    @extend_schema(
+        tags=["auth"],
+        summary="Cerrar sesión en todos los dispositivos",
+        responses={
+            200: OpenApiResponse(description="Sesión cerrada en todos los dispositivos"),
+            401: OpenApiResponse(description="No autenticado"),
+        },
+    )
+    def post(self, request):
+        usuario = request.user
+        Usuario.objects.filter(pk=usuario.pk).update(token_version=F("token_version") + 1)
+
+        registrar_evento("logout_todo", usuario, request)
+
+        return Response(
+            {"mensaje": "Sesión cerrada en todos los dispositivos."},
             status=status.HTTP_200_OK,
         )

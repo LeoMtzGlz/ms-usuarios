@@ -3,9 +3,11 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from comun.eventos import registrar_evento
+from comun.throttles import ThrottlePorCuenta
 from usuarios.recuperacion import MENSAJE_RECUPERACION, solicitar_recuperacion
 from usuarios.serializers import SolicitudRecuperacionSerializer
 
@@ -18,7 +20,9 @@ class SolicitarRecuperacionView(APIView):
     """
     # t-24/st-179: limitar a 3 solicitudes por hora por IP
     throttle_scope = "recuperar"
-    
+    # t-24/st-181: además, 3 por hora por cuenta (st-180)
+    throttle_classes = [ScopedRateThrottle, ThrottlePorCuenta]
+
     permission_classes = [AllowAny]
     authentication_classes = []
 
