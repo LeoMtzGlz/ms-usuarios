@@ -15,6 +15,7 @@ from usuarios.reenvio import ReenviarCodigoView  # t-04/st-75
 from usuarios.restablecer import RestablecerPasswordView  # t-10/st-108
 from usuarios.views_2fa import Activar2FAView, Confirmar2FAView  # t-30/st-206
 from usuarios.views_2fa_desactivar import Desactivar2FAView  # t-32/st-215
+from usuarios.views_2fa_verificar import VerificarDosFactoresView  # t-31/st-211
 from usuarios.views_accesos import HistorialAccesosView  # t-22/st-168
 from usuarios.views_perfil import PerfilView  # t-21/st-163
 from usuarios.views_recuperacion import SolicitarRecuperacionView  # t-10/st-107
@@ -31,6 +32,8 @@ urlpatterns = [
     path("2fa/confirmar/", Confirmar2FAView.as_view(), name="2fa-confirmar"),
     # t-32/st-215
     path("2fa/desactivar/", Desactivar2FAView.as_view(), name="2fa-desactivar"),
+    # t-31/st-211
+    path("2fa/verificar/", VerificarDosFactoresView.as_view(), name="2fa-verificar"),
     # t-29/st-201
     path("privacidad/", PrivacidadInfoView.as_view(), name="privacidad-info"),
     path("privacidad/aceptar/", AceptarPrivacidadView.as_view(), name="privacidad-aceptar"),
