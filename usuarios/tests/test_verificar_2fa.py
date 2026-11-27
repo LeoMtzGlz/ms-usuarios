@@ -6,12 +6,13 @@ import time
 import pyotp
 import pytest
 from cryptography.fernet import Fernet
+from django.contrib.auth.hashers import make_password
 from django.core import signing
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
 from comun.cifrado import cifrar
 from usuarios.dos_factores import generar_codigos_respaldo
-from usuarios.models import Dispositivo2FA, RegistroAcceso
+from usuarios.models import CodigoRespaldo, Dispositivo2FA, RegistroAcceso
 from usuarios.tests.factories import PASSWORD_PRUEBA, UsuarioFactory
 
 pytestmark = pytest.mark.django_db
@@ -95,6 +96,17 @@ def test_el_refresh_respeta_recordarme(api_client, usuario, secreto, recordarme,
     assert refresh["recordarme"] is recordarme
 
 
+def test_los_jwt_tienen_los_mismos_claims_que_el_login(api_client, usuario, secreto):
+    r = verificar(api_client, token_temporal(api_client, usuario), codigo_actual(secreto))
+
+    access = AccessToken(r.data["access"])
+
+    assert access["rol"] == usuario.rol
+    assert access["email_verificado"] == usuario.email_verificado
+    assert access["token_version"] == usuario.token_version
+    assert access["debe_cambiar_password"] == usuario.debe_cambiar_password
+
+
 def test_un_codigo_de_respaldo_entrega_los_jwt(api_client, usuario):
     codigo = generar_codigos_respaldo(usuario)[0]
 
@@ -102,6 +114,25 @@ def test_un_codigo_de_respaldo_entrega_los_jwt(api_client, usuario):
 
     assert r.status_code == 200
     assert r.data["access"]
+
+
+def test_un_codigo_de_respaldo_solo_de_numeros_entrega_los_jwt(api_client, usuario, secreto, caplog):
+    """El alfabeto de respaldo incluye 2-9, así que un código puede ser 234-567 y escribirse sin guion."""
+    totp = pyotp.TOTP(secreto)
+    codigo = next(c for c in ("234567", "345678", "456789") if not totp.verify(c, valid_window=1))
+    respaldo = CodigoRespaldo.objects.create(usuario=usuario, codigo_hash=make_password(codigo))
+    token = token_temporal(api_client, usuario)
+    caplog.clear()
+
+    r = verificar(api_client, token, codigo)
+
+    assert r.status_code == 200
+    assert r.data["access"]
+    respaldo.refresh_from_db()
+    assert respaldo.usado_en is not None
+    eventos = [json.loads(e.message) for e in caplog.records if e.name == "svc.auditoria"]
+    assert eventos[-1]["accion"] == "login_2fa_completado"
+    assert eventos[-1]["detalles"]["metodo"] == "respaldo"
 
 
 # --- Código incorrecto o repetido ---
@@ -228,6 +259,16 @@ def test_faltan_datos_responde_400(api_client):
 
     assert r.status_code == 400
     assert set(r.data["campos"]) == {"token_temporal", "codigo"}
+
+
+# --- Swagger ---
+
+
+def test_swagger_documenta_las_respuestas(api_client):
+    r = api_client.get("/api/schema/", {"format": "json"})
+
+    respuestas = json.loads(r.content)["paths"][VERIFICAR]["post"]["responses"]
+    assert {"200", "400", "401", "429"} <= set(respuestas)
 
 
 # --- Bitácora ---

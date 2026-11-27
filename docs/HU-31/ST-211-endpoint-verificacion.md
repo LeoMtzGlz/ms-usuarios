@@ -20,10 +20,11 @@ Depende de st-206 (`Dispositivo2FA.ultimo_intervalo`), st-207 (`usar_codigo_resp
 
 | Archivo | Cambio |
 |---|---|
-| `usuarios/views_2fa_verificar.py` | Nuevo: `VerificarDosFactoresView` y su serializer |
+| `usuarios/views_2fa_verificar.py` | Nuevo: `VerificarDosFactoresView`, su serializer y el de la respuesta para Swagger |
 | `usuarios/urls.py` | Una importación y una ruta, marcadas con `# t-31/st-211` |
+| `usuarios/tokens.py` | Al final, la función `emitir_jwt()`, marcada con `# t-31/st-211`; no se modificó nada del login |
 | `usuarios/tests/test_autorizacion_endpoints.py` (st-129) | Dos líneas, marcadas con `# t-31/st-211`, para clasificar la ruta nueva como pública |
-| `usuarios/tests/test_verificar_2fa.py` | Nuevo: 18 pruebas |
+| `usuarios/tests/test_verificar_2fa.py` | Nuevo: 21 pruebas |
 
 No se modificó ningún modelo ni se creó ninguna migración.
 
@@ -59,12 +60,12 @@ Respuesta `200`, la misma que el login:
 
 - **Es pública** (`AllowAny`): el usuario todavía no tiene JWT. Se identifica con el token temporal, que `leer_token_temporal()` valida (firma, 5 minutos, cuenta activa y `token_version`).
 - **El mismo código de la app no sirve dos veces** (HU-31, criterio 3): se acepta el intervalo actual o uno de al lado, como en st-206, pero solo si es posterior al guardado en `Dispositivo2FA.ultimo_intervalo`. Al aceptarlo se guarda ese intervalo. Así tampoco sirve el código con el que se confirmó el 2FA.
-- **Códigos de respaldo:** si el código no es de 6 dígitos se valida con `usar_codigo_respaldo()` (st-207), que lo marca como usado.
+- **Códigos de respaldo:** se validan con `usar_codigo_respaldo()` (st-207), que los marca como usados. Como el alfabeto de respaldo incluye los números 2-9, un código puede ser solo de números (por ejemplo `234-567` escrito sin guion): si un código de 6 dígitos no es el de la app, se prueba como código de respaldo. Cuenta como un solo intento.
 - **Máximo 5 intentos** (HU-31, criterio 3): los códigos incorrectos se cuentan por usuario durante 5 minutos en la caché del proyecto (`cache_table`, st-178). Después del quinto se responde `429` con `Retry-After` (como en HU-24) aunque el código sea correcto, y un login nuevo no reinicia la cuenta. Un código correcto la reinicia.
 - **El token temporal es de un solo uso:** después de un inicio de sesión correcto se marca como usado en la caché.
 - **Peticiones simultáneas:** se bloquea la fila de `Dispositivo2FA` (`select_for_update`), así que dos peticiones con el mismo código no pueden pasar las dos.
 - **Historial y bitácora:** cada intento queda en el historial de accesos (st-167) como exitoso o fallido. Se registran los eventos `login_2fa_completado` y `login_2fa_fallido` con el método (`app` o `respaldo`), y `login_2fa_bloqueado` al pasar los 5 intentos, sin el código ni el token.
-- **Tokens:** se emiten igual que en el login: los claims de `CustomTokenObtainPairSerializer.get_token()` y la duración del refresh según "recordarme". Esos pasos se repiten en la vista porque en `tokens.py` están dentro de `validate()` del login, y sacarlos a una función obligaría a modificar código de otra subtarea.
+- **Tokens:** se emiten con `emitir_jwt()`, una función nueva al final de `tokens.py` que hace los mismos pasos que el login: los claims de `CustomTokenObtainPairSerializer.get_token()` y la duración del refresh según "recordarme". El login no se modificó; en otra subtarea su responsable puede hacer que `validate()` también la use.
 
 ### 5. Pruebas
 
@@ -72,14 +73,15 @@ Respuesta `200`, la misma que el login:
 docker compose run --rm api pytest usuarios/tests/test_verificar_2fa.py -v
 ```
 
-Resultado: **18 passed**.
+Resultado: **21 passed**.
 
 | Grupo | Pruebas |
 |---|---|
-| Código correcto | Código de la app, código de respaldo, registro del acceso y `last_login`, "recordarme" (7 días o 1 día) |
+| Código correcto | Código de la app, código de respaldo, código de respaldo solo de números, registro del acceso y `last_login`, "recordarme" (7 días o 1 día), mismos claims que el login |
 | Incorrecto o repetido | Código incorrecto, el mismo código dos veces, el código usado al confirmar el 2FA, un código de respaldo dos veces |
 | Máximo 5 intentos | El quinto todavía se evalúa; después de 5 se bloquea aunque el código sea correcto; un login nuevo no reinicia los intentos |
 | Token temporal | De un solo uso, inválido, 2FA desactivado, faltan datos |
+| Swagger | Documenta las respuestas 200, 400, 401 y 429 |
 | Bitácora | No guarda el código ni el token; registra el bloqueo |
 
 Las pruebas de la HU completa (correcto, incorrecto, repetido y respaldo de un solo uso) son de la st-212.
@@ -89,5 +91,7 @@ Las pruebas de la HU completa (correcto, incorrecto, repetido y respaldo de un s
 El login con 2FA queda completo: con el token temporal y un código correcto se entregan los JWT, el mismo código no se puede usar dos veces y hay un máximo de 5 intentos.
 
 ### 7. Notas
+
+- En Swagger (`/api/docs/`) la ruta documenta la respuesta `200` (igual que el login) y los errores `400`, `401` y `429`.
 
 - La tabla de la caché se crea con `python manage.py createcachetable`, que ya corre el `Dockerfile` (st-179). Las pruebas la crean solas.

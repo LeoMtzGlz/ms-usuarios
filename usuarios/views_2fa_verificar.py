@@ -2,10 +2,13 @@
 
 Segundo paso del login con 2FA. Recibe el token temporal de la st-210 y un código:
 - el de 6 dígitos de la app autenticadora, o
-- uno de los códigos de respaldo (st-207), que se consume al usarlo.
+- uno de los códigos de respaldo (st-207), que se consume al usarlo. Un código de respaldo
+  puede ser solo de números (el alfabeto incluye 2-9): si un código de 6 dígitos no es el de la app,
+  se prueba como código de respaldo.
 
 Si el código es correcto se completa el inicio de sesión: se registra el acceso,
-se actualiza last_login y se entregan los JWT con la duración de "recordarme" (st-85).
+se actualiza last_login y se entregan los JWT con emitir_jwt() de tokens.py, los mismos del login
+y con la duración de "recordarme" (st-85).
 
 - El mismo código de la app no sirve dos veces: se guarda el último intervalo usado
   en Dispositivo2FA.ultimo_intervalo y solo se aceptan intervalos posteriores.
@@ -22,15 +25,12 @@ import pyotp
 from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import serializers
 from rest_framework.exceptions import Throttled
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.settings import api_settings
-from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
-from rest_framework_simplejwt.utils import datetime_from_epoch
 
 from comun.errores import CodigoInvalido, TokenInvalido
 from comun.eventos import registrar_evento
@@ -38,11 +38,7 @@ from usuarios.accesos import registrar_acceso
 from usuarios.dos_factores import usar_codigo_respaldo
 from usuarios.login_2fa import VIGENCIA_SEGUNDOS, leer_token_temporal
 from usuarios.models import Dispositivo2FA
-from usuarios.tokens import (
-    DURACION_REFRESH_CON_RECORDARME,
-    DURACION_REFRESH_SIN_RECORDARME,
-    CustomTokenObtainPairSerializer,
-)
+from usuarios.tokens import emitir_jwt
 
 PASO_TOTP = 30  # segundos que dura cada código de la app (igual que st-206)
 MAXIMO_INTENTOS = 5  # HU-31, criterio 3
@@ -51,6 +47,21 @@ MAXIMO_INTENTOS = 5  # HU-31, criterio 3
 class VerificarDosFactoresSerializer(serializers.Serializer):
     token_temporal = serializers.CharField()
     codigo = serializers.CharField(max_length=20)
+
+
+class UsuarioVerificadoSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    nombre = serializers.CharField()
+    email = serializers.EmailField()
+    rol = serializers.CharField()
+
+
+class VerificarDosFactoresRespuestaSerializer(serializers.Serializer):
+    """Solo para Swagger: la misma respuesta que el login."""
+
+    access = serializers.CharField()
+    refresh = serializers.CharField()
+    usuario = UsuarioVerificadoSerializer()
 
 
 def _clave_intentos(usuario):
@@ -81,30 +92,6 @@ def _verificar_codigo_de_app(dispositivo, codigo):
     return False
 
 
-def _emitir_jwt(usuario, recordarme):
-    """Los mismos tokens que entrega el login (st-82 y st-85).
-
-    Se repiten estos pasos porque en tokens.py están dentro de validate() del login;
-    sacarlos a una función obligaría a modificar código de otra subtarea.
-    """
-    refresh = CustomTokenObtainPairSerializer.get_token(usuario)
-    refresh.set_exp(lifetime=DURACION_REFRESH_CON_RECORDARME if recordarme else DURACION_REFRESH_SIN_RECORDARME)
-    refresh["recordarme"] = recordarme
-    OutstandingToken.objects.filter(jti=refresh[api_settings.JTI_CLAIM]).update(
-        expires_at=datetime_from_epoch(refresh["exp"])
-    )
-    return {
-        "access": str(refresh.access_token),
-        "refresh": str(refresh),
-        "usuario": {
-            "id": str(usuario.id),
-            "nombre": usuario.first_name,
-            "email": usuario.email,
-            "rol": usuario.rol,
-        },
-    }
-
-
 class VerificarDosFactoresView(APIView):
     """POST /api/v1/auth/2fa/verificar/  {"token_temporal": "...", "codigo": "123456"}
 
@@ -113,7 +100,19 @@ class VerificarDosFactoresView(APIView):
 
     permission_classes = [AllowAny]
 
-    @extend_schema(request=VerificarDosFactoresSerializer, tags=["auth"])
+    @extend_schema(
+        request=VerificarDosFactoresSerializer,
+        responses={
+            200: VerificarDosFactoresRespuestaSerializer,
+            400: OpenApiResponse(
+                description="datos_invalidos: faltan datos; codigo_invalido: código incorrecto, repetido o ya usado"
+            ),
+            401: OpenApiResponse(description="token_invalido: token temporal alterado, vencido, ya usado o sin 2FA"),
+            429: OpenApiResponse(description="demasiados_intentos: más de 5 códigos incorrectos; incluye Retry-After"),
+        },
+        tags=["auth"],
+        summary="Verificar el código 2FA y completar el inicio de sesión",
+    )
     def post(self, request):
         serializer = VerificarDosFactoresSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -137,6 +136,9 @@ class VerificarDosFactoresView(APIView):
             if not bloqueado:
                 if metodo == "app":
                     valido = _verificar_codigo_de_app(dispositivo, codigo)
+                    # Un código de respaldo también puede ser de 6 números (por ejemplo 234-567 escrito sin guion)
+                    if not valido and usar_codigo_respaldo(usuario, codigo):
+                        valido, metodo = True, "respaldo"
                 else:
                     valido = usar_codigo_respaldo(usuario, codigo)
 
@@ -160,4 +162,4 @@ class VerificarDosFactoresView(APIView):
             raise CodigoInvalido()
 
         registrar_evento("login_2fa_completado", usuario, request, metodo=metodo)
-        return Response(_emitir_jwt(usuario, recordarme))
+        return Response(emitir_jwt(usuario, recordarme))
