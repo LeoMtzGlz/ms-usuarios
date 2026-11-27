@@ -13,12 +13,13 @@ from django.db import IntegrityError, transaction
 from google.auth import exceptions as google_exceptions
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
 from comun.errores import CuentaInactiva, GoogleNoConfigurado, TokenGoogleInvalido
 from comun.eventos import registrar_evento
 from comun.roles import Rol
 from usuarios.accesos import registrar_acceso
-from usuarios.models import Canal, Estado, Usuario
+from usuarios.models import Canal, CodigoVerificacion, Estado, Usuario
 from usuarios.privacidad import datos_aceptacion_privacidad
 
 logger = logging.getLogger(__name__)
@@ -52,6 +53,8 @@ def obtener_o_crear_usuario(datos: dict, request=None, acepto_privacidad: bool =
 
     - Cuenta existente activa: se usa tal cual.
     - Cuenta existente pendiente: Google ya verificó el correo, así que se activa.
+    - Correo no verificado (pendiente o no): se anulan contraseña, teléfono no verificado,
+      códigos y sesiones de quien lo registró (anular_credenciales_no_verificadas).
     - Cuenta existente inactiva: no entra (403 cuenta_inactiva), igual que con contraseña.
     - Correo nuevo: Cliente activo, sin contraseña usable y con email_verificado=True.
     """
@@ -83,13 +86,40 @@ def obtener_o_crear_usuario(datos: dict, request=None, acepto_privacidad: bool =
         registrar_acceso(request, usuario, exitoso=False)
         raise CuentaInactiva()
 
+    if not usuario.email_verificado:
+        anular_credenciales_no_verificadas(usuario, request)
+
     if usuario.estado == Estado.PENDIENTE:
-        usuario.email_verificado = True
-        usuario.save(update_fields=["email_verificado"])
         usuario.cambiar_estado(Estado.ACTIVO, por=usuario)
-    elif not usuario.email_verificado:
-        usuario.email_verificado = True
-        usuario.save(update_fields=["email_verificado"])
 
     registrar_evento("cuenta_vinculada_con_google", usuario, request)
     return usuario, False
+
+
+def anular_credenciales_no_verificadas(usuario, request=None):
+    """El correo no estaba verificado: quien lo registró no demostró ser su dueño.
+
+    Evita la "toma de cuenta anticipada": alguien registra el correo de otra persona con
+    su propia contraseña (y su teléfono) y espera a que la víctima entre con Google.
+    Google sí demostró que el correo es de quien está entrando, así que se anula todo lo
+    que dejó quien lo registró:
+    - la contraseña (set_unusable_password);
+    - el teléfono si no estaba verificado, porque la recuperación (HU-10) acepta el teléfono;
+    - los códigos de activación o recuperación pendientes;
+    - las sesiones: token_version += 1 y refresh tokens a la lista negra.
+    """
+    usuario.set_unusable_password()
+    usuario.email_verificado = True
+    usuario.token_version += 1
+    campos = ["password", "email_verificado", "token_version"]
+    if not usuario.telefono_verificado:
+        usuario.telefono = None
+        usuario.canal_preferido = Canal.CORREO
+        campos += ["telefono", "canal_preferido"]
+    usuario.save(update_fields=campos)
+
+    CodigoVerificacion.objects.filter(usuario=usuario).delete()
+    pendientes = OutstandingToken.objects.filter(user=usuario, blacklistedtoken__isnull=True)
+    BlacklistedToken.objects.bulk_create([BlacklistedToken(token=token) for token in pendientes])
+
+    registrar_evento("credenciales_no_verificadas_anuladas", usuario, request)

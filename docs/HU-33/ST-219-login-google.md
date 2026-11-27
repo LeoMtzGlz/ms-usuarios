@@ -40,12 +40,35 @@
    | --- | --- |
    | Correo nuevo | Se crea un **Cliente activo**, con `email_verificado=True` y **sin contraseña usable** (`set_password(None)`). Nombre y apellidos de Google. |
    | Cuenta activa | Se **vincula**: entra con esa cuenta. No se toca su contraseña ni su rol. |
-   | Cuenta pendiente | Google ya verificó el correo → se activa y entra. |
+   | Cuenta pendiente | Google ya verificó el correo → se activa y entra (y se anulan las credenciales de quien la registró, ver abajo). |
+   | Correo **no verificado** (pendiente o activa) | Se anulan contraseña, teléfono no verificado, códigos y sesiones antes de entrar. |
    | Cuenta inactiva | 403 `cuenta_inactiva`, igual que con contraseña. |
 3. **Terminar el login** con `completar_login()` (`usuarios/tokens.py`), **la misma función que usa el login con contraseña**:
    aviso de dispositivo nuevo (HU-28), 2FA si está activo (HU-31), registro del acceso (HU-22), JWT con los mismos claims y "recordarme" (HU-06).
 
 > `completar_login()` es el final del `validate()` de `CustomTokenObtainPairSerializer` movido a una función, sin cambiar su lógica. Así el login con contraseña y el de Google no se separan con el tiempo.
+
+## Seguridad: toma de cuenta anticipada
+
+*(Observación de Danna en la revisión del PR #136.)*
+
+Si el correo **no estaba verificado**, quien lo registró **no demostró ser su dueño**. Sin esta regla:
+1. Alguien registra `maria@gmail.com` con **su** contraseña y **su** teléfono, y no activa la cuenta.
+2. María entra con Google: la cuenta se activa y se vincula.
+3. El atacante entra con su contraseña, o pide un código de recuperación a **su** teléfono (la recuperación de HU-10 acepta el teléfono y busca también cuentas pendientes).
+
+Por eso `anular_credenciales_no_verificadas()` (en `usuarios/login_google.py`), antes de entrar:
+
+| Qué | Cómo |
+| --- | --- |
+| Contraseña | `set_unusable_password()` |
+| Teléfono **no verificado** | Se borra y el canal vuelve a `correo` (un teléfono verificado se conserva) |
+| Códigos de activación o recuperación | Se borran |
+| Sesiones | `token_version += 1` y refresh tokens a la lista negra |
+
+Si el correo **ya estaba verificado**, la dueña ya lo había demostrado, así que se conserva su contraseña.
+
+> Cuentas creadas por el administrador (HU-16) tienen `email_verificado=False`: si esa persona entra con Google, su contraseña temporal se anula y sigue entrando con Google (o recupera la contraseña por correo).
 
 ## Errores
 
@@ -72,7 +95,7 @@ Ambos códigos nuevos están en `docs/catalogo-errores.md` y en `comun/errores.p
 
 ```bash
 docker compose up -d --build
-docker compose exec api pytest usuarios/tests/test_login_google.py -v   # 27 passed
+docker compose exec api pytest usuarios/tests/test_login_google.py -v   # 33 passed
 docker compose exec api pytest
 ```
 

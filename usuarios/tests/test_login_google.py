@@ -1,5 +1,6 @@
 """HU-33 / ST-219: POST /api/v1/auth/google/ (verificar el ID token y crear o vincular la cuenta)."""
 import datetime
+from datetime import timedelta
 import time
 from unittest import mock
 
@@ -11,15 +12,20 @@ from cryptography.x509.oid import NameOID
 from google.auth import crypt
 from google.auth import exceptions as google_exceptions
 from google.auth import jwt as google_jwt
+from django.core.cache import cache
+from django.utils import timezone
+from rest_framework.test import APIClient
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
 from comun.roles import Rol
-from usuarios.models import Dispositivo2FA, Estado, RegistroAcceso, Usuario
+from usuarios.models import Canal, CodigoVerificacion, Dispositivo2FA, Estado, RegistroAcceso, Usuario
 from usuarios.tests.factories import PASSWORD_PRUEBA, UsuarioFactory
 
 pytestmark = pytest.mark.django_db
 
 URL = "/api/v1/auth/google/"
+URL_LOGIN = "/api/v1/auth/login/"
 CLIENT_ID = "123456789012-prueba.apps.googleusercontent.com"
 VERIFICAR = "usuarios.login_google.id_token.verify_oauth2_token"
 
@@ -134,6 +140,82 @@ def test_cuenta_pendiente_se_activa_porque_google_verifico_el_correo(api_client)
     usuario = Usuario.objects.get(email="maria.google@gmail.com")
     assert usuario.estado == Estado.ACTIVO
     assert usuario.email_verificado is True
+
+
+# --- Toma de cuenta anticipada (revisión de Danna) ---------------------------------------
+# Alguien registra el correo de otra persona con su contraseña y su teléfono, nunca lo activa,
+# y espera a que la dueña real entre con Google.
+
+def test_correo_no_verificado_anula_la_contrasena_de_quien_lo_registro(api_client):
+    UsuarioFactory(email="maria.google@gmail.com", estado=Estado.PENDIENTE, email_verificado=False)
+    login_google(api_client)
+
+    usuario = Usuario.objects.get(email="maria.google@gmail.com")
+    assert usuario.has_usable_password() is False
+    assert usuario.email_verificado is True
+
+
+def test_correo_no_verificado_borra_el_telefono_no_verificado(api_client):
+    UsuarioFactory(email="maria.google@gmail.com", estado=Estado.PENDIENTE, email_verificado=False,
+                   telefono="+524439990000", telefono_verificado=False, canal_preferido=Canal.WHATSAPP)
+    login_google(api_client)
+
+    usuario = Usuario.objects.get(email="maria.google@gmail.com")
+    assert usuario.telefono is None
+    assert usuario.canal_preferido == Canal.CORREO
+
+
+def test_correo_no_verificado_conserva_el_telefono_verificado(api_client):
+    UsuarioFactory(email="maria.google@gmail.com", estado=Estado.ACTIVO, email_verificado=False,
+                   telefono="+524439990000", telefono_verificado=True)
+    login_google(api_client)
+
+    assert Usuario.objects.get(email="maria.google@gmail.com").telefono == "+524439990000"
+
+
+def test_correo_no_verificado_borra_codigos_y_cierra_sesiones(api_client):
+    usuario = UsuarioFactory(email="maria.google@gmail.com", estado=Estado.ACTIVO, email_verificado=False,
+                             token_version=3)
+    CodigoVerificacion.objects.create(usuario=usuario, proposito="recuperacion", canal="correo",
+                                      codigo_hash="x", expira_en=timezone.now() + timedelta(minutes=10))
+    viejo = RefreshToken.for_user(usuario)
+
+    respuesta = login_google(api_client)
+
+    usuario.refresh_from_db()
+    assert usuario.token_version == 4
+    assert not CodigoVerificacion.objects.filter(usuario=usuario).exists()
+    assert BlacklistedToken.objects.filter(token__jti=viejo["jti"]).exists()
+    assert AccessToken(respuesta.json()["access"])["token_version"] == 4  # la sesión nueva sí sirve
+
+
+def test_correo_verificado_conserva_la_contrasena(api_client):
+    """Si la dueña ya había verificado su correo, vincular Google no le quita su contraseña."""
+    UsuarioFactory(email="maria.google@gmail.com", estado=Estado.ACTIVO, email_verificado=True)
+    login_google(api_client)
+
+    assert Usuario.objects.get(email="maria.google@gmail.com").check_password(PASSWORD_PRUEBA)
+
+
+def test_ataque_completo_el_atacante_ya_no_puede_entrar(api_client):
+    """De punta a punta por la API: registro del atacante → la dueña entra con Google → el atacante intenta."""
+    cache.clear()
+    atacante = APIClient()
+    registro = atacante.post("/api/v1/auth/registro/", {
+        "nombre": "Falso", "apellidos": "Atacante", "correo": "maria.google@gmail.com",
+        "telefono": "443 999 0000", "password": "ClaveDelAtacante1", "password_confirmacion": "ClaveDelAtacante1",
+        "canal_preferido": "whatsapp", "acepto_privacidad": True,
+    }, format="json")
+    assert registro.status_code == 201  # la cuenta queda pendiente, sin verificar
+
+    assert login_google(api_client).status_code == 200  # la dueña real entra con Google
+
+    con_contrasena = atacante.post(URL_LOGIN, {"email": "maria.google@gmail.com", "password": "ClaveDelAtacante1"},
+                                   format="json")
+    assert con_contrasena.status_code == 401
+    atacante.post("/api/v1/auth/recuperar/", {"identificador": "443 999 0000"}, format="json")
+    cuenta = Usuario.objects.get(email="maria.google@gmail.com")
+    assert not CodigoVerificacion.objects.filter(usuario=cuenta).exists()  # su teléfono ya no está en la cuenta
 
 
 def test_cuenta_inactiva_no_entra(api_client):
