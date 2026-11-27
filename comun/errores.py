@@ -44,7 +44,7 @@ class DebeCambiarPassword(exceptions.PermissionDenied):
     default_detail = "Debes cambiar tu contraseña temporal antes de continuar."
     default_code = "debe_cambiar_password"
 
-<<<<<<< HEAD
+
 # t-33/st-219: login con Google
 class TokenGoogleInvalido(exceptions.AuthenticationFailed):
     default_detail = "No se pudo verificar tu cuenta de Google. Intenta de nuevo."
@@ -56,12 +56,12 @@ class GoogleNoConfigurado(exceptions.APIException):
     default_detail = "El inicio de sesión con Google no está disponible."
     default_code = "google_no_configurado"
 
-=======
+
 class UnicoAdministrador(exceptions.PermissionDenied):
     default_detail = "Eres el único administrador activo. Nombra a otro antes de eliminar tu cuenta."
     default_code = "unico_administrador"
->>>>>>> 1f11747d4f8e271dd947680c7f79e9ca34dfd2c2
-    
+
+
 class CodigoInvalido(exceptions.ValidationError):
     default_detail = "El código es incorrecto."
     default_code = "codigo_invalido"
