@@ -25,6 +25,7 @@ RUTAS_PUBLICAS = {
     ("post", "/api/v1/auth/reenviar-codigo/"),
     ("post", "/api/v1/auth/recuperar/"),
     ("post", "/api/v1/auth/restablecer/"),
+    ("get", "/api/v1/auth/llave-publica/"),
     ("get", "/api/schema/"),
     ("get", "/api/docs/"),
 }
@@ -36,7 +37,11 @@ RUTAS_PROTEGIDAS = (
     ("post", "/api/v1/auth/privacidad/aceptar/"),
     ("post", "/api/v1/auth/cambiar-password/"),
     ("post", "/api/v1/auth/logout/"),  # t-08/st-94
+    ("post", "/api/v1/auth/logout-todo/"),
+    ("get", "/api/v1/auth/perfil/"),
+    ("patch", "/api/v1/auth/perfil/"),
     ("get", "/api/v1/auth/accesos/"),
+    ("post", "/api/v1/auth/eliminar-cuenta/"),  # t-23/st-174)
     ("get", "/api/v1/auditoria/"),
     ("get", "/api/v1/usuarios/"),
     ("post", "/api/v1/usuarios/"),
@@ -44,7 +49,6 @@ RUTAS_PROTEGIDAS = (
     ("post", "/api/v1/usuarios/<uuid>/desactivar/"),
     ("post", "/api/v1/usuarios/<uuid>/reactivar/"),
 )
-
 
 def _rutas(patterns=None, prefijo=""):
     """Recorre el árbol real de URLconf y devuelve ruta y callback de cada vista."""
