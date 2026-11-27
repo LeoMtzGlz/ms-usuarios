@@ -54,7 +54,18 @@ class ZonaAdmin(admin.ModelAdmin):
 
 @admin.register(PerfilOperativo)
 class PerfilOperativoAdmin(admin.ModelAdmin):
-    list_display = ("usuario", "vehiculo", "placas", "ruta", "horario", "disponibilidad", "actualizado_en")
+    list_display = (
+        "usuario",
+        "vehiculo",
+        "placas",
+        "ruta",
+        "hora_inicio",
+        "hora_fin",
+        "disponibilidad",
+        "actualizado_en",
+    )
     list_filter = ("disponibilidad",)
     search_fields = ("usuario__email", "vehiculo", "placas", "ruta")
+
+
 

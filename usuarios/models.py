@@ -264,6 +264,7 @@ class ControlLimpieza(models.Model):
         return f"{self.nombre}: {self.ultima_ejecucion or 'nunca'}"
 
 # t-36/st-230 (HU-36): perfil operativo con vehículo, placas, ruta, horario y disponibilidad
+# t-36/st-230 (HU-36): perfil operativo con vehículo, placas, ruta, horario y disponibilidad
 class PerfilOperativo(models.Model):
     """Datos operativos asignados por un administrador a un usuario con rol operativo."""
 
@@ -275,7 +276,8 @@ class PerfilOperativo(models.Model):
     vehiculo = models.CharField(max_length=100, blank=True, null=True)
     placas = models.CharField(max_length=20, blank=True, null=True)
     ruta = models.CharField(max_length=150, blank=True, null=True)
-    horario = models.CharField(max_length=100, blank=True, null=True)
+    hora_inicio = models.TimeField(blank=True, null=True)
+    hora_fin = models.TimeField(blank=True, null=True)
     disponibilidad = models.BooleanField(default=True)
     creado_en = models.DateTimeField(auto_now_add=True)
     actualizado_en = models.DateTimeField(auto_now=True)
@@ -305,6 +307,8 @@ class PerfilOperativo(models.Model):
 
     def __str__(self):
         return f"Perfil operativo de {self.usuario_id} ({self.vehiculo or 'sin vehículo'})"
+
+
 
 
 
