@@ -15,6 +15,7 @@ from django.db import close_old_connections
 
 from notificaciones import worker
 from usuarios.limpieza import limpiar_si_toca  # t-22/st-169
+from usuarios.limpieza import limpiar_tokens_si_toca  # t-07/st-91
 
 logger = logging.getLogger("svc.notificaciones")
 
@@ -49,6 +50,7 @@ class Command(BaseCommand):
         while True:
             resultado = worker.procesar_lote(opciones["lote"], obtener_canal)
             self._limpiar_accesos()  # t-22/st-169
+            self._limpiar_tokens()  # t-07/st-91
             if resultado.total:
                 logger.info("Lote procesado: %s enviadas, %s fallidas, %s pospuestas",
                             resultado.enviadas, resultado.fallidas, resultado.pospuestas)
@@ -72,6 +74,16 @@ class Command(BaseCommand):
             limpiar_si_toca()
         except Exception as exc:
             logger.warning("No se pudo limpiar el historial de accesos: %s", exc.__class__.__name__)
+
+    def _limpiar_tokens(self):
+        """t-07/st-91: borra tokens JWT vencidos, como máximo una vez cada 24 h.
+
+        Si falla, solo se anota en el log: la limpieza nunca debe detener el envío.
+        """
+        try:
+            limpiar_tokens_si_toca()
+        except Exception as exc:
+            logger.warning("No se pudo limpiar los tokens vencidos: %s", exc.__class__.__name__)
 
     def _pedir_alto(self, signum, frame):
         logger.info("Señal %s recibida: el worker se detiene al terminar el lote", signum)

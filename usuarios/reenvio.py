@@ -8,8 +8,10 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
+from comun.throttles import ThrottlePorCuenta
 from usuarios.codigos import generar_codigo
 from usuarios.models import CodigoVerificacion, Estado, Proposito, Usuario
 from usuarios.telefono import normalizar_telefono
@@ -24,6 +26,10 @@ VENTANA_HORA_SEGUNDOS = 3600
 
 class ReenviarCodigoView(APIView):
     """HU-04 / ST-75-ST-77: POST /api/v1/auth/reenviar-codigo/"""
+
+    # t-24/st-181: 3 por hora por IP (st-179) y 3 por hora por cuenta (st-180)
+    throttle_scope = "reenviar"
+    throttle_classes = [ScopedRateThrottle, ThrottlePorCuenta]
 
     permission_classes = [AllowAny]
     authentication_classes = []
