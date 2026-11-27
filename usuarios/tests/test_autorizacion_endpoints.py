@@ -26,6 +26,7 @@ RUTAS_PUBLICAS = {
     ("post", "/api/v1/auth/reenviar-codigo/"),
     ("post", "/api/v1/auth/recuperar/"),
     ("post", "/api/v1/auth/restablecer/"),
+    ("get", "/api/v1/auth/llave-publica/"),
     ("get", "/api/schema/"),
     ("get", "/api/docs/"),
 }
