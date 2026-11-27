@@ -260,3 +260,4 @@ class CambiarRolView(GenericAPIView):
             {"id": str(usuario.pk), "rol": usuario.rol},
             status=status.HTTP_200_OK,
         )
+    

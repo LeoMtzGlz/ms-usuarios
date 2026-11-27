@@ -170,3 +170,4 @@ class CambioRolSerializer(serializers.Serializer):
     """HU-14 / ST-131: valida el nuevo rol a asignar a un usuario."""
 
     rol = serializers.ChoiceField(choices=Rol.choices)
+    
