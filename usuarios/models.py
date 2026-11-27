@@ -13,6 +13,7 @@ from comun.eventos import registrar_evento
 #t-30/st-205
 import pyotp
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from comun.cifrado import cifrar, descifrar
 #-------------
 
@@ -261,3 +262,49 @@ class ControlLimpieza(models.Model):
 
     def __str__(self):
         return f"{self.nombre}: {self.ultima_ejecucion or 'nunca'}"
+
+# t-36/st-230 (HU-36): perfil operativo con vehículo, placas, ruta, horario y disponibilidad
+class PerfilOperativo(models.Model):
+    """Datos operativos asignados por un administrador a un usuario con rol operativo."""
+
+    usuario = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="perfil_operativo",
+    )
+    vehiculo = models.CharField(max_length=100, blank=True, null=True)
+    placas = models.CharField(max_length=20, blank=True, null=True)
+    ruta = models.CharField(max_length=150, blank=True, null=True)
+    horario = models.CharField(max_length=100, blank=True, null=True)
+    disponibilidad = models.BooleanField(default=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "perfil operativo"
+        verbose_name_plural = "perfiles operativos"
+        constraints = [
+            models.UniqueConstraint(
+                Lower("placas"),
+                condition=models.Q(placas__isnull=False) & ~models.Q(placas=""),
+                name="perfil_operativo_placas_unicas_ci",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.usuario_id and self.usuario.rol != Rol.OPERATIVO:
+            raise ValidationError(
+                {"usuario": "Solo se puede asignar un perfil operativo a usuarios con rol operativo."}
+            )
+
+    def save(self, *args, **kwargs):
+        if self.placas is not None:
+            self.placas = self.placas.strip().upper() or None
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Perfil operativo de {self.usuario_id} ({self.vehiculo or 'sin vehículo'})"
+
+
+

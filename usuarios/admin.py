@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
-
+from usuarios.models import PerfilOperativo
 from .models import Usuario, Zona
 
 from .models import Dispositivo2FA #t-30/st-205
@@ -51,3 +51,10 @@ class ZonaAdmin(admin.ModelAdmin):
     list_display = ("nombre", "activa")
     list_filter = ("activa",)
     search_fields = ("nombre",)
+
+@admin.register(PerfilOperativo)
+class PerfilOperativoAdmin(admin.ModelAdmin):
+    list_display = ("usuario", "vehiculo", "placas", "ruta", "horario", "disponibilidad", "actualizado_en")
+    list_filter = ("disponibilidad",)
+    search_fields = ("usuario__email", "vehiculo", "placas", "ruta")
+
