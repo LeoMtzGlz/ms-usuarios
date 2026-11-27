@@ -261,6 +261,26 @@ def test_faltan_datos_responde_400(api_client):
     assert set(r.data["campos"]) == {"token_temporal", "codigo"}
 
 
+def test_un_authorization_invalido_no_impide_llegar_a_la_validacion(api_client):
+    """Es pública: un encabezado Authorization inválido se ignora, igual que en las demás rutas públicas."""
+    api_client.credentials(HTTP_AUTHORIZATION="Bearer token-invalido")
+
+    r = api_client.post(VERIFICAR, {}, format="json")
+
+    assert r.status_code == 400
+    assert r.data["codigo"] == "datos_invalidos"
+
+
+def test_un_authorization_invalido_no_impide_verificar(api_client, usuario, secreto):
+    token = token_temporal(api_client, usuario)
+    api_client.credentials(HTTP_AUTHORIZATION="Bearer token-invalido")
+
+    r = verificar(api_client, token, codigo_actual(secreto))
+
+    assert r.status_code == 200
+    assert r.data["access"]
+
+
 # --- Swagger ---
 
 

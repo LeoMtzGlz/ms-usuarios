@@ -99,6 +99,13 @@ class VerificarDosFactoresView(APIView):
     """
 
     permission_classes = [AllowAny]
+    # Pública: sin autenticadores, un Authorization inválido no responde 401 antes de validar el cuerpo
+    authentication_classes = []
+
+    def get_authenticate_header(self, request):
+        # Sin autenticadores DRF cambiaría el 401 de token_invalido por 403;
+        # se conserva el 401 igual que en la renovación de tokens (simplejwt)
+        return 'Bearer realm="api"'
 
     @extend_schema(
         request=VerificarDosFactoresSerializer,
