@@ -6,6 +6,7 @@ import pytest
 from django.contrib.auth.hashers import check_password
 from django.utils import timezone
 
+from notificaciones import worker
 from notificaciones.models import Notificacion
 from notificaciones.worker import destino_de
 from usuarios.models import CodigoVerificacion, Proposito
@@ -15,6 +16,17 @@ from usuarios.tests.helpers_admin import api_de
 
 SOLICITAR = "/api/v1/auth/perfil/contacto/solicitar/"
 CONFIRMAR = "/api/v1/auth/perfil/contacto/confirmar/"
+
+
+class CanalCaptura:
+    def __init__(self, error=None):
+        self.destinos = []
+        self.error = error
+
+    def enviar(self, destino, asunto, texto):
+        if self.error:
+            raise self.error
+        self.destinos.append(destino)
 
 
 def solicitar(usuario, tipo, valor, password=PASSWORD_PRUEBA):
@@ -82,6 +94,30 @@ class TestSolicitudCambioContacto:
         assert notificacion.canal == "whatsapp"
         assert notificacion.contexto["destino_verificacion"] == "+524431112233"
         assert destino_de(notificacion) == "+524431112233"
+
+    def test_worker_entrega_el_codigo_al_contacto_nuevo(self, usuario):
+        solicitar(usuario, "correo", "nuevo@ejemplo.com")
+        canal = CanalCaptura()
+
+        resultado = worker.procesar_lote(obtener_canal=lambda _nombre: canal)
+
+        assert resultado.enviadas == 1
+        assert canal.destinos == ["nuevo@ejemplo.com"]
+        notificacion = Notificacion.objects.get(destinatario=usuario)
+        assert notificacion.estado == Notificacion.ESTADO_ENVIADA
+        assert notificacion.contexto == {}
+
+    def test_fallo_de_whatsapp_no_reenvia_el_codigo_al_correo_anterior(self, usuario):
+        solicitar(usuario, "telefono", "443 111 2233")
+        canal = CanalCaptura(error=RuntimeError("proveedor no disponible"))
+
+        for _ in range(3):
+            worker.procesar_lote(obtener_canal=lambda _nombre: canal)
+
+        notificacion = Notificacion.objects.get(destinatario=usuario)
+        assert notificacion.estado == Notificacion.ESTADO_FALLIDA
+        assert notificacion.contexto == {}
+        assert Notificacion.objects.filter(destinatario=usuario).count() == 1
 
     def test_rechaza_password_incorrecta_sin_crear_codigo(self, usuario):
         respuesta = solicitar(usuario, "correo", "nuevo@ejemplo.com", "Incorrecta123")
