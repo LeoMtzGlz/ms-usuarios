@@ -23,17 +23,27 @@ PLANTILLAS_CORREO = {
         "template": "notificaciones/correo/bloqueo_cuenta.html",
         "asunto_default": "Aviso de seguridad: Cuenta bloqueada",
     },
+    # t-15/st-142: aviso al operativo al que un administrador le crea la cuenta (HU-15)
+    "cuenta_creada": {
+        "template": "notificaciones/correo/cuenta_creada.html",
+        "asunto_default": "Tu cuenta ha sido creada",
+    },
+    "cuenta_eliminada": {  # t-23/st-174
+            "template": "notificaciones/correo/cuenta_eliminada.html",
+            "asunto_default": "Tu cuenta fue eliminada",
+    },
 }
 
 # Alias de compatibilidad con llamadas existentes en el proyecto (ej. test_services.py)
 ALIAS_PLANTILLAS = {
     "codigo_activacion": "activacion",
+    "codigo_recuperacion": "recuperacion_password",
 }
 
 
 def renderizar_plantilla_correo(nombre_plantilla: str, contexto: dict | None = None) -> tuple[str, str, str]:
     """
-    Renderiza una de las 5 plantillas de correo.
+    Renderiza una de las plantillas de correo de PLANTILLAS_CORREO.
     Retorna: (asunto, texto_plano, html)
     """
     clave = ALIAS_PLANTILLAS.get(nombre_plantilla, nombre_plantilla)

@@ -1,22 +1,36 @@
-# ST-112 - Endpoint para cambiar contraseña
+# HU-11 — Gestión de contraseñas
 
-## Objetivo
+## ST-112. Crear endpoint para cambiar contraseña
 
-Implementar el endpoint que permite a un usuario autenticado cambiar su contraseña actual por una nueva.
+**Estado:** Completada  
+**Responsable:** Alondra Alejandra López Medellin
 
-## Endpoint
+### 1. Descripción
 
-`POST /api/v1/auth/cambiar-password/`
+Se implementó un endpoint que permite a un usuario autenticado cambiar su contraseña actual por una nueva, verificando que los datos proporcionados cumplan con las validaciones de seguridad establecidas en el proyecto.
 
-## Datos de entrada
+### 2. Datos del endpoint
+
+| Campo | Información |
+|---|---|
+| Método HTTP | POST |
+| Ruta | `/api/v1/auth/cambiar-password/` |
+| Permiso | `IsAuthenticated` |
+| Código de respuesta exitosa | 200 OK |
+
+### 3. Datos de entrada
+
+El endpoint recibe los siguientes campos:
 
 | Campo | Descripción |
 |---|---|
-| password_actual | Contraseña actual del usuario |
-| password_nueva | Nueva contraseña |
-| password_confirmacion | Confirmación de la nueva contraseña |
+| `password_actual` | Contraseña actual del usuario. |
+| `password_nueva` | Nueva contraseña que desea establecer. |
+| `password_confirmacion` | Confirmación de la nueva contraseña. |
 
-## Implementación
+### 4. Implementación
+
+Para desarrollar esta funcionalidad se realizaron las siguientes acciones:
 
 - Se creó `CambiarPasswordSerializer` para validar los datos recibidos.
 - Se verifica que la contraseña actual sea correcta.
@@ -27,9 +41,9 @@ Implementar el endpoint que permite a un usuario autenticado cambiar su contrase
 - Se creó `CambiarPasswordView` con el permiso `IsAuthenticated`.
 - Se agregó la ruta correspondiente en las URLs de autenticación.
 
-## Respuesta exitosa
+### 5. Respuesta exitosa
 
-Código HTTP: `200 OK`
+Cuando el cambio de contraseña se realiza correctamente, el endpoint devuelve una respuesta HTTP `200 OK`:
 
 ```json
 {
@@ -37,14 +51,18 @@ Código HTTP: `200 OK`
 }
 ```
 
-## Consideraciones
+### 6. Consideraciones
 
-- El endpoint requiere autenticación.
+- El endpoint requiere que el usuario tenga una sesión autenticada.
 - No se utiliza el permiso `ContrasenaDefinitiva`, permitiendo cambiar contraseñas temporales.
 - La emisión de nuevos tokens queda fuera del alcance de esta subtarea y corresponde a ST-113.
 
-## Dependencias
+### 7. Dependencias
 
 - HU-11: Cambiar mi contraseña con la sesión iniciada.
 - ST-117: Método `Usuario.cambiar_password()`.
 - ST-116: Configuración de permisos de autenticación.
+
+**ST-112 finalizada.**
+
+**Responsable de la actividad:** Alondra Alejandra López Medellin.
