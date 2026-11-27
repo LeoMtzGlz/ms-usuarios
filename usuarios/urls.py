@@ -7,6 +7,7 @@ from usuarios.views import (
     CambiarPasswordView,
     CustomTokenObtainPairView,
     CustomTokenRefreshView,  # t-07/st-90
+    LlavePublicaView,
     PrivacidadInfoView,
     LogoutTodoView,  # HU-09 / ST-98
     RegistroView,
@@ -27,6 +28,7 @@ urlpatterns = [
     path("activar/", ActivarCuentaView.as_view(), name="activar"),
     path("login/", CustomTokenObtainPairView.as_view(), name="login"),
     path("token/renovar/", CustomTokenRefreshView.as_view(), name="token_renovar"),
+    path("llave-publica/", LlavePublicaView.as_view(), name="llave-publica"),  # t-14/st-135
     # t-30/st-206
     path("2fa/activar/", Activar2FAView.as_view(), name="2fa-activar"),
     path("2fa/confirmar/", Confirmar2FAView.as_view(), name="2fa-confirmar"),
