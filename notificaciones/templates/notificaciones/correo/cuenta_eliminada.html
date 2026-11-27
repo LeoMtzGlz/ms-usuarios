@@ -1,0 +1,8 @@
+{% extends "notificaciones/correo/base.html" %}
+{% block title %}Cuenta eliminada{% endblock %}
+{% block header_title %}Aviso de Seguridad{% endblock %}
+{% block content %}
+<p>Hola <strong>{{ nombre|default:"usuario" }}</strong>,</p>
+<p>Recibimos tu solicitud y tu cuenta será eliminada: tu nombre, correo y teléfono dejan de estar asociados a ella y se cierran todas tus sesiones.</p>
+<p>Esta acción no se puede deshacer. Si no fuiste tú, contacta de inmediato con el administrador del sistema.</p>
+{% endblock %}
