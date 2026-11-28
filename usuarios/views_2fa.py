@@ -73,7 +73,12 @@ class Confirmar2FAView(APIView):
 
         # El evento va fuera de la transacción para que no se pierda si algo se revierte.
         if not valido:
-            registrar_evento("2fa_confirmacion_fallida", request.user, request)
+            registrar_evento(
+                "2fa_confirmacion_fallida",
+                request.user,
+                request,
+                resultado="error"
+            )
             raise CodigoInvalido()
 
         registrar_evento("2fa_activado", request.user, request)

@@ -163,3 +163,11 @@ class EdicionUsuarioSerializer(serializers.ModelSerializer):
             if "email" in str(error).lower():
                 raise serializers.ValidationError({"correo": [CORREO_REGISTRADO]}) from error
             raise serializers.ValidationError({"telefono": [TELEFONO_REGISTRADO]}) from error
+
+
+# t-14/st-131: cambio de rol de un usuario (HU-14)
+class CambioRolSerializer(serializers.Serializer):
+    """HU-14 / ST-131: valida el nuevo rol a asignar a un usuario."""
+
+    rol = serializers.ChoiceField(choices=Rol.choices)
+    

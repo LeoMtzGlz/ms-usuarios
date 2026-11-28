@@ -126,11 +126,6 @@ def test_cada_flujo_crea_su_evento(api_client, monkeypatch, accion, flujo):
         assert evento.resultado == "ok"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="usuarios/views_2fa.py (l22420416, ST-206) no pasa resultado='error' al registrar "
-    "2fa_confirmacion_fallida, así que queda con 'ok'. Al corregirlo esta prueba pasará y habrá que quitar el xfail.",
-)
 def test_2fa_confirmacion_fallida_se_registra_con_resultado_error(api_client, monkeypatch):
     flujo_2fa_confirmacion_fallida(api_client, monkeypatch)
 
