@@ -18,6 +18,10 @@ from usuarios.views_2fa import Activar2FAView, Confirmar2FAView  # t-30/st-206
 from usuarios.views_eliminacion import EliminarCuentaView  # t-23/st-174
 from usuarios.views_2fa_desactivar import Desactivar2FAView  # t-32/st-215
 from usuarios.views_accesos import HistorialAccesosView  # t-22/st-168
+from usuarios.cambio_contacto import (  # t-21/st-164
+    ConfirmarCambioContactoView,
+    SolicitarCambioContactoView,
+)
 from usuarios.views_perfil import PerfilView  # t-21/st-163
 from usuarios.views_recuperacion import SolicitarRecuperacionView  # t-10/st-107
 
@@ -43,6 +47,17 @@ urlpatterns = [
     path("eliminar-cuenta/", EliminarCuentaView.as_view(), name="eliminar-cuenta"),
     # t-21/st-163 (HU-21 / ST-163)
     path("perfil/", PerfilView.as_view(), name="perfil"),
+    # t-21/st-164 (HU-21 / ST-164)
+    path(
+        "perfil/contacto/solicitar/",
+        SolicitarCambioContactoView.as_view(),
+        name="solicitar-cambio-contacto",
+    ),
+    path(
+        "perfil/contacto/confirmar/",
+        ConfirmarCambioContactoView.as_view(),
+        name="confirmar-cambio-contacto",
+    ),
     # t-22/st-168
     path("accesos/", HistorialAccesosView.as_view(), name="historial-accesos"),
     # HU-09 / ST-98

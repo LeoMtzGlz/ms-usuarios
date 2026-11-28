@@ -1,8 +1,8 @@
 """hu-24/st-180: throttle por cuenta.
 
 Los throttles de DRF por IP (ScopedRateThrottle, t-24/st-179) no frenan a quien cambia de IP
-para pedir códigos a la misma cuenta. Este throttle usa como clave el correo o teléfono que
-llega en el body, así cada cuenta tiene su propio contador sin importar desde dónde llegue.
+para pedir códigos a la misma cuenta. Este throttle usa el identificador del usuario cuando
+la petición está autenticada; en endpoints públicos usa el correo o teléfono del body.
 
 Uso en una vista (recuperar contraseña, reenviar código):
 
@@ -52,7 +52,7 @@ def normalizar_identificador(valor) -> str | None:
 
 
 class ThrottlePorCuenta(SimpleRateThrottle):
-    """Limita las solicitudes por cuenta (correo o teléfono del body), no por IP."""
+    """Limita por usuario autenticado o por el contacto del body, nunca solo por IP."""
 
     scope = "cuenta"
 
@@ -70,6 +70,10 @@ class ThrottlePorCuenta(SimpleRateThrottle):
         return f"throttle_{self.scope}_{vista}_{huella}"
 
     def obtener_identificador(self, request) -> str | None:
+        usuario = getattr(request, "user", None)
+        if getattr(usuario, "is_authenticated", False):
+            return f"usuario:{usuario.pk}"
+
         datos = getattr(request, "data", None)
         if not hasattr(datos, "get"):
             return None

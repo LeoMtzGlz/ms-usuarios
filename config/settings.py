@@ -159,6 +159,7 @@ REST_FRAMEWORK = {
         "registro": "5/hour",
         "recuperar": "3/hour",
         "reenviar": "3/hour",
+        "cambio_contacto": "3/hour",
         "cuenta": "3/hour",
     },
     # t-24/st-179: Evitar que X-Forwarded-For permita evadir el límite por IP
