@@ -23,6 +23,8 @@ No se modificó código de la aplicación, ningún modelo ni se creó ninguna mi
 
 ### 3. Casos probados
 
+En todas las pruebas, cada desactivación y reactivación se hace con los helpers `desactivar()` y `reactivar()`. Estos comprueban que el endpoint responda `200` y que el usuario quede realmente en `inactivo` o `activo` (`estado` e `is_active`), para evitar falsos positivos.
+
 | Grupo | Prueba | Resultado esperado |
 |---|---|---|
 | Inactivo no entra | `test_el_login_responde_cuenta_inactiva` | `403 cuenta_inactiva`, sin `access` ni `refresh` |
