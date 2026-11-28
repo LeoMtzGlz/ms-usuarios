@@ -21,7 +21,11 @@ from usuarios.serializers import (
     CambiarPasswordSerializer,
     RegistroSerializer,
 )
-from usuarios.tokens import CustomTokenObtainPairSerializer, CustomTokenRefreshSerializer
+from usuarios.tokens import (
+    CustomTokenObtainPairSerializer,
+    CustomTokenRefreshSerializer,
+    LogoutSerializer,
+)
 
 class RegistroRespuestaSerializer(RegistroSerializer):
     """Solo documenta el 201 (OpenAPI); la vista arma el cuerpo a mano."""
@@ -128,6 +132,37 @@ class CustomTokenRefreshView(TokenRefreshView):
     authentication_classes = []
     serializer_class = CustomTokenRefreshSerializer
 
+# t-08/st-94: Cierre de sesión mediante revocación del refresh token.
+class LogoutView(APIView):
+    """HU-08 / ST-94: POST /api/v1/auth/logout/
+
+    Requiere un access válido y revoca el refresh del mismo usuario.
+    Solo exige IsAuthenticated: debe funcionar también con contraseña temporal.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        request=LogoutSerializer,
+        responses={
+            200: OpenApiResponse(description="Sesión cerrada (también si ya estaba cerrada)"),
+            400: OpenApiResponse(description="Falta el refresh token"),
+            401: OpenApiResponse(description="Sin access válido, o refresh inválido o vencido"),
+            403: OpenApiResponse(description="El refresh pertenece a otro usuario"),
+        },
+        tags=["auth"],
+        summary="Cerrar sesión e invalidar el refresh token",
+    )
+    def post(self, request):
+        serializer = LogoutSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(
+            {"mensaje": "Sesión cerrada correctamente."},
+            status=status.HTTP_200_OK,
+        )
+    
 # t-14/st-135
 class LlavePublicaClaveSerializer(serializers.Serializer):
     kty = serializers.CharField()
@@ -178,7 +213,6 @@ class LlavePublicaView(APIView):
         respuesta = Response(contenido)
         patch_cache_control(respuesta, public=True, max_age=60 * 60)
         return respuesta
-
 
 # ==========================================
 # Vistas para HU-29 (Aviso de Privacidad) - t-29/st-201

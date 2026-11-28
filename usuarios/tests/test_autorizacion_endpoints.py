@@ -36,6 +36,7 @@ RUTAS_PROTEGIDAS = (
     ("post", "/api/v1/auth/2fa/desactivar/"),
     ("post", "/api/v1/auth/privacidad/aceptar/"),
     ("post", "/api/v1/auth/cambiar-password/"),
+    ("post", "/api/v1/auth/logout/"),  # t-08/st-94
     ("post", "/api/v1/auth/logout-todo/"),
     ("get", "/api/v1/auth/perfil/"),
     ("patch", "/api/v1/auth/perfil/"),
@@ -49,7 +50,6 @@ RUTAS_PROTEGIDAS = (
     ("post", "/api/v1/usuarios/<uuid>/reactivar/"),
     ("patch", "/api/v1/usuarios/<uuid>/rol/"),
 )
-
 
 def _rutas(patterns=None, prefijo=""):
     """Recorre el árbol real de URLconf y devuelve ruta y callback de cada vista."""
@@ -308,7 +308,12 @@ def test_cliente_y_operativo_superan_autorizacion_para_desactivar_2fa(
 
 @pytest.mark.parametrize(
     ("metodo", "ruta"),
-    [ruta for ruta in RUTAS_PROTEGIDAS if ruta[1] != "/api/v1/auth/cambiar-password/"],
+    [
+        ruta
+        for ruta in RUTAS_PROTEGIDAS
+        # t-08/st-94: cerrar sesión también debe funcionar con contraseña temporal.
+        if ruta[1] not in {"/api/v1/auth/cambiar-password/", "/api/v1/auth/logout/"}
+    ],
 )
 def test_contrasena_temporal_bloquea_rutas_protegidas(api_client, llaves, metodo, ruta):
     _autenticar(

@@ -5,12 +5,13 @@ from django.contrib.auth import authenticate, get_user_model
 from django.utils import timezone
 from django.db import transaction
 
-from rest_framework import serializers
+from rest_framework import exceptions, serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 from rest_framework_simplejwt.utils import datetime_from_epoch
 from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.tokens import RefreshToken, UntypedToken
 
 from comun.errores import CredencialesInvalidas, CuentaPendiente, CuentaInactiva, TokenInvalido
 
@@ -222,3 +223,38 @@ class CustomTokenRefreshSerializer(TokenRefreshSerializer):
             "access": access,
             "refresh": str(refresh),
         }
+
+# t-08/st-94: Serializer para cerrar sesión e invalidar el refresh token.
+class LogoutSerializer(serializers.Serializer):
+    """Valida que el refresh pertenezca al usuario autenticado y lo revoca."""
+
+    refresh = serializers.CharField(write_only=True)
+
+    def validate_refresh(self, value):
+        # Verificar firma y vigencia sin consultar la lista negra: un refresh ya
+        # revocado se acepta para que cerrar sesión dos veces no dé error (HU-08).
+        try:
+            token = UntypedToken(value)
+        except TokenError as exc:
+            raise TokenInvalido() from exc
+
+        # Solo se aceptan refresh tokens, no access tokens.
+        if token.get(api_settings.TOKEN_TYPE_CLAIM) != RefreshToken.token_type:
+            raise TokenInvalido()
+
+        return value
+
+    def validate(self, attrs):
+        # t-08/st-94: El refresh debe pertenecer al usuario del access token.
+        refresh = RefreshToken(attrs["refresh"], verify=False)
+        usuario = self.context["request"].user
+
+        if str(refresh.payload.get(api_settings.USER_ID_CLAIM)) != str(usuario.pk):
+            raise exceptions.PermissionDenied("No puedes cerrar una sesión que no es tuya.")
+
+        attrs["token"] = refresh
+        return attrs
+
+    def save(self, **kwargs):
+        """Agrega el refresh a la lista negra; si ya estaba, no hace nada."""
+        self.validated_data["token"].blacklist()
