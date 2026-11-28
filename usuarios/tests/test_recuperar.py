@@ -136,3 +136,41 @@ def test_la_plantilla_de_recuperacion_se_renderiza_con_su_alias():
         "codigo_recuperacion", {"nombre": "Ana", "codigo": "123456", "minutos": 10}
     )
     assert "123456" in texto and "123456" in html
+
+
+# ST-62: Probar canal por defecto, canal solicitado y respaldo a correo.
+def test_sin_canal_usa_el_preferido_y_respalda_a_correo(api_client):
+    usuario = UsuarioFactory(
+        telefono=None,
+        canal_preferido=Canal.WHATSAPP,
+    )
+
+    respuesta = api_client.post(
+        URL,
+        {"identificador": usuario.email},
+        format="json",
+    )
+
+    assert respuesta.status_code == 200
+    codigo = CodigoVerificacion.objects.get(usuario=usuario)
+    assert codigo.canal == Canal.CORREO
+    assert Notificacion.objects.get(destinatario=usuario).canal == Canal.CORREO
+
+
+# ST-62: Verificar que WhatsApp solicitado explícitamente respalde a correo cuando no hay teléfono.
+def test_canal_whatsapp_solicitado_sin_telefono_respalda_a_correo(api_client):
+    usuario = UsuarioFactory(
+        telefono=None,
+        canal_preferido=Canal.WHATSAPP,
+    )
+
+    respuesta = api_client.post(
+        URL,
+        {"identificador": usuario.email, "canal": "whatsapp"},
+        format="json",
+    )
+
+    assert respuesta.status_code == 200
+    codigo = CodigoVerificacion.objects.get(usuario=usuario)
+    assert codigo.canal == Canal.CORREO
+    assert Notificacion.objects.get(destinatario=usuario).canal == Canal.CORREO

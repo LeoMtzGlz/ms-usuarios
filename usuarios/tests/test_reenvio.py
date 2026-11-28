@@ -5,7 +5,7 @@ import pytest
 from django.utils import timezone
 
 from usuarios.codigos import crear_codigo
-from usuarios.models import CodigoVerificacion, Estado, Proposito
+from usuarios.models import Canal, CodigoVerificacion, Estado, Proposito
 from usuarios.tests.factories import UsuarioFactory
 
 
@@ -321,3 +321,142 @@ def test_st77_cuarto_reenvio_en_una_hora_rechazado(api_client):
         ).count()
         == 4
     )
+
+
+# ST-62: Verificar que el reenvío respete el canal solicitado.
+@pytest.mark.django_db
+def test_reenvio_respeta_el_canal_solicitado(api_client):
+    usuario = UsuarioFactory(
+        estado=Estado.PENDIENTE,
+        telefono="+524431000001",
+    )
+
+    codigo = CodigoVerificacion.objects.create(
+        usuario=usuario,
+        proposito=Proposito.ACTIVACION,
+        canal="correo",
+        codigo_hash="hash_falso",
+        expira_en=timezone.now() + timedelta(minutes=10),
+        usado=False,
+    )
+    CodigoVerificacion.objects.filter(pk=codigo.pk).update(
+        creado_en=timezone.now() - timedelta(seconds=61)
+    )
+
+    respuesta = api_client.post(
+        URL,
+        {"identificador": usuario.email, "canal": "whatsapp"},
+        format="json",
+    )
+
+    assert respuesta.status_code == 200
+    nuevo_codigo = CodigoVerificacion.objects.filter(
+        usuario=usuario,
+        proposito=Proposito.ACTIVACION,
+    ).latest("creado_en")
+    assert nuevo_codigo.canal == "whatsapp"
+
+
+# ST-62: Verificar que el reenvío use el canal preferido cuando no se indica uno.
+@pytest.mark.django_db
+def test_reenvio_sin_canal_usa_el_preferido(api_client):
+    usuario = UsuarioFactory(
+        estado=Estado.PENDIENTE,
+        telefono="+524431000001",
+        canal_preferido=Canal.WHATSAPP,
+    )
+
+    codigo = CodigoVerificacion.objects.create(
+        usuario=usuario,
+        proposito=Proposito.ACTIVACION,
+        canal=Canal.CORREO,
+        codigo_hash="hash_falso",
+        expira_en=timezone.now() + timedelta(minutes=10),
+        usado=False,
+    )
+    CodigoVerificacion.objects.filter(pk=codigo.pk).update(
+        creado_en=timezone.now() - timedelta(seconds=61)
+    )
+
+    respuesta = api_client.post(
+        URL,
+        {"identificador": usuario.email},
+        format="json",
+    )
+
+    assert respuesta.status_code == 200
+    nuevo_codigo = CodigoVerificacion.objects.filter(
+        usuario=usuario,
+        proposito=Proposito.ACTIVACION,
+    ).latest("creado_en")
+    assert nuevo_codigo.canal == Canal.WHATSAPP
+
+
+# ST-62: Verificar que el reenvío use correo si WhatsApp no está disponible.
+@pytest.mark.django_db
+def test_reenvio_respalda_a_correo_si_no_hay_telefono(api_client):
+    usuario = UsuarioFactory(
+        estado=Estado.PENDIENTE,
+        telefono=None,
+        canal_preferido=Canal.WHATSAPP,
+    )
+
+    codigo = CodigoVerificacion.objects.create(
+        usuario=usuario,
+        proposito=Proposito.ACTIVACION,
+        canal=Canal.CORREO,
+        codigo_hash="hash_falso",
+        expira_en=timezone.now() + timedelta(minutes=10),
+        usado=False,
+    )
+    CodigoVerificacion.objects.filter(pk=codigo.pk).update(
+        creado_en=timezone.now() - timedelta(seconds=61)
+    )
+
+    respuesta = api_client.post(
+        URL,
+        {"identificador": usuario.email},
+        format="json",
+    )
+
+    assert respuesta.status_code == 200
+    nuevo_codigo = CodigoVerificacion.objects.filter(
+        usuario=usuario,
+        proposito=Proposito.ACTIVACION,
+    ).latest("creado_en")
+    assert nuevo_codigo.canal == Canal.CORREO
+
+
+# ST-62: Verificar que WhatsApp solicitado explícitamente respalde a correo cuando no hay teléfono.
+@pytest.mark.django_db
+def test_reenvio_canal_whatsapp_solicitado_sin_telefono_respalda_a_correo(api_client):
+    usuario = UsuarioFactory(
+        estado=Estado.PENDIENTE,
+        telefono=None,
+        canal_preferido=Canal.WHATSAPP,
+    )
+
+    codigo = CodigoVerificacion.objects.create(
+        usuario=usuario,
+        proposito=Proposito.ACTIVACION,
+        canal=Canal.CORREO,
+        codigo_hash="hash_falso",
+        expira_en=timezone.now() + timedelta(minutes=10),
+        usado=False,
+    )
+    CodigoVerificacion.objects.filter(pk=codigo.pk).update(
+        creado_en=timezone.now() - timedelta(seconds=61)
+    )
+
+    respuesta = api_client.post(
+        URL,
+        {"identificador": usuario.email, "canal": "whatsapp"},
+        format="json",
+    )
+
+    assert respuesta.status_code == 200
+    nuevo_codigo = CodigoVerificacion.objects.filter(
+        usuario=usuario,
+        proposito=Proposito.ACTIVACION,
+    ).latest("creado_en")
+    assert nuevo_codigo.canal == Canal.CORREO
