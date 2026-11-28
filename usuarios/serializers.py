@@ -95,6 +95,12 @@ class RegistroSerializer(serializers.Serializer):
             "estado": usuario.estado,
         }
 
+class SolicitudRecuperacionSerializer(serializers.Serializer):
+    """HU-10 / ST-107: correo o teléfono de la cuenta y canal opcional para recibir el código."""
+
+    identificador = serializers.CharField(max_length=254, trim_whitespace=True)
+    canal = serializers.ChoiceField(choices=Canal.choices, required=False)
+
 class ActivarSerializer(serializers.Serializer):
     """HU-03 / ST-72: recibe identificador (correo o teléfono) + código."""
 
@@ -196,3 +202,22 @@ class CambiarPasswordSerializer(serializers.Serializer):
         request = self.context.get("request")
         usuario.cambiar_password(self.validated_data["password_nueva"], request=request)
         return usuario
+
+PALABRA_ELIMINAR = "ELIMINAR"
+
+
+class EliminarCuentaSerializer(serializers.Serializer):
+    """HU-23 / ST-174: pide la contraseña actual y la palabra ELIMINAR."""
+
+    password = serializers.CharField(write_only=True, trim_whitespace=False, style={"input_type": "password"})
+    confirmacion = serializers.CharField(write_only=True, trim_whitespace=True)
+
+    def validate_password(self, valor):
+        if not self.context["request"].user.check_password(valor):
+            raise serializers.ValidationError("La contraseña es incorrecta.")
+        return valor
+
+    def validate_confirmacion(self, valor):
+        if valor != PALABRA_ELIMINAR:
+            raise serializers.ValidationError(f"Escribe la palabra {PALABRA_ELIMINAR} para confirmar.")
+        return valor

@@ -1,9 +1,10 @@
-from django.db import transaction
 from django.conf import settings
+from django.db import transaction
+from django.db.models import F
 from django.utils import timezone
+from django.utils.cache import patch_cache_control
 
-from drf_spectacular.utils import extend_schema, OpenApiResponse
-
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -13,7 +14,8 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 # --- Imports para el Login (ST-82) ---
 from comun.eventos import registrar_evento
 from usuarios.codigos import generar_codigo
-from usuarios.models import Canal, Estado, Proposito
+from usuarios.llaves import jwks_desde_pem
+from usuarios.models import Canal, Estado, Proposito, Usuario
 from usuarios.serializers import (
     ActivarSerializer,
     CambiarPasswordSerializer,
@@ -44,6 +46,9 @@ class RegistroView(APIView):
     (por dónde salió el código) y canal_sustituido (true si no es el canal
     preferido, p. ej. WhatsApp sin teléfono sale por correo).
     """
+
+    # t-24/st-179: Limitar el registro a 5 solicitudes por hora por IP
+    throttle_scope = "registro"
 
     permission_classes = [AllowAny]
     authentication_classes = []
@@ -109,13 +114,71 @@ class ActivarCuentaView(APIView):
 class CustomTokenObtainPairView(TokenObtainPairView):
     """HU-05 / ST-82: POST /api/v1/auth/login/"""
 
+    permission_classes = [AllowAny]
+    # t-24/st-179: Limitar el login a 10 solicitudes por minuto por IP
+    throttle_scope = "login"
+
     serializer_class = CustomTokenObtainPairSerializer
 
 # t-07/st-90: Renovación de tokens con validación del usuario y sus claims
 class CustomTokenRefreshView(TokenRefreshView):
     """HU-07 / ST-90: Renovar access y refresh tokens."""
 
+    permission_classes = [AllowAny]
+    authentication_classes = []
     serializer_class = CustomTokenRefreshSerializer
+
+# t-14/st-135
+class LlavePublicaClaveSerializer(serializers.Serializer):
+    kty = serializers.CharField()
+    use = serializers.CharField()
+    alg = serializers.CharField()
+    kid = serializers.CharField()
+    n = serializers.CharField()
+    e = serializers.CharField()
+
+
+class LlavePublicaRespuestaSerializer(serializers.Serializer):
+    keys = LlavePublicaClaveSerializer(many=True)
+
+
+class LlavePublicaErrorSerializer(serializers.Serializer):
+    codigo = serializers.CharField()
+    mensaje = serializers.CharField()
+    campos = serializers.DictField()
+
+
+class LlavePublicaView(APIView):
+    """T-14/ST-135: publica la llave de verificación RS256 como JWKS."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    @extend_schema(
+        tags=["auth"],
+        summary="Descargar la llave pública de verificación",
+        responses={
+            200: LlavePublicaRespuestaSerializer,
+            503: LlavePublicaErrorSerializer,
+        },
+    )
+    def get(self, request):
+        try:
+            contenido = jwks_desde_pem(settings.SIMPLE_JWT["VERIFYING_KEY"])
+        except (KeyError, TypeError, ValueError):
+            return Response(
+                {
+                    "codigo": "llave_publica_no_configurada",
+                    "mensaje": "La llave pública no está disponible.",
+                    "campos": {},
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        respuesta = Response(contenido)
+        patch_cache_control(respuesta, public=True, max_age=60 * 60)
+        return respuesta
+
 
 # ==========================================
 # Vistas para HU-29 (Aviso de Privacidad) - t-29/st-201
@@ -141,8 +204,6 @@ class PrivacidadInfoView(APIView):
         })
 
 class AceptarPrivacidadView(APIView):
-    permission_classes = [IsAuthenticated]
-
     @extend_schema(
         tags=["Privacidad"],
         summary="Aceptar el aviso de privacidad",
@@ -175,6 +236,7 @@ class AceptarPrivacidadView(APIView):
             "mensaje": "Aviso de privacidad aceptado correctamente.",
             "version": user.version_privacidad,
         })
+
 
 # ==========================================
 # HU-11 / ST-112: Cambiar mi contraseña
@@ -229,5 +291,34 @@ class CambiarPasswordView(APIView):
                 "access": str(refresh.access_token),
                 "refresh": str(refresh),
             },
+            status=status.HTTP_200_OK,
+        )
+
+class LogoutTodoView(APIView):
+    """HU-09 / ST-98: POST /api/v1/auth/logout-todo/
+
+    Cierra sesión en todos los dispositivos: incrementa token_version
+    y ningún dispositivo puede renovar después (ST-90 compara token_version).
+    Nota: un access ya emitido sigue sirviendo hasta 15 minutos porque
+    JWTAuthentication no revisa token_version. Solo el refresh queda inválido.
+    """
+
+    
+    @extend_schema(
+        tags=["auth"],
+        summary="Cerrar sesión en todos los dispositivos",
+        responses={
+            200: OpenApiResponse(description="Sesión cerrada en todos los dispositivos"),
+            401: OpenApiResponse(description="No autenticado"),
+        },
+    )
+    def post(self, request):
+        usuario = request.user
+        Usuario.objects.filter(pk=usuario.pk).update(token_version=F("token_version") + 1)
+
+        registrar_evento("logout_todo", usuario, request)
+
+        return Response(
+            {"mensaje": "Sesión cerrada en todos los dispositivos."},
             status=status.HTTP_200_OK,
         )

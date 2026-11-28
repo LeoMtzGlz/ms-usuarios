@@ -28,11 +28,16 @@ PLANTILLAS_CORREO = {
         "template": "notificaciones/correo/cuenta_creada.html",
         "asunto_default": "Tu cuenta ha sido creada",
     },
+    "cuenta_eliminada": {  # t-23/st-174
+            "template": "notificaciones/correo/cuenta_eliminada.html",
+            "asunto_default": "Tu cuenta fue eliminada",
+    },
 }
 
 # Alias de compatibilidad con llamadas existentes en el proyecto (ej. test_services.py)
 ALIAS_PLANTILLAS = {
     "codigo_activacion": "activacion",
+    "codigo_recuperacion": "recuperacion_password",
 }
 
 

@@ -28,11 +28,8 @@ def test_renderizar_plantillas_con_pie_comun(nombre_plantilla, contexto, texto_e
     assert PIE_OBLIGATORIO in html
     assert PIE_OBLIGATORIO in texto_plano
 
-
-def test_total_plantillas_es_seis():
-    # 5 de t-08/st-42 + cuenta_creada de t-15/st-142
-    assert len(PLANTILLAS_CORREO) == 6
-
+def test_total_plantillas_es_siete():  # incluye cuenta_creada (st-142) y cuenta_eliminada (st-174)
+    assert len(PLANTILLAS_CORREO) == 7
 
 def test_plantilla_desconocida_lanza_error():
     with pytest.raises(ValueError, match="Plantilla de correo desconocida"):
