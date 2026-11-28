@@ -265,6 +265,7 @@ class ControlLimpieza(models.Model):
 
 # t-36/st-230 (HU-36): perfil operativo con vehículo, placas, ruta, horario y disponibilidad
 # t-36/st-230 (HU-36): perfil operativo con vehículo, placas, ruta, horario y disponibilidad
+# t-36/st-230 (HU-36): perfil operativo con vehículo, placas, ruta, horario y disponibilidad
 class PerfilOperativo(models.Model):
     """Datos operativos asignados por un administrador a un usuario con rol operativo."""
 
@@ -291,6 +292,13 @@ class PerfilOperativo(models.Model):
                 condition=models.Q(placas__isnull=False) & ~models.Q(placas=""),
                 name="perfil_operativo_placas_unicas_ci",
             ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(hora_inicio__isnull=True, hora_fin__isnull=True)
+                    | models.Q(hora_inicio__isnull=False, hora_fin__isnull=False)
+                ),
+                name="perfil_operativo_horario_completo",
+            ),
         ]
 
     def clean(self):
@@ -303,12 +311,9 @@ class PerfilOperativo(models.Model):
     def save(self, *args, **kwargs):
         if self.placas is not None:
             self.placas = self.placas.strip().upper() or None
+        self.full_clean()
         super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Perfil operativo de {self.usuario_id} ({self.vehiculo or 'sin vehículo'})"
-
-
-
-
-
+        
