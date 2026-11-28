@@ -252,9 +252,19 @@ class CambiarRolView(GenericAPIView):
 
         nuevo_rol = serializer.validated_data["rol"]
         if usuario.rol != nuevo_rol:
+            rol_anterior = usuario.rol
             usuario.rol = nuevo_rol
             usuario.token_version += 1
             usuario.save(update_fields=["rol", "token_version"])
+            # t-14/st-132: registra en la bitácora quién cambió el rol, a quién y los roles anterior y nuevo
+            registrar_evento(
+                "rol_cambiado",
+                request.user,
+                request,
+                usuario_id=str(usuario.pk),
+                rol_anterior=rol_anterior,
+                rol_nuevo=nuevo_rol,
+            )
 
         return Response(
             {"id": str(usuario.pk), "rol": usuario.rol},
