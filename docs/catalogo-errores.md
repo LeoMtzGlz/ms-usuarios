@@ -22,6 +22,7 @@ Toda respuesta de error de la API tiene esta forma:
 | `cuenta_pendiente` | 403 | Contraseña correcta pero la cuenta no se ha activado | Llevar a la pantalla de activación |
 | `cuenta_inactiva` | 403 | El administrador desactivó la cuenta | Indicar que contacte al administrador |
 | `cuenta_bloqueada` | 403 | 5 intentos fallidos; bloqueo de 15 minutos | Indicar que espere |
+| `unico_administrador` | 403 | El único administrador activo intenta eliminar su cuenta | Pedirle que nombre a otro administrador antes |
 | `debe_cambiar_password` | 403 | Tiene contraseña temporal | Llevar a cambiar la contraseña |
 | `no_encontrado` | 404 | La ruta o el recurso no existen | Mostrar "no encontrado" |
 | `metodo_no_permitido` | 405 | Método HTTP equivocado | Error de programación del cliente |

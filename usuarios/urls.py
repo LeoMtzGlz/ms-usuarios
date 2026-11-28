@@ -7,6 +7,7 @@ from usuarios.views import (
     CambiarPasswordView,
     CustomTokenObtainPairView,
     CustomTokenRefreshView,  # t-07/st-90
+    LlavePublicaView,
     PrivacidadInfoView,
     LogoutTodoView,  # HU-09 / ST-98
     RegistroView,
@@ -14,6 +15,7 @@ from usuarios.views import (
 from usuarios.reenvio import ReenviarCodigoView  # t-04/st-75
 from usuarios.restablecer import RestablecerPasswordView  # t-10/st-108
 from usuarios.views_2fa import Activar2FAView, Confirmar2FAView  # t-30/st-206
+from usuarios.views_eliminacion import EliminarCuentaView  # t-23/st-174
 from usuarios.views_2fa_desactivar import Desactivar2FAView  # t-32/st-215
 from usuarios.views_accesos import HistorialAccesosView  # t-22/st-168
 from usuarios.cambio_contacto import (  # t-21/st-164
@@ -30,6 +32,7 @@ urlpatterns = [
     path("activar/", ActivarCuentaView.as_view(), name="activar"),
     path("login/", CustomTokenObtainPairView.as_view(), name="login"),
     path("token/renovar/", CustomTokenRefreshView.as_view(), name="token_renovar"),
+    path("llave-publica/", LlavePublicaView.as_view(), name="llave-publica"),  # t-14/st-135
     # t-30/st-206
     path("2fa/activar/", Activar2FAView.as_view(), name="2fa-activar"),
     path("2fa/confirmar/", Confirmar2FAView.as_view(), name="2fa-confirmar"),
@@ -40,6 +43,8 @@ urlpatterns = [
     path("privacidad/aceptar/", AceptarPrivacidadView.as_view(), name="privacidad-aceptar"),
     # HU-11 / ST-112
     path("cambiar-password/", CambiarPasswordView.as_view(), name="cambiar-password"),
+    # t-23/st-174
+    path("eliminar-cuenta/", EliminarCuentaView.as_view(), name="eliminar-cuenta"),
     # t-21/st-163 (HU-21 / ST-163)
     path("perfil/", PerfilView.as_view(), name="perfil"),
     # t-21/st-164 (HU-21 / ST-164)

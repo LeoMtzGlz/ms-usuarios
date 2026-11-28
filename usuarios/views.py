@@ -1,10 +1,10 @@
+from django.conf import settings
 from django.db import transaction
 from django.db.models import F
-from django.conf import settings
 from django.utils import timezone
+from django.utils.cache import patch_cache_control
 
-from drf_spectacular.utils import extend_schema, OpenApiResponse
-
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -14,6 +14,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 # --- Imports para el Login (ST-82) ---
 from comun.eventos import registrar_evento
 from usuarios.codigos import generar_codigo
+from usuarios.llaves import jwks_desde_pem
 from usuarios.models import Canal, Estado, Proposito, Usuario
 from usuarios.serializers import (
     ActivarSerializer,
@@ -126,6 +127,58 @@ class CustomTokenRefreshView(TokenRefreshView):
     permission_classes = [AllowAny]
     authentication_classes = []
     serializer_class = CustomTokenRefreshSerializer
+
+# t-14/st-135
+class LlavePublicaClaveSerializer(serializers.Serializer):
+    kty = serializers.CharField()
+    use = serializers.CharField()
+    alg = serializers.CharField()
+    kid = serializers.CharField()
+    n = serializers.CharField()
+    e = serializers.CharField()
+
+
+class LlavePublicaRespuestaSerializer(serializers.Serializer):
+    keys = LlavePublicaClaveSerializer(many=True)
+
+
+class LlavePublicaErrorSerializer(serializers.Serializer):
+    codigo = serializers.CharField()
+    mensaje = serializers.CharField()
+    campos = serializers.DictField()
+
+
+class LlavePublicaView(APIView):
+    """T-14/ST-135: publica la llave de verificación RS256 como JWKS."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    @extend_schema(
+        tags=["auth"],
+        summary="Descargar la llave pública de verificación",
+        responses={
+            200: LlavePublicaRespuestaSerializer,
+            503: LlavePublicaErrorSerializer,
+        },
+    )
+    def get(self, request):
+        try:
+            contenido = jwks_desde_pem(settings.SIMPLE_JWT["VERIFYING_KEY"])
+        except (KeyError, TypeError, ValueError):
+            return Response(
+                {
+                    "codigo": "llave_publica_no_configurada",
+                    "mensaje": "La llave pública no está disponible.",
+                    "campos": {},
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        respuesta = Response(contenido)
+        patch_cache_control(respuesta, public=True, max_age=60 * 60)
+        return respuesta
+
 
 # ==========================================
 # Vistas para HU-29 (Aviso de Privacidad) - t-29/st-201

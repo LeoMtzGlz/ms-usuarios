@@ -129,7 +129,7 @@ en una rama o en el backlog. Una ruta pública puede usarse sin token y, por lo 
 | `POST` | `/api/v1/auth/recuperar/` | Disponible | Sí | Sí | Sí | Sí | `AllowAny` |
 | `POST` | `/api/v1/auth/restablecer/` | Disponible | Sí | Sí | Sí | Sí | `AllowAny` |
 | `POST` | `/api/v1/auth/cambiar-password/` | Disponible | No | Sí | Sí | Sí | `IsAuthenticated` (exenta de `ContrasenaDefinitiva`) |
-| `GET` | `/api/v1/auth/llave-publica/` | Planeado (ST-135) | Sí | Sí | Sí | Sí | `AllowAny` |
+| `GET` | `/api/v1/auth/llave-publica/` | Disponible | Sí | Sí | Sí | Sí | `AllowAny` |
 | `GET`, `PATCH` | `/api/v1/auth/perfil/` | Disponible | No | Sí | Sí | Sí | Propietario autenticado |
 | `POST` | `/api/v1/auth/perfil/contacto/solicitar/` | Disponible | No | Sí | Sí | Sí | Propietario autenticado + contraseña actual |
 | `POST` | `/api/v1/auth/perfil/contacto/confirmar/` | Disponible | No | Sí | Sí | Sí | Propietario autenticado + código del contacto nuevo |
