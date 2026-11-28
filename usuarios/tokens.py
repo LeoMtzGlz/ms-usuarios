@@ -222,3 +222,27 @@ class CustomTokenRefreshSerializer(TokenRefreshSerializer):
             "access": access,
             "refresh": str(refresh),
         }
+
+
+# t-31/st-211: los JWT que entrega el login, en una función que se puede reutilizar.
+# Hace lo mismo que CustomTokenObtainPairSerializer.validate() desde el paso 5; la usa la verificación 2FA
+# para que ambos inicios de sesión entreguen los mismos tokens.
+def emitir_jwt(usuario, recordarme=False):
+    refresh = CustomTokenObtainPairSerializer.get_token(usuario)
+    refresh.set_exp(
+        lifetime=DURACION_REFRESH_CON_RECORDARME if recordarme else DURACION_REFRESH_SIN_RECORDARME
+    )
+    refresh['recordarme'] = recordarme
+    OutstandingToken.objects.filter(jti=refresh[api_settings.JTI_CLAIM]).update(
+        expires_at=datetime_from_epoch(refresh['exp'])
+    )
+    return {
+        'access': str(refresh.access_token),
+        'refresh': str(refresh),
+        'usuario': {
+            'id': str(usuario.id),
+            'nombre': usuario.first_name,
+            'email': usuario.email,
+            'rol': usuario.rol,
+        }
+    }
