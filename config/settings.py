@@ -277,6 +277,11 @@ EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="")
 
+# t-11/st-57: envíos máximos por día en cada canal (cuota gratuita del proveedor).
+# Al llegar al de WhatsApp el mensaje sale por correo; al llegar al de correo espera al día siguiente.
+LIMITE_DIARIO_CORREO = env.int("LIMITE_DIARIO_CORREO", default=500)
+LIMITE_DIARIO_WHATSAPP = env.int("LIMITE_DIARIO_WHATSAPP", default=250)
+
 # hu-25/st-183: configuración de bloqueo por intentos fallidos
 AXES_FAILURE_LIMIT = 5
 AXES_COOLOFF_TIME = timedelta(minutes=15)
