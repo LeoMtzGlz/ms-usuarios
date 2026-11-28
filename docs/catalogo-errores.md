@@ -18,6 +18,7 @@ Toda respuesta de error de la API tiene esta forma:
 | `no_autenticado` | 401 | La petición no trae token | Ir al login |
 | `credenciales_invalidas` | 401 | Correo, teléfono o contraseña incorrectos (no dice cuál) | Mostrar el mensaje genérico |
 | `token_invalido` | 401 | Token vencido, alterado, en lista negra o de una sesión cerrada | Renovar con el refresh o ir al login |
+| `token_google_invalido` | 401 | El ID token de Google es inválido, venció, es de otra app o el correo no está verificado | Volver a mostrar el botón de Google |
 | `sin_permiso` | 403 | El rol no permite la acción | Ocultar la opción |
 | `cuenta_pendiente` | 403 | Contraseña correcta pero la cuenta no se ha activado | Llevar a la pantalla de activación |
 | `cuenta_inactiva` | 403 | El administrador desactivó la cuenta | Indicar que contacte al administrador |
@@ -28,6 +29,7 @@ Toda respuesta de error de la API tiene esta forma:
 | `metodo_no_permitido` | 405 | Método HTTP equivocado | Error de programación del cliente |
 | `demasiados_intentos` | 429 | Se rebasó el límite de solicitudes; trae `Retry-After` | Esperar los segundos indicados |
 | `error_interno` | 500 | Error inesperado del servidor; queda en el log | Mostrar "intenta más tarde" |
+| `google_no_configurado` | 503 | Falta `GOOGLE_CLIENT_ID` o no se pudo consultar a Google | Ocultar el botón de Google o mostrar "intenta más tarde" |
 | `dos_factores_ya_activo` | 400 | La verificación en dos pasos ya está activa en la cuenta | Informar que ya está activa; no repetir la activación |
 | `dos_factores_no_iniciado` | 400 | Se intentó confirmar sin haber solicitado antes la activación | Llevar al paso de activación (`POST /api/v1/auth/2fa/activar/`) |
 Las clases de Python que producen cada código están en `comun/errores.py`.

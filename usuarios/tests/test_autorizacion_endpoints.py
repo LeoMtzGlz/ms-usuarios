@@ -20,6 +20,7 @@ RUTAS_PUBLICAS = {
     ("post", "/api/v1/auth/registro/"),
     ("post", "/api/v1/auth/activar/"),
     ("post", "/api/v1/auth/login/"),
+    ("post", "/api/v1/auth/google/"),  # t-33/st-219
     ("post", "/api/v1/auth/token/renovar/"),
     ("get", "/api/v1/auth/privacidad/"),
     ("post", "/api/v1/auth/reenviar-codigo/"),
@@ -144,6 +145,7 @@ def test_todo_metodo_api_esta_en_la_matriz_de_autorizacion():
         ("post", "/api/v1/auth/registro/", {}, 400),
         ("post", "/api/v1/auth/activar/", {}, 400),
         ("post", "/api/v1/auth/login/", {}, 400),
+        ("post", "/api/v1/auth/google/", {}, 400),  # t-33/st-219: falta id_token
         ("post", "/api/v1/auth/token/renovar/", {}, 400),
         ("get", "/api/v1/auth/privacidad/", None, 200),
         ("post", "/api/v1/auth/reenviar-codigo/", {}, 200),

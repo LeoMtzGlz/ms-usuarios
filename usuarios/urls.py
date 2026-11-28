@@ -18,6 +18,7 @@ from usuarios.views_2fa import Activar2FAView, Confirmar2FAView  # t-30/st-206
 from usuarios.views_eliminacion import EliminarCuentaView  # t-23/st-174
 from usuarios.views_2fa_desactivar import Desactivar2FAView  # t-32/st-215
 from usuarios.views_accesos import HistorialAccesosView  # t-22/st-168
+from usuarios.views_google import LoginGoogleView  # t-33/st-219
 from usuarios.views_perfil import PerfilView  # t-21/st-163
 from usuarios.views_recuperacion import SolicitarRecuperacionView  # t-10/st-107
 
@@ -28,6 +29,9 @@ urlpatterns = [
     path("activar/", ActivarCuentaView.as_view(), name="activar"),
     path("login/", CustomTokenObtainPairView.as_view(), name="login"),
     path("token/renovar/", CustomTokenRefreshView.as_view(), name="token_renovar"),
+
+    # t-33/st-219
+    path("google/", LoginGoogleView.as_view(), name="login-google"),
     path("llave-publica/", LlavePublicaView.as_view(), name="llave-publica"),  # t-14/st-135
     # t-30/st-206
     path("2fa/activar/", Activar2FAView.as_view(), name="2fa-activar"),
