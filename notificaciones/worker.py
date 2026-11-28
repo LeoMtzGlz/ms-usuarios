@@ -6,19 +6,20 @@ Aquí vive todo lo demás para poder probarlo sin bucles ni sleeps.
 t-10/st-52: ``manejar_fallo()`` reintenta hasta 3 fallos, respalda WhatsApp por correo al
 tercero y ``procesar()`` descarta los códigos vencidos antes de enviar.
 
-Punto de extensión pendiente:
-- ``antes_de_enviar()``  -> t-11/st-57: límite diario por canal (cambio de canal o espera).
+t-11/st-57: ``antes_de_enviar()`` aplica el límite diario por canal (cambio de canal o espera).
 """
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
+from django.conf import settings
 from django.db import transaction
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.module_loading import import_string
 
 from notificaciones.models import CanalNotificacion, Notificacion
+from notificaciones.services import contar_envios_hoy  # t-11/st-56
 
 logger = logging.getLogger("svc.notificaciones")
 
@@ -49,19 +50,23 @@ def cargar_resolver(ruta: str = RESOLVER_CANAL):
     return import_string(ruta)
 
 
-def tomar_pendientes(tamano: int = TAMANO_LOTE) -> list[Notificacion]:
+def tomar_pendientes(tamano: int = TAMANO_LOTE, excluir_canales=()) -> list[Notificacion]:
     """Bloquea hasta ``tamano`` pendientes, las más viejas primero.
 
     ``skip_locked`` hace que otro worker se salte las filas que este ya tomó, así dos
     workers nunca envían la misma. ``of=("self",)`` bloquea solo la notificación, no al
     usuario que trae ``select_related``. Debe llamarse dentro de ``transaction.atomic()``.
+
+    t-11/st-57: ``excluir_canales`` deja fuera los canales que ya no pueden enviar hoy.
     """
-    return list(
+    pendientes = (
         Notificacion.objects.select_for_update(skip_locked=True, of=("self",))
         .select_related("destinatario")
         .filter(estado=Notificacion.ESTADO_PENDIENTE)
-        .order_by("creado_en", "id")[:tamano]
     )
+    if excluir_canales:
+        pendientes = pendientes.exclude(canal__in=excluir_canales)
+    return list(pendientes.order_by("creado_en", "id")[:tamano])
 
 
 def destino_de(notificacion: Notificacion) -> str:
@@ -84,12 +89,65 @@ def armar_mensaje(notificacion: Notificacion) -> tuple[str, str]:
     return asunto, texto.strip()
 
 
-def antes_de_enviar(notificacion: Notificacion) -> bool:
-    """Punto de st-57. True = enviar ahora; False = dejarla pendiente para otro ciclo.
+# t-11/st-57: setting con el tope diario de cada canal. Consola no tiene tope.
+LIMITES_DIARIOS = {
+    CanalNotificacion.CORREO: "LIMITE_DIARIO_CORREO",
+    CanalNotificacion.WHATSAPP: "LIMITE_DIARIO_WHATSAPP",
+}
+# Días y canales de los que ya se avisó en el log, para no repetir la advertencia cada 5 s.
+_avisos_de_limite: set[tuple[date, str]] = set()
 
-    st-57 puede además cambiar ``notificacion.canal`` (WhatsApp al límite -> correo).
+
+def limite_alcanzado(canal: str) -> bool:
+    """t-11/st-57: True si el canal ya llegó hoy a su tope diario."""
+    setting = LIMITES_DIARIOS.get(canal)
+    if setting is None:
+        return False
+    return contar_envios_hoy(canal) >= getattr(settings, setting)
+
+
+def avisar_limite(canal: str) -> None:
+    """t-11/st-57: una advertencia por canal y por día."""
+    clave = (timezone.localdate(), canal)
+    if clave in _avisos_de_limite:
+        return
+    _avisos_de_limite.add(clave)
+    logger.warning("Límite diario de %s alcanzado: sus notificaciones esperan al día siguiente", canal)
+
+
+def antes_de_enviar(notificacion: Notificacion) -> bool:
+    """t-11/st-57: True = enviar ahora; False = dejarla pendiente para otro ciclo.
+
+    - WhatsApp al límite: cambia la notificación a correo y la envía por ahí.
+    - Correo al límite (o WhatsApp al límite sin correo disponible): queda pendiente hasta
+      el día siguiente, cuando el conteo de ``contar_envios_hoy()`` vuelve a empezar.
     """
+    if notificacion.canal == CanalNotificacion.WHATSAPP and limite_alcanzado(CanalNotificacion.WHATSAPP):
+        if limite_alcanzado(CanalNotificacion.CORREO):
+            avisar_limite(CanalNotificacion.CORREO)
+            return False
+        logger.info("Límite diario de WhatsApp alcanzado: la notificación %s sale por correo", notificacion.pk)
+        notificacion.canal = CanalNotificacion.CORREO
+        notificacion.save(update_fields=["canal", "actualizado_en"])
+        return True
+    if notificacion.canal == CanalNotificacion.CORREO and limite_alcanzado(CanalNotificacion.CORREO):
+        avisar_limite(CanalNotificacion.CORREO)
+        return False
     return True
+
+
+def canales_en_espera() -> list[str]:
+    """t-11/st-57: canales cuyas pendientes no pueden salir hoy.
+
+    Correo al límite espera. WhatsApp solo espera si además está al límite, porque ya no
+    puede pasarse a correo.
+    """
+    if not limite_alcanzado(CanalNotificacion.CORREO):
+        return []
+    en_espera = [CanalNotificacion.CORREO]
+    if limite_alcanzado(CanalNotificacion.WHATSAPP):
+        en_espera.append(CanalNotificacion.WHATSAPP)
+    return en_espera
 
 
 def limpiar_error(notificacion: Notificacion, exc: Exception) -> str:
@@ -202,7 +260,10 @@ def procesar_lote(tamano: int = TAMANO_LOTE, obtener_canal=None) -> Resultado:
     obtener_canal = obtener_canal or cargar_resolver()
     resultado = Resultado()
     with transaction.atomic():
-        for notificacion in tomar_pendientes(tamano):
+        en_espera = canales_en_espera()  # t-11/st-57
+        for canal in en_espera:
+            avisar_limite(canal)
+        for notificacion in tomar_pendientes(tamano, excluir_canales=en_espera):
             estado = procesar(notificacion, obtener_canal)
             campo = f"{estado}s"  # enviadas, fallidas, pospuestas
             setattr(resultado, campo, getattr(resultado, campo) + 1)
