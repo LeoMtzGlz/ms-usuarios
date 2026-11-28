@@ -141,6 +141,13 @@ def verificar_codigo(usuario, proposito, codigo_en_claro, vinculacion=None):
     )
 
     if registro is None:
+        ultimo = (
+            CodigoVerificacion.objects.filter(usuario=usuario, proposito=proposito)
+            .order_by("-id")
+            .first()
+        )
+        if ultimo is not None and ultimo.usado and ultimo.intentos >= MAX_INTENTOS:
+            raise ValueError("codigo_bloqueado")
         raise ValueError("codigo_invalido")
 
     # 1. ¿Ya venció?

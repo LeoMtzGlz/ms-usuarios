@@ -6,8 +6,10 @@ from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import serializers, status
 from rest_framework.generics import GenericAPIView
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 
 from comun.eventos import registrar_evento
+from comun.throttles import ThrottlePorCuenta
 from usuarios.codigos import generar_codigo_contacto, verificar_codigo
 from usuarios.models import Proposito, Usuario
 from usuarios.telefono import normalizar_telefono
@@ -149,6 +151,8 @@ class ConfirmarCambioContactoSerializer(ContactoBaseSerializer):
 
 class SolicitarCambioContactoView(GenericAPIView):
     serializer_class = SolicitarCambioContactoSerializer
+    throttle_scope = "cambio_contacto"
+    throttle_classes = [ScopedRateThrottle, ThrottlePorCuenta]
 
     @extend_schema(
         summary="Solicitar el cambio de correo o teléfono",
@@ -157,6 +161,7 @@ class SolicitarCambioContactoView(GenericAPIView):
             400: OpenApiResponse(description="Contraseña, contacto o formato inválido"),
             401: OpenApiResponse(description="Sin token o token inválido"),
             403: OpenApiResponse(description="La contraseña temporal todavía no se ha cambiado"),
+            429: OpenApiResponse(description="Límite de solicitudes excedido"),
         },
         tags=["perfil"],
     )

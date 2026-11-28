@@ -4,6 +4,8 @@ from datetime import timedelta
 
 import pytest
 from django.contrib.auth.hashers import check_password
+from django.core.cache import cache
+from django.core.management import call_command
 from django.utils import timezone
 
 from notificaciones import worker
@@ -57,6 +59,15 @@ def usuario(db, llaves):
         email_verificado=True,
         telefono_verificado=True,
     )
+
+
+@pytest.fixture(autouse=True)
+def limpiar_cache_throttle(db):
+    """Aísla los contadores del límite de solicitudes entre pruebas."""
+    call_command("createcachetable", verbosity=0)
+    cache.clear()
+    yield
+    cache.clear()
 
 
 @pytest.mark.django_db
@@ -172,6 +183,35 @@ class TestSolicitudCambioContacto:
         assert primero.usado is True
         assert CodigoVerificacion.objects.filter(usuario=usuario, usado=False).count() == 1
 
+    def test_limita_a_tres_solicitudes_por_hora_y_cuenta(self, usuario):
+        for numero in range(1, 4):
+            respuesta = api_de(usuario).post(
+                SOLICITAR,
+                {
+                    "tipo": "correo",
+                    "valor": f"nuevo{numero}@ejemplo.com",
+                    "password": PASSWORD_PRUEBA,
+                },
+                format="json",
+                REMOTE_ADDR=f"203.0.113.{numero}",
+            )
+            assert respuesta.status_code == 200
+
+        bloqueada = api_de(usuario).post(
+            SOLICITAR,
+            {
+                "tipo": "correo",
+                "valor": "nuevo4@ejemplo.com",
+                "password": PASSWORD_PRUEBA,
+            },
+            format="json",
+            REMOTE_ADDR="203.0.113.4",
+        )
+
+        assert bloqueada.status_code == 429
+        assert bloqueada.data["codigo"] == "demasiados_intentos"
+        assert "Retry-After" in bloqueada
+
 
 @pytest.mark.django_db
 class TestConfirmacionCambioContacto:
@@ -238,6 +278,7 @@ class TestConfirmacionCambioContacto:
 
     def test_bloquea_el_quinto_intento_incorrecto(self, usuario):
         solicitar(usuario, "correo", "nuevo@ejemplo.com")
+        codigo_correcto = codigo_enviado(usuario)
 
         for _ in range(4):
             assert confirmar(usuario, "correo", "nuevo@ejemplo.com", "000000").status_code == 400
@@ -248,6 +289,17 @@ class TestConfirmacionCambioContacto:
             "Demasiados intentos. Solicita un código nuevo."
         ]
         assert CodigoVerificacion.objects.get(usuario=usuario).usado is True
+
+        intento_posterior = confirmar(
+            usuario,
+            "correo",
+            "nuevo@ejemplo.com",
+            codigo_correcto,
+        )
+        assert intento_posterior.status_code == 400
+        assert intento_posterior.data["campos"]["codigo"] == [
+            "Demasiados intentos. Solicita un código nuevo."
+        ]
 
     def test_codigo_es_de_un_solo_uso(self, usuario):
         solicitar(usuario, "correo", "primero@ejemplo.com")

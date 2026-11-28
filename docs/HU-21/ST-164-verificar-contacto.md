@@ -40,7 +40,9 @@ La confirmación debe repetir exactamente el tipo y el contacto solicitado. Si e
 - La base de datos conserva únicamente un hash que liga código, tipo y contacto normalizado.
 - Un código interceptado no sirve para confirmar un contacto diferente.
 - Cada solicitud nueva anula el código anterior pendiente.
+- La solicitud admite tres intentos por hora y por cuenta. El límite se conserva aunque cambien la IP o el contacto propuesto y responde `429` con `Retry-After`.
 - El código vence según `CODIGO_MINUTOS`, admite como máximo cinco intentos y es de un solo uso.
+- Después de agotar los cinco intentos, incluso el código correcto conserva el mensaje de bloqueo hasta solicitar uno nuevo.
 - El contacto nuevo solo permanece temporalmente en la notificación pendiente; el worker elimina el contexto al enviarla o descartarla.
 - Los eventos de auditoría registran el tipo de cambio, pero no el código, la contraseña ni el contacto nuevo.
 

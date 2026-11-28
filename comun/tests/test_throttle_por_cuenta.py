@@ -105,6 +105,17 @@ def test_sin_identificador_no_limita():
     assert clave({}) is None
 
 
+def test_usuario_autenticado_conserva_la_clave_aunque_cambie_el_body(rf, usuario):
+    primera = Request(rf.post("/prueba/", {"correo": "uno@ejemplo.com"}, format="json"))
+    segunda = Request(rf.post("/prueba/", {"correo": "dos@ejemplo.com"}, format="json"))
+    primera.user = usuario
+    segunda.user = usuario
+
+    throttle = ThrottlePorCuenta()
+    vista = VistaPrueba()
+    assert throttle.get_cache_key(primera, vista) == throttle.get_cache_key(segunda, vista)
+
+
 def test_usa_la_tasa_por_defecto():
     assert ThrottlePorCuenta().get_rate() == TASA_POR_DEFECTO == "3/hour"
 
