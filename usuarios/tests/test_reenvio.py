@@ -425,3 +425,38 @@ def test_reenvio_respalda_a_correo_si_no_hay_telefono(api_client):
         proposito=Proposito.ACTIVACION,
     ).latest("creado_en")
     assert nuevo_codigo.canal == Canal.CORREO
+
+
+# ST-62: Verificar que WhatsApp solicitado explícitamente respalde a correo cuando no hay teléfono.
+@pytest.mark.django_db
+def test_reenvio_canal_whatsapp_solicitado_sin_telefono_respalda_a_correo(api_client):
+    usuario = UsuarioFactory(
+        estado=Estado.PENDIENTE,
+        telefono=None,
+        canal_preferido=Canal.WHATSAPP,
+    )
+
+    codigo = CodigoVerificacion.objects.create(
+        usuario=usuario,
+        proposito=Proposito.ACTIVACION,
+        canal=Canal.CORREO,
+        codigo_hash="hash_falso",
+        expira_en=timezone.now() + timedelta(minutes=10),
+        usado=False,
+    )
+    CodigoVerificacion.objects.filter(pk=codigo.pk).update(
+        creado_en=timezone.now() - timedelta(seconds=61)
+    )
+
+    respuesta = api_client.post(
+        URL,
+        {"identificador": usuario.email, "canal": "whatsapp"},
+        format="json",
+    )
+
+    assert respuesta.status_code == 200
+    nuevo_codigo = CodigoVerificacion.objects.filter(
+        usuario=usuario,
+        proposito=Proposito.ACTIVACION,
+    ).latest("creado_en")
+    assert nuevo_codigo.canal == Canal.CORREO

@@ -155,3 +155,22 @@ def test_sin_canal_usa_el_preferido_y_respalda_a_correo(api_client):
     codigo = CodigoVerificacion.objects.get(usuario=usuario)
     assert codigo.canal == Canal.CORREO
     assert Notificacion.objects.get(destinatario=usuario).canal == Canal.CORREO
+
+
+# ST-62: Verificar que WhatsApp solicitado explícitamente respalde a correo cuando no hay teléfono.
+def test_canal_whatsapp_solicitado_sin_telefono_respalda_a_correo(api_client):
+    usuario = UsuarioFactory(
+        telefono=None,
+        canal_preferido=Canal.WHATSAPP,
+    )
+
+    respuesta = api_client.post(
+        URL,
+        {"identificador": usuario.email, "canal": "whatsapp"},
+        format="json",
+    )
+
+    assert respuesta.status_code == 200
+    codigo = CodigoVerificacion.objects.get(usuario=usuario)
+    assert codigo.canal == Canal.CORREO
+    assert Notificacion.objects.get(destinatario=usuario).canal == Canal.CORREO
