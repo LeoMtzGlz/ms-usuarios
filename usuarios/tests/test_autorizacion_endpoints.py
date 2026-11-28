@@ -25,7 +25,6 @@ RUTAS_PUBLICAS = {
     ("post", "/api/v1/auth/reenviar-codigo/"),
     ("post", "/api/v1/auth/recuperar/"),
     ("post", "/api/v1/auth/restablecer/"),
-    ("post", "/api/v1/auth/restablecer/"),
     ("post", "/api/v1/auth/2fa/verificar/"),  # t-31/st-211
     ("get", "/api/v1/auth/llave-publica/"),
     ("get", "/api/schema/"),
