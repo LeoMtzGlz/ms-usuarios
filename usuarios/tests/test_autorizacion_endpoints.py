@@ -47,6 +47,7 @@ RUTAS_PROTEGIDAS = (
     ("patch", "/api/v1/usuarios/<uuid>/"),
     ("post", "/api/v1/usuarios/<uuid>/desactivar/"),
     ("post", "/api/v1/usuarios/<uuid>/reactivar/"),
+    ("patch", "/api/v1/usuarios/<uuid>/rol/"),
 )
 
 
